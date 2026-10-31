@@ -263,6 +263,29 @@ describe('sandbox service', () => {
     } finally { vi.stubEnv('SANDBOXES_DIR', '/opt/sandboxes') }
   }, 60000)
 
+  // The host path of opt/sandboxes unknown (p9m could not inspect its own container): a sandbox mounted under a guess
+  // restarts for ever ("Instance name file not found"); refused before anything is written, saying what to set
+  it('refuses to create a sandbox when the host path of opt/sandboxes cannot be told', async () => {
+    const { resolveHostSandboxesDir } = await import('../../services/docker')
+    vi.mocked(resolveHostSandboxesDir).mockResolvedValueOnce('/opt/sandboxes')
+    vi.stubEnv('HOST_SANDBOXES_DIR', '')
+    vi.mocked(composeUp).mockClear(); vi.mocked(fs.writeFileSync).mockClear()
+    try {
+      await expect(sandboxService.createSandbox('guess1')).rejects.toThrow('HOST_SANDBOXES_DIR')
+      expect(composeUp).not.toHaveBeenCalled()
+      expect(vi.mocked(fs.writeFileSync).mock.calls.filter(c => String(c[0]).includes('p9m-guess1'))).toEqual([])
+    } finally { vi.stubEnv('HOST_SANDBOXES_DIR', '') }
+  }, 60000)
+
+  it('creates under /opt/sandboxes when HOST_SANDBOXES_DIR says that is the host path', async () => {
+    const { resolveHostSandboxesDir } = await import('../../services/docker')
+    vi.mocked(resolveHostSandboxesDir).mockResolvedValueOnce('/opt/sandboxes')
+    vi.stubEnv('HOST_SANDBOXES_DIR', '/opt/sandboxes')
+    try {
+      await expect(sandboxService.createSandbox('real1', false)).resolves.toBeTruthy()
+    } finally { vi.stubEnv('HOST_SANDBOXES_DIR', '') }
+  }, 60000)
+
   it('refuses a name that exists only in the legacy layout (not moved yet)', async () => {
     const realExists = vi.mocked(fs.existsSync).getMockImplementation()!
     vi.mocked(fs.existsSync).mockImplementation(p => p === '/opt/sandboxes/admin/p9m-old1' || realExists(p))

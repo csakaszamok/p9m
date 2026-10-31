@@ -4,6 +4,11 @@ All notable changes are listed here. Versions follow [semantic versioning](https
 
 ## [Unreleased]
 
+### Fixed
+
+- **New sandboxes started for ever and never answered** on a server where Purgatorium's container had a hostname other than its ID (a container that compose recreated): it found its own container by hostname, so it could not tell where `opt/sandboxes` is on the host, and mounted every new sandbox's files from a guessed `/opt/sandboxes`. The sandbox restarted every few seconds (*Instance name file not found*), the list said *restarting* and its panel *deep sleep*. Purgatorium now finds its own container by the ID its mounts name; existing sandboxes mounted from the guess are moved to the right path at the next start. If it still cannot tell, creating a sandbox fails with what to set (`HOST_SANDBOXES_DIR`) instead of making one that never starts. The same lookup also fixes the disk usage, the free space and the internal port's network (*not on the sablier-net network* in the log).
+- **A new end-to-end test on every pull request:** a sandbox made as the UI makes it, on sysbox, with Purgatorium's hostname not its ID, must be running in the list and in its details, not restart, have every mount from the host and its app answering.
+
 ## [0.18.0] - 2026-10-31
 
 Upgrading from 0.17.x: `docker compose pull && docker compose up -d`; nothing else changes on the server. The Claude Code plugin updates itself (`/plugin` → update, or reinstall).
