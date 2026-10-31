@@ -1,15 +1,13 @@
 name: Sysbox
 
-# The sysbox runtime end to end on a Linux host: installs sysbox on the runner,
-# starts the stack with DEFAULT_RUNTIME=sysbox and runs the sleep/wake and
-# archive scripts against it. Slow (a few minutes), so not on every push.
+# The sysbox runtime end to end on a Linux host: installs sysbox on the runner, starts the stack with
+# DEFAULT_RUNTIME=sysbox and runs a new sandbox, the sleep/wake and the archive scripts against it. A few minutes, but
+# on every pull request: a new sandbox that never started (0.16-0.18) passed every unit test.
 on:
   workflow_dispatch:
+  pull_request:
   push:
     branches: [main, 'release/**']
-    paths:
-      - runtimes/sysbox.yaml
-      - .github/workflows/sysbox.yml
 
 env:
   HAS_DOCKERHUB: ${{ secrets.DOCKERHUB_TOKEN != '' }}
@@ -51,8 +49,9 @@ jobs:
           ADMIN_PASSWORD=$(head -c 12 /dev/urandom | od -An -tx1 | tr -d ' \n')
           # The scripts open the hello app without signing in (the default is owner since 0.12.12: a sign-in redirect)
           APPS_ACCESS_DEFAULT=public
-          # The image from this checkout (p9m and p9m-init), not the released one: the release compose file has no build
-          COMPOSE_FILE=docker-compose.yml:docker-compose.dev.yml
+          # The image from this checkout (p9m and p9m-init), not the released one: the release compose file has no build.
+          # Its hostname not its ID, as a server had: Purgatorium must find its own container anyway
+          COMPOSE_FILE=docker-compose.yml:docker-compose.dev.yml:tests/compose/hostname-not-id.yml
           EOF
           docker compose build
           docker compose up -d --wait
@@ -71,6 +70,9 @@ jobs:
             sleep 3
           done
           echo "the app inside the sandbox never answered"; exit 1
+
+      - name: tests/new-sandbox.sh (made as the UI makes it; running in the list and its details, not restarting)
+        run: bash tests/new-sandbox.sh
 
       - name: tests/sablier-wake.sh
         run: bash tests/sablier-wake.sh

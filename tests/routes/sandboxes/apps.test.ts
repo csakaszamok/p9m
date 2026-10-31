@@ -45,6 +45,7 @@ vi.mock('../../../services/hostMounts', () => ({
   mountsOf: vi.fn((n: string) => n === 'p9m-up' ? [{ host: '/srv/shared', target: '/mnt/shared', readonly: true }] : []),
   hostMountRoots: vi.fn(() => ['/srv/shared']),
 }))
+vi.mock('../../../services/wake', () => ({ isCreating: vi.fn(() => false) }))
 const { appStatuses } = await import('../../../services/appProbe')
 const { default: get } = await import('../../../routes/sandboxes/[name]/GET')
 const req = (n: string) => new Request(`http://localhost/sandboxes/${n}`, { headers: { Authorization: 'Bearer admin-secret' } })
@@ -69,6 +70,17 @@ describe('GET /sandboxes/:name apps', () => {
     const body = await (await get(req('p9m-down'))).json()
     expect(body.tcp_addresses).toEqual([{ address: 'down-db-tcp.lvh.me:443', port: 5432, user: 'postgres' }])
     expect(body.tcp_urls).toEqual(['down-db-tcp.lvh.me:443'])
+  })
+})
+
+describe('GET /sandboxes/:name while it is being created', () => {
+  it('says creating, not what its half-made containers say (asleep, deep sleep)', async () => {
+    const { isCreating } = await import('../../../services/wake')
+    vi.mocked(isCreating).mockImplementation((n: string) => n === 'p9m-down')
+    try {
+      expect((await (await get(req('p9m-down'))).json()).status).toBe('creating')
+      expect((await (await get(req('p9m-up'))).json()).status).not.toBe('creating')
+    } finally { vi.mocked(isCreating).mockImplementation(() => false) }
   })
 })
 

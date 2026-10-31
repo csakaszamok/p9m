@@ -56,9 +56,10 @@ const defaultDeps: Deps = {
   },
 }
 
-/** Running, deep sleep, and everything else asleep (stopped, also one that failed to start). */
+/** Running (also one being created: it takes a place already), deep sleep, and everything else asleep (stopped, also
+ *  one that failed to start). */
 function counts(live: Array<{ status: string }>, archived: number, quota: number | null): Counts {
-  const running = live.filter(s => s.status === 'running').length
+  const running = live.filter(s => s.status === 'running' || s.status === 'creating').length
   const deep_sleep = live.filter(s => s.status === 'deep_sleep').length
   const total = live.length
   return { quota, total, free: quota === null ? null : Math.max(0, quota - running), running, asleep: total - running - deep_sleep, deep_sleep, archived }

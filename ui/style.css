@@ -169,7 +169,7 @@ table.grid tbody tr.selected { background: var(--selected) }
 .status { display: inline-flex; align-items: center; gap: 8px }
 .status::before { content: ""; width: 9px; height: 9px; border-radius: 50%; flex: none }
 .status.running::before { background: radial-gradient(circle at 50% 60%, #fff3c4 0 18%, #ffb347 40%, #ff6a00 75%); box-shadow: 0 0 6px 2px rgba(255,120,20,.6); animation: ember-flicker 1.6s infinite ease-in-out }
-.status.exited::before, .status.starting::before { background: radial-gradient(circle at 50% 55%, #ff9a3c 0 25%, #c2410c 70%, #7a1f05); animation: ember-breathe 3.2s infinite ease-in-out }
+.status.exited::before, .status.starting::before, .status.creating::before { background: radial-gradient(circle at 50% 55%, #ff9a3c 0 25%, #c2410c 70%, #7a1f05); animation: ember-breathe 3.2s infinite ease-in-out }
 .status.deep_sleep { color: var(--muted) }
 .status.deep_sleep::before { background: radial-gradient(circle at 45% 45%, #8b8b90, #4a4a4f 70%) }
 .status.failed { color: var(--err-soft) }
@@ -177,7 +177,7 @@ table.grid tbody tr.selected { background: var(--selected) }
 .panel-head > .status { font-size: 12.5px; padding: 2px 10px 2px 9px; border-radius: 999px; border: 1px solid transparent; gap: 7px }
 .panel-head > .status::before { width: 7px; height: 7px }
 .panel-head > .status.running { color: var(--ember-text); background: rgba(255,106,0,.12); border-color: rgba(255,140,40,.35) }
-.panel-head > .status.exited, .panel-head > .status.starting { color: var(--ember-text-2); background: rgba(194,65,12,.12); border-color: rgba(194,65,12,.35) }
+.panel-head > .status.exited, .panel-head > .status.starting, .panel-head > .status.creating { color: var(--ember-text-2); background: rgba(194,65,12,.12); border-color: rgba(194,65,12,.35) }
 .panel-head > .status.deep_sleep { background: rgba(120,120,128,.1); border-color: rgba(120,120,128,.3) }
 .panel-head > .status.failed { color: var(--err-text); background: rgba(239,68,68,.1); border-color: rgba(239,68,68,.35) }
 @keyframes ember-flicker { 0%,100% { transform: scale(1) } 30% { transform: scale(1.14); box-shadow: 0 0 9px 3px rgba(255,150,40,.8) } 60% { transform: scale(.94) } }

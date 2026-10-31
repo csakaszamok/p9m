@@ -4,6 +4,18 @@ All notable changes are listed here. Versions follow [semantic versioning](https
 
 ## [Unreleased]
 
+## [0.18.1] - 2026-10-31
+
+Upgrading from 0.18.0: `docker compose pull && docker compose up -d`. A server still on an older release's `docker-compose.yml` should take this release's first (`curl -fsSL -o docker-compose.yml https://github.com/csakaszamok/p9m/releases/latest/download/docker-compose.yml`). A `HOST_SANDBOXES_DIR` set by hand to get around the bug below can stay.
+
+### Fixed
+
+- **New sandboxes started for ever and never answered** on a server where Purgatorium's container had a hostname other than its ID (a container that compose recreated): it found its own container by hostname, so it could not tell where `opt/sandboxes` is on the host, and mounted every new sandbox's files from a guessed `/opt/sandboxes`. The sandbox restarted every few seconds (*Instance name file not found*), the list said *restarting* and its panel *deep sleep*. Purgatorium now finds its own container by the ID its mounts name; existing sandboxes mounted from the guess are moved to the right path at the next start. If it still cannot tell, creating a sandbox fails with what to set (`HOST_SANDBOXES_DIR`) instead of making one that never starts. The same lookup also fixes the disk usage, the free space and the internal port's network (*not on the sablier-net network* in the log).
+- **A new end-to-end test on every pull request:** a sandbox made as the UI makes it, on sysbox, with Purgatorium's hostname not its ID, must be running in the list and in its details, not restart, have every mount from the host and its app answering.
+- **A sandbox being created says so:** the list, its panel and the summary showed *deep sleep*, then *asleep · not counted* while a new sandbox was only being made (its directory comes before its containers, its containers before they run). It is now *creating…*, counted as running (it takes a place already).
+- **The New sandbox dialog opens at once, and its name comes fast:** `GET /sandbox-name` (and a create without a name) picks a free name from the sandbox directories instead of asking Docker about every container, which took 10-20 seconds on a busy server; the dialog opens before the runtimes, templates and the template's stack have loaded, and does not wait for them for the name.
+- **The admin opens a sandbox's app from the console:** since 0.16.0 the apps' sign-in is on `USER_HOST` (`sbx.<domain>`), where the admin, signed in on `UI_HOST`, has no session (and cannot sign in with the password): an app open to its owner or the domain asked the admin to sign in with Google, or refused. The admin's app links (Apps, Portainer) now go through `/auth/app/start` on `UI_HOST`, which hands the app a ticket from the admin's session there. Users' links are unchanged.
+
 ## [0.18.0] - 2026-10-31
 
 Upgrading from 0.17.x: `docker compose pull && docker compose up -d`; nothing else changes on the server. The Claude Code plugin updates itself (`/plugin` → update, or reinstall).
@@ -916,7 +928,8 @@ The first release.
 
 - The project used to be called Leander. Existing `leander-` sandboxes and `ldr_` tokens keep working; see "Upgrading from Leander" in the README.
 
-[Unreleased]: https://github.com/csakaszamok/p9m/compare/v0.18.0...HEAD
+[Unreleased]: https://github.com/csakaszamok/p9m/compare/v0.18.1...HEAD
+[0.18.1]: https://github.com/csakaszamok/p9m/releases/tag/v0.18.1
 [0.18.0]: https://github.com/csakaszamok/p9m/releases/tag/v0.18.0
 [0.17.0]: https://github.com/csakaszamok/p9m/releases/tag/v0.17.0
 [0.16.3]: https://github.com/csakaszamok/p9m/releases/tag/v0.16.3

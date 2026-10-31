@@ -35,6 +35,14 @@ describe('summaryFor', () => {
   })
 })
 
+// Being created: it takes a place already; never "asleep · not counted" while it is made
+describe('summaryFor, a sandbox being created', () => {
+  it('counts as running, not asleep', async () => {
+    const list = async () => [{ name: 'p9m-n', owner: 'alice@x', status: 'creating' }]
+    expect(await summaryFor(alice, { ...deps, list })).toMatchObject({ total: 1, running: 1, asleep: 0, deep_sleep: 0, free: 2 })
+  })
+})
+
 describe('summaryFor, server places', () => {
   it("the running sandboxes count, the admin's too; asleep and deep-sleeping ones do not", async () => {
     const d = { ...deps, server: () => 2, list: async () => [

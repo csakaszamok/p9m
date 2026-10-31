@@ -37,6 +37,7 @@ vi.mock('dockerode', () => {
   }
 })
 
+import fs from 'node:fs'
 import {
   getContainerStatus,
   getContainerIdByName,
@@ -209,6 +210,19 @@ describe('resolveHostSandboxesDir', () => {
     inspect().mockResolvedValueOnce({ Mounts: [] })
     process.env.HOST_USERS_DIR = 'D:\\srv\\p9m\\opt\\users'
     expect(await resolveHostSandboxesDir()).toBe('/opt/sandboxes')
+  })
+  // A hostname that is not the container's ID (a recreated container): every new sandbox was mounted under a guess
+  it("inspects p9m's own container by the ID its mounts name, not by its hostname", async () => {
+    const id = 'b0d5f9d74d0cce3ae3bbdd5247c10a2aefd5532b446b50ba82e26a46cd7f18b7'
+    vi.mocked(fs.readFileSync).mockImplementation(((p: string) => String(p) === '/proc/self/mountinfo'
+      ? `629 612 8:1 /var/lib/docker/containers/${id}/hostname /etc/hostname rw - ext4 /dev/sda1 rw\n`
+      : 'a8d92c8e37b7\n') as never)
+    const getContainer = new (vi.mocked(Dockerode))().getContainer as ReturnType<typeof vi.fn>
+    getContainer.mockClear()
+    try {
+      expect(await resolveHostSandboxesDir()).toBe('/auto/detected/sandboxes')
+      expect(getContainer).toHaveBeenCalledWith(id)
+    } finally { vi.mocked(fs.readFileSync).mockReturnValue('container-abc\n' as never) }
   })
   it('else /opt/sandboxes (cannot tell)', async () => {
     inspect().mockResolvedValueOnce({ Mounts: [] })

@@ -1,0 +1,5 @@
+# Test override (tests/new-sandbox.sh): Purgatorium's container with a hostname that is not its ID, as a container that
+# compose recreated had on a server; every self-inspect by hostname failed there, and new sandboxes never started.
+services:
+  p9m:
+    hostname: not-the-container-id
