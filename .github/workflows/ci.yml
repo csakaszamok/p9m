@@ -34,6 +34,10 @@ jobs:
       - run: bash -n setup.sh check-host.sh scripts/install-assets.sh
       - run: bash tests/install-assets.sh
       - run: bash tests/setup.sh
+      - run: bash -n plugins/p9m/scripts/*.sh
+      - run: bash tests/teleport-lib.sh
+      - run: bash tests/teleport-in.sh
+      - run: bash tests/teleport.sh
 
   install:
     # A fresh install from the release files

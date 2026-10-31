@@ -492,6 +492,15 @@ describe('archiveSandbox', () => {
     expect(manifest.owner).toBe('Ann@x.io')
   })
 
+  it("leaves a teleported project's secrets (claude_secrets) out of the inner Docker's data, and says so", async () => {
+    vi.mocked(listProjectVolumes).mockImplementation(async n => n === name ? [vol, `${name}_frps`] : [])
+    vi.mocked(exportVolume).mockClear()
+    await sandboxService.archiveSandbox(name)
+    expect(vi.mocked(exportVolume).mock.calls.map(c => [c[0], c[2]])).toEqual([[vol, ['./volumes/claude_secrets']], [`${name}_frps`, []]])
+    const manifest = JSON.parse(vi.mocked(fs.writeFileSync).mock.calls.find(c => String(c[0]).endsWith('manifest.json'))![1] as string)
+    expect(manifest.secrets_excluded).toBe(true)
+  })
+
   it('stops and removes containers even when the sandbox has no compose file', async () => {
     vi.mocked(fs.existsSync).mockImplementation(p =>
       String(p) === `${dir}/docker-compose.yml` ? false : String(p).startsWith(dir) || realExists(p))

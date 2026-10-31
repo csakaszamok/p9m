@@ -128,6 +128,7 @@ docker --context p9m-shop push registry.example.com/shop/web:3
 
 - **SSH:** `ssh root@<sandbox>-shell-tcp.<domain>` through port 443 ([SSH, terminal and logs](shell-and-logs.md)); inside, `docker` talks to the sandbox's Docker.
 - **Logs** of every app in the sandbox: `GET /sandboxes/<name>/logs/stream` (Server-Sent Events).
+- **Move the work itself into the sandbox:** with the Claude Code plugin, `/p9m:teleport` puts the project, its confirmed secrets and the conversation into a `claude` container next to the apps, to continue there ([Claude Code plugin](claude-plugin.md#continue-in-the-sandbox-p9mteleport)).
 
 ## With Portainer
 

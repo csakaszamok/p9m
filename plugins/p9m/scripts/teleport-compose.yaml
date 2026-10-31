@@ -1,0 +1,19 @@
+# /p9m:teleport's claude container, deployed into the project's sandbox through its Docker (docker compose -p claude).
+# As the claude-code-* templates, plus the secrets volume; no published port: no address, only the owner's terminal,
+# SSH and Docker keys reach it.
+services:
+  claude:
+    image: ${TELEPORT_IMAGE:-ghcr.io/csakaszamok/p9m-claude-code-minimal:latest}
+    container_name: claude
+    # The image's docker group to the socket's group, the secrets volume (created by Docker as root) to agent only;
+    # then stay up for the terminal
+    entrypoint: ["bash", "-c", "g=$$(stat -c %g /var/run/docker.sock); [ \"$$(getent group docker | cut -d: -f3)\" = \"$$g\" ] || sudo groupmod -o -g \"$$g\" docker; sudo chown agent:agent /home/agent/.secrets && sudo chmod 700 /home/agent/.secrets; exec sleep infinity"]
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - home:/home/agent
+      - secrets:/home/agent/.secrets
+    restart: unless-stopped
+
+volumes:
+  home:
+  secrets:

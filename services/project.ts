@@ -11,10 +11,11 @@ export async function listProjectVolumes(project: string): Promise<string[]> {
 }
 
 /** Stream a volume's contents as tar.gz into destFile via a throwaway alpine container. */
-export function exportVolume(volume: string, destFile: string): Promise<void> {
+/** A volume as a .tar.gz; `exclude`: paths in it (./…) left out. */
+export function exportVolume(volume: string, destFile: string, exclude: string[] = []): Promise<void> {
   return new Promise((resolve, reject) => {
     const out = fs.createWriteStream(destFile)
-    const proc = spawn('docker', ['run', '--rm', '-v', `${volume}:/data:ro`, 'alpine', 'tar', 'czf', '-', '-C', '/data', '.'])
+    const proc = spawn('docker', ['run', '--rm', '-v', `${volume}:/data:ro`, 'alpine', 'tar', 'czf', '-', ...exclude.map(e => `--exclude=${e}`), '-C', '/data', '.'])
     let stderr = ''
     proc.stderr.on('data', d => { stderr += d })
     proc.stdout.pipe(out)

@@ -4,6 +4,11 @@ All notable changes are listed here. Versions follow [semantic versioning](https
 
 ## [Unreleased]
 
+### Added
+
+- **`/p9m:teleport`: continue in the sandbox.** The Claude Code plugin moves the project you are working on into a `claude` container in its own sandbox, next to its apps: the files (uncommitted changes too, `.gitignore` respected), the secret files you confirm one by one, this conversation (`claude --resume` picks it up there) and your portable settings (global `CLAUDE.md`, skills, enabled plugins, `permissions`). It goes straight to the sandbox's Docker with the project's keys; secrets live in a volume only the `claude` container sees. `--ecc` for the image with ECC. One way: back with git.
+- **Archives never hold a teleported project's secrets:** archiving leaves the `claude_secrets` volume out of the inner Docker's data, and the manifest says `secrets_excluded: true`.
+
 ## [0.17.0] - 2026-10-31
 
 Upgrading from 0.16.x: `docker compose pull && docker compose up -d`. A script or agent that sent `compose` when creating a sandbox gets a 400: create from a template, then deploy the apps through the sandbox's Docker.

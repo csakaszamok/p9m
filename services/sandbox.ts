@@ -475,6 +475,9 @@ export const sandboxService = {
 // waiting. At most 4 at a time; the others wait their turn
 const archiving = concurrency(4)
 
+/** /p9m:teleport's secrets volume, as a path in the inner Docker's data (docker_data) */
+const SECRETS_IN_DOCKER_DATA = './volumes/claude_secrets'
+
 async function archive(name: string): Promise<string> {
   if (!SANDBOX_NAME.test(name)) throw new Error(`Invalid sandbox name: ${name}`)
   // Only a known sandbox directory: dirOf's fallback for an unknown name could be another directory, removed below
@@ -493,7 +496,8 @@ async function archive(name: string): Promise<string> {
   const dest = `${archiveRoot(owner)}/${name}-${archivedAt.toISOString().replace(/[:.]/g, '-')}`
   const volumes = await listProjectVolumes(name)
   fs.mkdirSync(`${dest}/volumes`, { recursive: true })
-  for (const volume of volumes) await exportVolume(volume, `${dest}/volumes/${volume}.tar.gz`)
+  // A project teleported into the sandbox keeps its secrets in the inner Docker's claude_secrets volume: never archived
+  for (const volume of volumes) await exportVolume(volume, `${dest}/volumes/${volume}.tar.gz`, volume.endsWith('_docker_data') ? [SECRETS_IN_DOCKER_DATA] : [])
   fs.cpSync(dir, `${dest}/config`, { recursive: true })
   fs.writeFileSync(`${dest}/manifest.json`, JSON.stringify({
     name,
@@ -502,7 +506,8 @@ async function archive(name: string): Promise<string> {
     runtime: meta?.runtime || null,
     created_at: meta?.created_at ?? null,
     archived_at: archivedAt.toISOString(),
-    volumes
+    volumes,
+    secrets_excluded: true
   }, null, 2))
 
   // Archive is complete — only now remove the live sandbox.
