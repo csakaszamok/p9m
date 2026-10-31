@@ -815,15 +815,18 @@ async function showTemplateStack(name) {
   }
 }
 
+// Opens at once; the name (GET /sandbox-name, a directory listing on the server) does not wait for the runtimes,
+// templates and the template's stack, which fill in beside it
 async function openNewDialog() {
   const dlg = $('[data-new-dialog]')
-  await Promise.all([fillCatalog($('[data-runtimes]'), '/runtimes'), fillCatalog($('[data-templates]'), '/templates')])
-  const tpl = $('[data-templates]').value
-  if (shownTemplate !== tpl) await showTemplateStack(tpl)
   $('[data-new-error]').hidden = true
   dlg.showModal()
   // An empty name (not one kept from a failed create) gets a generated one, selected: typing replaces it
-  if (!$('[data-new-form]').elements.name.value) await suggestName()
+  const named = $('[data-new-form]').elements.name.value ? null : suggestName()
+  await Promise.all([fillCatalog($('[data-runtimes]'), '/runtimes'), fillCatalog($('[data-templates]'), '/templates')])
+  const tpl = $('[data-templates]').value
+  if (shownTemplate !== tpl) await showTemplateStack(tpl)
+  await named
 }
 
 async function suggestName() {

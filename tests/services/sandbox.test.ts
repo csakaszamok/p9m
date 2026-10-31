@@ -26,6 +26,7 @@ vi.mock('../../services/wake', () => ({
   primeSablierSession: vi.fn(async () => {}), markWoken: vi.fn(),
   markCreating: vi.fn((n: string) => creating.has(n) ? false : (creating.add(n), true)),
   creatingDone: vi.fn((n: string) => { creating.delete(n) }),
+  isCreating: vi.fn((n: string) => creating.has(n)),
 }))
 let slot: unknown = { ok: true, release: () => {} }
 vi.mock('../../services/quota', () => ({ reserveWake: vi.fn(async () => slot) }))
@@ -882,5 +883,44 @@ describe('final review fixes: restart, wake timing, swap order', () => {
     expect(reserveWake).toHaveBeenLastCalledWith('u@x', 'p9m-x', 'exited', 'p9m-shop')
     expect(composeStop).not.toHaveBeenCalled()
     spy.mockRestore()
+  })
+})
+
+// GET /sandbox-name and a create without a name: answered from the sandbox directories (a directory listing), not by
+// asking Docker about every container (10-20 s on a busy server, with the New sandbox dialog waiting on it)
+describe('suggestName', () => {
+  it('does not ask Docker, and suggests a generated name', async () => {
+    vi.mocked(listManagedContainers).mockClear()
+    const name = await sandboxService.suggestName()
+    expect(name).toMatch(/^[a-z][a-z0-9]{5}$/)
+    expect(listManagedContainers).not.toHaveBeenCalled()
+  })
+})
+
+// While a sandbox is being made, its directory exists before its containers (read as deep sleep), then its containers
+// before they run (asleep): the list said deep sleep, then asleep, for a sandbox that was only being created
+describe('a sandbox being created', () => {
+  it('is listed as creating, whatever its containers say', async () => {
+    const { markCreating, creatingDone } = await import('../../services/wake')
+    vi.mocked(listManagedContainers).mockResolvedValueOnce([
+      { name: 'p9m-cr1', template: 'starter', runtime: 'sysbox', compose: 'template', ssh: false, owner: 'admin', status: 'created', container_id: 'c1', created_at: '' },
+      { name: 'p9m-cr2', template: 'starter', runtime: 'sysbox', compose: 'template', ssh: false, owner: 'admin', status: 'exited', container_id: 'c2', created_at: '' },
+    ])
+    markCreating('p9m-cr1')
+    try {
+      const list = await sandboxService.listSandboxes()
+      expect(list.find(s => s.name === 'p9m-cr1')?.status).toBe('creating')
+      expect(list.find(s => s.name === 'p9m-cr2')?.status).toBe('exited')
+    } finally { creatingDone('p9m-cr1') }
+  })
+  it('counts as creating in the summary (not asleep, not deep sleep)', async () => {
+    const { markCreating, creatingDone } = await import('../../services/wake')
+    vi.mocked(listManagedContainers).mockResolvedValueOnce([
+      { name: 'p9m-cr3', template: 'starter', runtime: 'sysbox', compose: 'template', ssh: false, owner: 'admin', status: 'created', container_id: 'c3', created_at: '' },
+    ])
+    markCreating('p9m-cr3')
+    try {
+      expect((await sandboxService.listSandboxStates()).find(s => s.name === 'p9m-cr3')?.status).toBe('creating')
+    } finally { creatingDone('p9m-cr3') }
   })
 })

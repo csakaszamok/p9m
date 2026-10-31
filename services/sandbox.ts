@@ -16,7 +16,7 @@ import { loadRuntime } from './runtimeLoader'
 import { appEntriesOffline, appHostsFromCompose } from './appUrls'
 import { waitForTunnels } from './tunnelWait'
 import { appLinks, appLinksForView, frpsDomains, rememberedApps } from './appLinks'
-import { primeSablierSession, markWoken, markCreating, creatingDone } from './wake'
+import { primeSablierSession, markWoken, markCreating, creatingDone, isCreating } from './wake'
 import { writeAuthorizedKeys, createGeneratedKey } from './sandboxSsh'
 import { sshKeysOf } from './sshKeys'
 import { resourceDefaults, memoryForCompose, type Limits } from './resources'
@@ -186,9 +186,11 @@ function offlineApps(meta: SandboxMeta): Array<{ host: string; service: string }
 
 export const sandboxService = {
   /** A free name for a new sandbox nobody named (sandboxNames.ts): no sandbox has it or conflicts with it, and it
-   *  would not take one of Purgatorium's own addresses. Null when none was found. */
+   *  would not take one of Purgatorium's own addresses. Null when none was found. From the sandbox directories only
+   *  (a directory listing): asking Docker about every container took 10-20 s on a busy server; the create checks the
+   *  containers again, and a create without a name draws another one on a clash. */
   async suggestName(): Promise<string | null> {
-    const rawNames = existingRawNames(await listManagedContainers())
+    const rawNames = existingRawNames([])
     return generateSandboxName(raw => !rawNames.has(raw) && !conflictingRawName(raw, rawNames) && !ownHostTaken(raw))
   },
 
@@ -386,14 +388,16 @@ export const sandboxService = {
         return { ...meta, tunnel_urls: links.map(l => l.url), ...(stale ? { apps_stale: true as const } : {}), ...(starting ? { starting: true as const } : {}) }
       })
     )
-    return [...running, ...deepSleepingSandboxes(live).filter(only).map(meta => ({ ...meta, tunnel_urls: fs.existsSync(`${dirOf(meta.name)}/frps.toml`) ? offlineApps(meta).map(e => e.host) : [] }))]
+    const all = [...running, ...deepSleepingSandboxes(live).filter(only).map(meta => ({ ...meta, tunnel_urls: fs.existsSync(`${dirOf(meta.name)}/frps.toml`) ? offlineApps(meta).map(e => e.host) : [] }))]
+    // Being created: its directory comes before its containers (deep sleep), its containers before they run (asleep)
+    return all.map(s => isCreating(s.name) ? { ...s, status: 'creating' } : s)
   },
 
   /** Every sandbox with its state and owner, without asking the running ones for their apps (as listSandboxes does):
    * what counting for the quota needs, cheap however many sandboxes run. */
   async listSandboxStates(): Promise<SandboxMeta[]> {
     const live = await listManagedContainers()
-    return [...live, ...deepSleepingSandboxes(live)]
+    return [...live, ...deepSleepingSandboxes(live)].map(s => isCreating(s.name) ? { ...s, status: 'creating' } : s)
   },
 
   async getSandbox(name: string): Promise<SandboxInfo> {

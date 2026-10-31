@@ -4,7 +4,7 @@
   const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))
   const TABS = [['apps', 'App ports'], ['containers', 'Containers'], ['access', 'Access'], ['files', 'Files'], ['resources', 'Resources'], ['registry', 'Registry'], ['settings', 'Details']]
 
-  const statusLabel = s => ({ exited: 'asleep', created: 'asleep', deep_sleep: 'deep sleep', starting: 'creating…' }[s] || s)
+  const statusLabel = s => ({ exited: 'asleep', created: 'asleep', deep_sleep: 'deep sleep', starting: 'creating…', creating: 'creating…' }[s] || s)
   // A stopped sandbox whose last start failed is not asleep; "created" (recreated, never started) is asleep
   const statusClass = s => s.start_error ? 'failed' : s.status === 'created' ? 'exited' : s.status
 
@@ -97,6 +97,10 @@
     return rows
   }
 
+  // The apps' sign-in is on USER_HOST, where the admin has no session (the admin's is UI_HOST's): the admin's link goes
+  // through /auth/app/start on this page's host, which hands the app a ticket from the session here
+  const appHref = (url, ctx) => ctx.isAdmin ? `/auth/app/start?rd=${encodeURIComponent(new URL(url).toString())}` : url
+
   const copyButton = text => `<button class="link copy-btn" data-copy-text="${esc(text)}" title="Copy">copy</button>`
   const secret = value => `<span class="muted" data-secret-mask>••••••••</span><code data-secret hidden>${esc(value)}</code> <button class="link" data-show>show</button> ${copyButton(value)}`
   const table = (head, rows, cls = '') => `<table class="panel-table ${cls}">${head ? `<thead><tr>${head.map(h => `<th>${h}</th>`).join('')}</tr></thead>` : ''}<tbody>${rows.join('')}</tbody></table>`
@@ -164,7 +168,7 @@
     const accessTag = r => ACCESS_TAG[r.access] ? ` <span class="tag" title="p9m.access: ${esc(r.access)}">${ACCESS_TAG[r.access]}</span>` : ''
     const body = rows.map(r => `<tr>
       <td>${esc(r.service)}</td>
-      <td>${r.url ? `<a href="${esc(ctx.protocol)}//${esc(r.url)}" target="_blank" rel="noopener" title="${esc(r.url)}">open ↗</a>${mark(r.answers)}${accessTag(r)}${onHub(r)}` : '<span class="muted">—</span>'}</td>
+      <td>${r.url ? `<a href="${esc(appHref(`${ctx.protocol}//${r.url}`, ctx))}" target="_blank" rel="noopener" title="${esc(r.url)}">open ↗</a>${mark(r.answers)}${accessTag(r)}${onHub(r)}` : '<span class="muted">—</span>'}</td>
       ${ctx.simple ? '' : `<td>${r.tcp ? `<span class="tcp">${esc(r.tcp.address)}</span> ${copyButton(r.tcp.address)}` : ''}</td>
       <td>${r.tcp ? `<button class="link" data-connect="${esc(r.tcp.address)}" data-port="${esc(r.tcp.port ?? '')}" data-user="${esc(r.tcp.user ?? '')}"${extras.demo_password ? ` data-demo-password="${esc(extras.demo_password)}"` : ''}>Connect…</button>` : ''}</td>`}
     </tr>`)
@@ -193,7 +197,7 @@
     const portainerLink = portainerShown(s, extras)
     if (portainerLink || extras.portainer_password) {
       parts.push(table(['Portainer', ''], [
-        ...(portainerLink ? [kv('Address', `<a href="${esc(extras.portainer_url)}" target="_blank" rel="noopener">${esc(new URL(extras.portainer_url).host)} ↗</a>`)] : []),
+        ...(portainerLink ? [kv('Address', `<a href="${esc(appHref(extras.portainer_url, ctx))}" target="_blank" rel="noopener">${esc(new URL(extras.portainer_url).host)} ↗</a>`)] : []),
         ...(extras.portainer_password ? [kv('Password', secret(extras.portainer_password))] : []),
       ]))
     }
@@ -409,7 +413,8 @@
   // ---------- overview (GET /sandboxes/summary + the list) ----------
   /** The counts of these sandboxes, with quota and archived from the server's summary (the list itself is fresher). */
   function countsOf(list, quota, archived) {
-    const running = list.filter(s => s.status === 'running').length
+    // Being created: it takes a place already
+    const running = list.filter(s => s.status === 'running' || s.status === 'creating').length
     const deep_sleep = list.filter(s => s.status === 'deep_sleep').length
     return { quota, total: list.length, free: quota === null ? null : Math.max(0, quota - running), running, asleep: list.length - running - deep_sleep, deep_sleep, archived }
   }
