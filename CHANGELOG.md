@@ -8,6 +8,7 @@ All notable changes are listed here. Versions follow [semantic versioning](https
 
 - **A sandbox being created says so:** the list, its panel and the summary showed *deep sleep*, then *asleep · not counted* while a new sandbox was only being made (its directory comes before its containers, its containers before they run). It is now *creating…*, counted as running (it takes a place already).
 - **The New sandbox dialog opens at once, and its name comes fast:** `GET /sandbox-name` (and a create without a name) picks a free name from the sandbox directories instead of asking Docker about every container, which took 10-20 seconds on a busy server; the dialog opens before the runtimes, templates and the template's stack have loaded, and does not wait for them for the name.
+- **The admin opens a sandbox's app from the console:** since 0.16.0 the apps' sign-in is on `USER_HOST` (`sbx.<domain>`), where the admin, signed in on `UI_HOST`, has no session (and cannot sign in with the password): an app open to its owner or the domain asked the admin to sign in with Google, or refused. The admin's app links (Apps, Portainer) now go through `/auth/app/start` on `UI_HOST`, which hands the app a ticket from the admin's session there. Users' links are unchanged.
 
 ## [0.18.0] - 2026-10-31
 

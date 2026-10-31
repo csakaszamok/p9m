@@ -111,7 +111,7 @@ describe('renderPanel', () => {
     const access = panelOf(P.renderPanel(running, ctx), 'access')
     expect(access).toContain('shop-shell-tcp.lvh.me:443')
     expect(access).toContain('Download key')
-    expect(access).toContain('href="https://shop-portainer.lvh.me"')
+    expect(access).toContain('href="/auth/app/start?rd=https%3A%2F%2Fshop-portainer.lvh.me%2F"')
     expect(access).toContain('<code data-secret hidden>pw&lt;1&gt;</code>')
     expect(access).toContain('data-act="token"')
     expect(panelOf(P.renderPanel(running, { ...ctx, me: 'bob' }), 'access')).not.toContain('data-act="token"')
@@ -180,7 +180,7 @@ describe('review fixes', () => {
   it('keeps the Portainer password when Portainer itself is private', () => {
     const access = panelOf(P.renderPanel({ ...running, tunnel_urls: running.tunnel_urls.filter(u => !u.includes('portainer')) }, ctx), 'access')
     expect(access).toContain('<code data-secret hidden>pw&lt;1&gt;</code>')
-    expect(access).not.toContain('href="https://shop-portainer.lvh.me"')
+    expect(access).not.toContain('shop-portainer.lvh.me ↗')
   })
 
   it('a sandbox that failed to start is not said to wake on a visit', () => {
@@ -786,5 +786,25 @@ describe('a sandbox being created', () => {
   it('is labelled creating…, and counted as running', () => {
     expect(P.statusLabel('creating')).toBe('creating…')
     expect(P.countsOf([{ status: 'creating' }, { status: 'exited' }], 3, 0)).toMatchObject({ running: 1, asleep: 1, deep_sleep: 0, free: 2 })
+  })
+})
+
+describe("Apps: the admin's links", () => {
+  // The apps' sign-in is on USER_HOST, where the admin has no session (the admin's is UI_HOST's): the admin opens an
+  // app through /auth/app/start on the page's own host, which hands the app a ticket from the session there
+  const start = (url: string) => `href="/auth/app/start?rd=${encodeURIComponent(url).replace(/&/g, '&amp;')}"`
+  it('the admin: open ↗ goes through /auth/app/start on this host', () => {
+    const apps = panelOf(P.renderPanel(running, ctx), 'apps')
+    expect(apps).toContain(start('https://shop-inner-web-port80.lvh.me/'))
+    expect(apps).not.toContain('href="https://shop-inner-web-port80.lvh.me"')
+  })
+  it("the admin: Portainer's address too", () => {
+    const access = panelOf(P.renderPanel(running, ctx), 'access')
+    expect(access).toContain(start('https://shop-portainer.lvh.me/'))
+  })
+  it('a user: the app itself, as before', () => {
+    const user = { ...ctx, isAdmin: false, me: 'admin' }
+    expect(panelOf(P.renderPanel(running, user), 'apps')).toContain('href="https://shop-inner-web-port80.lvh.me"')
+    expect(panelOf(P.renderPanel(running, user), 'access')).toContain('href="https://shop-portainer.lvh.me"')
   })
 })
