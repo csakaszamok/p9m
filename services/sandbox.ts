@@ -245,6 +245,13 @@ export const sandboxService = {
       throw new Error(`SSH key store unreadable (data/ssh-keys.json): ${err instanceof Error ? err.message : err}`)
     }
 
+    // Where opt/sandboxes is on the host, for the sandbox's bind mounts. /opt/sandboxes without HOST_SANDBOXES_DIR is
+    // resolveHostSandboxesDir's "cannot tell": a sandbox mounted under a guess restarts for ever, so none is made
+    const hostSandboxesDir = await resolveHostSandboxesDir()
+    if (hostSandboxesDir === '/opt/sandboxes' && !process.env.HOST_SANDBOXES_DIR) {
+      throw new Error("Purgatorium cannot tell where opt/sandboxes is on the host (it could not inspect its own container): set HOST_SANDBOXES_DIR in .env to its full path (e.g. /opt/p9m/opt/sandboxes), then docker compose up -d")
+    }
+
     const services = (runtime.docker_compose.services ?? {}) as Record<string, unknown>
     const hasFrps = 'frps' in services
 
@@ -253,7 +260,6 @@ export const sandboxService = {
     const certs = generateCertBundle(hostAddress, name, 2048, [`${rawName}-docker.${appDomain}`])
     timer.lap('certificates')
     const createdAt = new Date().toISOString()
-    const hostSandboxesDir = await resolveHostSandboxesDir()
 
     const serverCertsDir = `${dir}/certs/server`
     const clientCertsDir = `${dir}/certs/client`

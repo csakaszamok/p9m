@@ -1,5 +1,5 @@
 import fs from 'fs'
-import os from 'os'
+import { selfContainerId } from './selfContainer'
 import yaml from 'js-yaml'
 import { parseMemory } from './resources'
 import { writeFileAtomic } from './atomicWrite'
@@ -125,7 +125,7 @@ export async function measureVolume(name: string): Promise<number> {
   const { Volumes } = await docker.listVolumes({ filters: JSON.stringify({ label: [`com.docker.compose.project=${name}`] }) })
   const volumes = (Volumes ?? []).map(v => v.Name)
   if (!volumes.length) throw new Error('no volume')
-  const self = await docker.getContainer(os.hostname()).inspect()
+  const self = await docker.getContainer(selfContainerId()).inspect()
   const container = await docker.createContainer({
     Image: self.Image,
     Entrypoint: ['sh', '-c', 'nice -n 19 du -sck /d/* | tail -1'],
