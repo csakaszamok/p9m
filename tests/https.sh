@@ -43,8 +43,8 @@ case "$LOC" in "308 https://p9m.lvh.me/login"|"301 https://p9m.lvh.me/login") pa
 info "[4/5] Admin sign-in sets a Secure cookie"
 curl -sk -D "$TMP/h" -o /dev/null -H 'Host: p9m.lvh.me' -H 'Origin: https://p9m.lvh.me' \
   --data-urlencode username=admin --data-urlencode "password=$PW" https://localhost/login
-grep -i '^set-cookie: p9m_session=' "$TMP/h" | grep -qi 'secure' || fail "session cookie not Secure: $(grep -i set-cookie "$TMP/h")"
-pass "p9m_session is Secure"
+grep -i '^set-cookie: __Host-p9m_session=' "$TMP/h" | grep -qi 'secure' || fail "session cookie not Secure: $(grep -i set-cookie "$TMP/h")"
+pass "__Host-p9m_session is Secure"
 
 info "[5/5] A new sandbox's app answers over HTTPS"
 curl -sk -X POST -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' -H 'Host: p9m.lvh.me' \

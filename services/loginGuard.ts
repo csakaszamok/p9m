@@ -105,17 +105,12 @@ export async function adminSignIn(address: string, user: string, password: strin
   return null
 }
 
-/** Before an OIDC callback is looked at: what to tell an address that has to wait, else null. */
-export function oidcSignInRefusal(address: string, limiter = loginLimiter): string | null {
-  const wait = limiter.waitFor(address)
-  if (wait <= 0) return null
-  console.log(`[login] ${address}: refused, too many failed sign-ins (${Math.ceil(wait / 1000)} s to wait)`)
-  return `Too many failed sign-ins: try again in ${waitText(wait)}`
-}
-
-/** An OIDC callback that did not sign anyone in counts as a failure of its address. */
-export function oidcSignInFailed(address: string, err: unknown, limiter = loginLimiter): void {
-  limiter.failed(address)
+/**
+ * An OIDC callback that did not sign anyone in: logged, never counted against its address. A callback cannot be
+ * guessed (the provider's code, bound to the browser's flow cookie), and a whole room behind one company address
+ * would lock itself out with a few wrong accounts or cancelled sign-ins.
+ */
+export function oidcSignInFailed(address: string, err: unknown): void {
   console.log(`[login] ${address}: failed sign-in with OIDC: ${err instanceof Error ? err.message : err}`)
 }
 

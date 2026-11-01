@@ -85,7 +85,19 @@ export function touchedSessionCookie(value: string | undefined, now = Date.now()
   return cookieHeader(SESSION_COOKIE, signValue({ sub: s.sub, role: s.role, exp: s.exp, seen: t }), s.exp - t)
 }
 
+/**
+ * Purgatorium's (and the Hub's) own sign-in cookies. A sandbox app is a sibling of Purgatorium's host and can set a cookie for the
+ * whole parent domain: one of these planted there would sign a visitor in as someone else. Over https they are
+ * __Host- (the browser takes such a cookie only from this host, with Path=/ and never a Domain); over http (local
+ * dev on lvh.me) a browser does not allow the prefix, so the plain name.
+ */
+const HOST_ONLY = new Set(['p9m_session', 'p9m_oidc', 'p9m_next', 'p9m_hub', 'p9m_hub_oidc'])
+export function cookieName(name: string, secure = publicUrl().startsWith('https://')): string {
+  return secure && HOST_ONLY.has(name) ? `__Host-${name}` : name
+}
+
 export function getCookie(req: Request, name: string): string | undefined {
+  name = cookieName(name)
   for (const part of (req.headers.get('cookie') ?? '').split(';')) {
     const eq = part.indexOf('=')
     if (eq > 0 && part.slice(0, eq).trim() === name) return part.slice(eq + 1).trim()
@@ -99,5 +111,5 @@ export function publicUrl(): string {
 
 export function cookieHeader(name: string, value: string, maxAgeSec: number): string {
   const secure = publicUrl().startsWith('https://') ? '; Secure' : ''
-  return `${name}=${value}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAgeSec}${secure}`
+  return `${cookieName(name)}=${value}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAgeSec}${secure}`
 }

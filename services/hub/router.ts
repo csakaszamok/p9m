@@ -13,7 +13,7 @@ import { html, redirect } from '../ui/layout'
 import { CUSTOM_LOGO, customLogoFile } from '../ui/brand'
 import { aboutPage } from '../ui/aboutPage'
 import { sameOrigin } from '../principal'
-import { adminLoginEnabled, adminSignIn, CLIENT_IP_HEADER, loginLimiter, oidcSignInFailed, oidcSignInRefusal } from '../loginGuard'
+import { adminLoginEnabled, adminSignIn, CLIENT_IP_HEADER, oidcSignInFailed } from '../loginGuard'
 import { beginLogin, finishLogin, oidcEnabled, providerName, LoginError } from '../oidc'
 import { hubAllowed, subAllowed } from '../allowlist'
 import { getCookie, SESSION_MAX_AGE } from '../session'
@@ -82,15 +82,12 @@ export async function handleHub(req: Request, deps: Deps = {}): Promise<Response
   if (req.method === 'GET' && p === '/auth/callback') {
     const headers = new Headers({ 'set-cookie': hubCookieHeader(HUB_OIDC_COOKIE, '', 0) })
     const address = req.headers.get(CLIENT_IP_HEADER) ?? 'unknown'
-    const refused = oidcSignInRefusal(address)
-    if (refused) { headers.set('location', `/login?error=${encodeURIComponent(refused)}`); return new Response(null, { status: 303, headers }) }
     try {
       const { email, name } = await finishLogin(new URL(`${hubUrl()}/auth/callback${url.search}`), getCookie(req, HUB_OIDC_COOKIE),
         e => (hubAllowed(e) ? null : 'Your account is not allowed to use the Hub.'))
       rememberName(email, name)
       headers.append('set-cookie', hubCookieHeader(HUB_COOKIE, createHubSession(email, name), SESSION_MAX_AGE))
       headers.set('location', '/')
-      loginLimiter.succeeded(address)
     } catch (err) {
       oidcSignInFailed(address, err)
       headers.set('location', `/login?error=${encodeURIComponent(err instanceof LoginError ? err.message : 'Sign-in failed, please try again')}`)

@@ -59,7 +59,7 @@ process.on('SIGINT', () => { if (stopping) process.exit(130); stopping = true; c
 function userOf(i) {
   const n = String(i + 1).padStart(2, '0')
   const sub = `soak${n}@${USER_DOMAIN}`
-  const cookie = `p9m_session=${session(sub)}`
+  const cookie = `${P9M_URL.startsWith('https:') ? '__Host-' : ''}p9m_session=${session(sub)}`
   // Creating and archiving take minutes under load: those get a longer timeout
   const api = (path, init = {}, timeout) => get(`${P9M_URL}${path}`, { ...init, headers: { cookie, origin: P9M_URL, 'content-type': 'application/json', ...(init.headers ?? {}) } }, timeout)
   return { sub, n, api, sandboxes: [] }
@@ -158,7 +158,7 @@ const ADMIN_STEPS = [
   ['admin: a sandbox opened', sb => `/sandboxes/${sb.full}`],
 ]
 async function adminPoll(sandboxes, until) {
-  const cookie = `p9m_session=${session('admin', 'admin')}`
+  const cookie = `${P9M_URL.startsWith('https:') ? '__Host-' : ''}p9m_session=${session('admin', 'admin')}`
   let k = 0
   while (!stopping && Date.now() < until) {
     const sb = sandboxes[k++ % sandboxes.length]

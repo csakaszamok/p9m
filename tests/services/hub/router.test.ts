@@ -19,7 +19,7 @@ beforeEach(() => {
 
 const app: HubEntry = { id: 'shop-web.example.com', url: 'https://shop-web.example.com', title: 'Shop', description: '', service: 'web', port: 80, image: null, access: 'public', owner: 'anna@example.com', owner_name: 'Anna', sandbox: 'p9m-shop', status: 'running', updated_at: '2026-10-20T10:00:00.000Z', last_ran_at: null, last_ran_estimated: false }
 const deps = { entries: async () => [app] }
-const as = (sub: string) => ({ cookie: `p9m_hub=${createHubSession(sub, null)}` })
+const as = (sub: string) => ({ cookie: `__Host-p9m_hub=${createHubSession(sub, null)}` })
 const get = (p: string, headers: Record<string, string> = {}) => handleHub(new Request(`https://hub.example.com${p}`, { headers }), deps)
 const send = (method: string, p: string, headers: Record<string, string>) =>
   handleHub(new Request(`https://hub.example.com${p}`, { method, headers: { origin: 'https://hub.example.com', host: 'hub.example.com', ...headers } }), deps)
@@ -67,7 +67,7 @@ describe('handleHub', () => {
     process.env.ADMIN_USER = 'admin'; process.env.ADMIN_PASSWORD = 'pw'; process.env.ADMIN_LOGIN = 'on'
     const r = await handleHub(new Request('https://hub.example.com/login', { method: 'POST', headers: { origin: 'https://hub.example.com', host: 'hub.example.com', 'content-type': 'application/x-www-form-urlencoded' }, body: 'username=admin&password=pw' }), deps)
     expect(r.status).toBe(303)
-    expect(r.headers.get('set-cookie')).toContain('p9m_hub=')
+    expect(r.headers.get('set-cookie')).toContain("__Host-p9m_hub=")
   })
 })
 

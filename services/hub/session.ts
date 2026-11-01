@@ -1,4 +1,4 @@
-import { signValue, verifyValue, getCookie, SESSION_MAX_AGE } from '../session'
+import { signValue, verifyValue, getCookie, cookieName, SESSION_MAX_AGE } from '../session'
 import { hubAllowed } from '../allowlist'
 import { hubUrl } from './config'
 
@@ -20,8 +20,8 @@ export function readHubSession(value: string | undefined, now = Date.now()): Hub
 }
 
 export function hubCookieHeader(name: string, value: string, maxAgeSec: number): string {
-  const secure = hubUrl().startsWith('https://') ? '; Secure' : ''
-  return `${name}=${value}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAgeSec}${secure}`
+  const secure = hubUrl().startsWith('https://')
+  return `${cookieName(name, secure)}=${value}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAgeSec}${secure ? '; Secure' : ''}`
 }
 
 /** The signed-in Hub user, re-checked against the lists on every request (taken off a list: out at once). */
