@@ -3,7 +3,7 @@
   "name": "io.github.p9m-team/p9m",
   "title": "Purgatorium (p9m)",
   "description": "Self-hosted Docker sandboxes for agents: create one, deploy a compose stack, read its files and URLs",
-  "version": "0.18.1",
+  "version": "0.18.2",
   "repository": {
     "url": "https://github.com/csakaszamok/p9m",
     "source": "github"
