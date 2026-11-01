@@ -37,7 +37,7 @@ describe('withIsolatedNetwork', () => {
     expect(sandbox.environment?.FRP_SERVER_PORT).toBe('65000')
     expect(frps.networks).toEqual({ default: null, 'traefik-net': { aliases: ['p9m-a'] } })
     expect(socat.networks).toEqual({ default: { aliases: ['registry-cache', 'registry.example.com', 'p9m.example.com'] }, 'traefik-net': null })
-    expect(socat.command).toContain('8080:p9m-a-frps:65080 7500:p9m-a-frps:65075 5000:p9m-registry-cache:5000 80:traefik:80 443:traefik:443')
+    expect(socat.command).toContain('8080:p9m-a-frps:65080 7500:p9m-a-frps:65075 5000:p9m-registry-cache:5000 5001:p9m-registry-cache-ghcr:5000 80:traefik:80 443:traefik:443')
     expect(JSON.stringify(socat.healthcheck)).toContain('$$FRPS_API_AUTH') // the rest as it was
   })
 

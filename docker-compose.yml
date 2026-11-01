@@ -3,7 +3,7 @@ services:
     # The released image: it carries the templates, runtimes and the files p9m-init installs.
     # To work on the code, add docker-compose.dev.yml (COMPOSE_FILE=docker-compose.yml:docker-compose.dev.yml,
     # and COMPOSE_PATH_SEPARATOR=: on Windows, in .env).
-    image: ghcr.io/csakaszamok/p9m:${P9M_VERSION:-0.18.7}
+    image: ghcr.io/csakaszamok/p9m:${P9M_VERSION:-0.18.8}
     ports:
       # Direct plain-HTTP API port (scripts, local dev): on this machine only. P9M_API_BIND=0.0.0.0 opens it
       # to every network, without TLS; everyone else goes through Traefik (PUBLIC_URL)
@@ -143,7 +143,7 @@ services:
   # One-shot, on every up: copies this release's Sablier themes, registry config and
   # dynamic/errors.yml from the image, so they always match it (no files from a checkout).
   p9m-init:
-    image: ghcr.io/csakaszamok/p9m:${P9M_VERSION:-0.18.7}
+    image: ghcr.io/csakaszamok/p9m:${P9M_VERSION:-0.18.8}
     entrypoint: ["sh", "/app/assets/install-assets.sh"]
     volumes:
       - sablier_themes:/out/sablier-themes
@@ -266,10 +266,25 @@ services:
         # The sandboxes reach it through their own socat, which goes here by this name
         aliases: [p9m-registry-cache]
 
+  # The same for ghcr.io (Purgatorium's own images: the claude container /p9m:teleport starts, the claude-code
+  # templates): dockerd uses a mirror only for Docker Hub, so these are pulled as registry-cache:5001/<path>
+  registry-cache-ghcr:
+    image: registry:3.1.2
+    restart: unless-stopped
+    environment:
+      REGISTRY_PROXY_REMOTEURL: https://ghcr.io
+      REGISTRY_PROXY_TTL: ${REGISTRY_CACHE_TTL:-720h}
+    volumes:
+      - registry_cache_ghcr_data:/var/lib/registry
+    networks:
+      traefik-net:
+        aliases: [p9m-registry-cache-ghcr]
+
 volumes:
   registry_data:
   sablier_data:
   registry_cache_data:
+  registry_cache_ghcr_data:
   sablier_themes:
   registry_conf:
 

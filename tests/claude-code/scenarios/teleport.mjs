@@ -40,5 +40,11 @@ export default {
       try { exec(`ls /home/agent/.claude/projects/*/${moved.id}.jsonl`) } catch { h.fail(`the conversation ${moved.id} is not in the sandbox`) }
       h.note(`the conversation ${moved.id} is there: claude --resume picks it up`)
     })
+    await h.step("the claude image came from Purgatorium's ghcr.io cache", async () => {
+      // teleport.sh pulls registry-cache:5001/<path> when the sandbox has it: then that name is in its dockerd
+      const cached = 'registry-cache:5001/csakaszamok/p9m-claude-code-minimal:latest'
+      try { h.docker('image', 'inspect', '--format', '{{.Id}}', cached) } catch { h.fail(`no ${cached} in the sandbox: pulled from ghcr.io directly`) }
+      h.note(`${cached}: from the server, not from the internet`)
+    })
   },
 }

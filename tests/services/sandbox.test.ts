@@ -77,7 +77,7 @@ vi.stubEnv('RUNTIMES_DIR', './runtimes')
 vi.stubEnv('SANDBOXES_DIR', '/opt/sandboxes')
 vi.stubEnv('ARCHIVE_DIR', '/opt/archive')
 
-import { sandboxService } from '../../services/sandbox'
+import { sandboxService, daemonJson } from '../../services/sandbox'
 const realFs = await vi.importActual<typeof import('fs')>('fs')
 import { listManagedContainers } from '../../services/docker'
 import { primeSablierSession } from '../../services/wake'
@@ -933,5 +933,16 @@ describe('a sandbox being created', () => {
     try {
       expect((await sandboxService.listSandboxStates()).find(s => s.name === 'p9m-cr3')?.status).toBe('creating')
     } finally { creatingDone('p9m-cr3') }
+  })
+})
+
+describe("the sandbox's dockerd settings", () => {
+  it('Docker Hub through the cache as its mirror; the ghcr.io cache and the p9m registry over plain http', () => {
+    const d = JSON.parse(daemonJson('lvh.me'))
+    expect(d['registry-mirrors']).toEqual(['http://registry-cache:5000'])
+    expect(d['insecure-registries']).toEqual(['registry-cache:5000', 'registry-cache:5001', 'registry.lvh.me'])
+  })
+  it("keeps the runtime's own settings", () => {
+    expect(JSON.parse(daemonJson('lvh.me', { tlsverify: true })).tlsverify).toBe(true)
   })
 })
