@@ -4,6 +4,10 @@ All notable changes are listed here. Versions follow [semantic versioning](https
 
 ## [Unreleased]
 
+### Fixed
+
+- **Creating a sandbox from the UI broke the list (0.18.2):** a script error (*n.startsWith is not a function*) as soon as Create was clicked: no rows, an empty panel and no stopwatch until the create had finished. A new end-to-end test drives the New sandbox dialog in a real browser on every pull request (`tests/browser.sh`).
+
 ## [0.18.2] - 2026-11-01
 
 Upgrading from 0.18.1: `docker compose pull && docker compose up -d`.

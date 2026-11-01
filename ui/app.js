@@ -92,7 +92,7 @@ function renderRows() {
   $('[data-head]').innerHTML = `<tr>${cols.map(c => `<th${ADV_COLS.includes(c) ? ' class="adv"' : ''}>${c}</th>`).join('')}</tr>`
   const rows = [...filtered()]
   const filtering = !!($('[data-filter-text]')?.value.trim() || $('[data-filter-status]')?.value)
-  for (const name of pending) if (!rows.some(s => s.name === name)) rows.unshift({ name, status: 'creating', runtime: '', template: '', created_at: '' })
+  for (const name of pending.keys()) if (!rows.some(s => s.name === name)) rows.unshift({ name, status: 'creating', runtime: '', template: '', created_at: '' })
   $('[data-rows]').innerHTML = rows.length ? rows.map(s => `
     <tr data-name="${esc(s.name)}" class="${s.name === selected ? 'selected' : ''}">
       <td><strong>${esc(shortName(s.name))}</strong></td>
