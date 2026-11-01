@@ -266,10 +266,25 @@ services:
         # The sandboxes reach it through their own socat, which goes here by this name
         aliases: [p9m-registry-cache]
 
+  # The same for ghcr.io (Purgatorium's own images: the claude container /p9m:teleport starts, the claude-code
+  # templates): dockerd uses a mirror only for Docker Hub, so these are pulled as registry-cache:5001/<path>
+  registry-cache-ghcr:
+    image: registry:3.1.2
+    restart: unless-stopped
+    environment:
+      REGISTRY_PROXY_REMOTEURL: https://ghcr.io
+      REGISTRY_PROXY_TTL: ${REGISTRY_CACHE_TTL:-720h}
+    volumes:
+      - registry_cache_ghcr_data:/var/lib/registry
+    networks:
+      traefik-net:
+        aliases: [p9m-registry-cache-ghcr]
+
 volumes:
   registry_data:
   sablier_data:
   registry_cache_data:
+  registry_cache_ghcr_data:
   sablier_themes:
   registry_conf:
 

@@ -75,9 +75,9 @@ docker_compose:
       image: alpine/socat:1.8.1.3
       container_name: ${name}-socat
       entrypoint: /bin/sh
-      # frps's vhost (65080) and API (65075) for Traefik and Purgatorium; for the sandbox, Purgatorium's Docker Hub cache
+      # frps's vhost (65080) and API (65075) for Traefik and Purgatorium; for the sandbox, Purgatorium's Docker Hub and ghcr.io caches
       # and, under their names, the registry and the UI (Traefik)
-      command: -c "trap 'exit 0' TERM; for r in 8080:${name}-frps:65080 7500:${name}-frps:65075 5000:p9m-registry-cache:5000 80:traefik:80 443:traefik:443; do socat TCP-LISTEN:$${r%%:*},fork,reuseaddr TCP:$${r#*:} & done; wait"
+      command: -c "trap 'exit 0' TERM; for r in 8080:${name}-frps:65080 7500:${name}-frps:65075 5000:p9m-registry-cache:5000 5001:p9m-registry-cache-ghcr:5000 80:traefik:80 443:traefik:443; do socat TCP-LISTEN:$${r%%:*},fork,reuseaddr TCP:$${r#*:} & done; wait"
       # The frps API has a password: other sandboxes reach its port through this socat over traefik-net
       environment:
         FRPS_API_AUTH: "${frps_api_auth}"

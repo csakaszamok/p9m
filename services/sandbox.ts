@@ -126,11 +126,13 @@ function openSleepSession(name: string): void {
   primeSablierSession(name, 150).catch(() => {})
 }
 
-/** The sandbox's dockerd settings: the Docker Hub cache, and the p9m registry as an insecure registry (reached
- * through Traefik on the internal network, whose public certificate the sandbox cannot verify). */
+/** The sandbox's dockerd settings: the Docker Hub cache as its mirror, the ghcr.io cache (pulled by name: dockerd
+ * mirrors only Docker Hub) and the p9m registry as insecure registries (plain http, or reached through Traefik on the
+ * internal network, whose public certificate the sandbox cannot verify). */
 export function daemonJson(hostDomain: string, runtimeDaemonJson: Record<string, unknown> = {}): string {
   const cacheHost = process.env.REGISTRY_CACHE_HOST ?? 'registry-cache:5000'
-  return JSON.stringify({ 'registry-mirrors': [`http://${cacheHost}`], 'insecure-registries': [cacheHost, `registry.${hostDomain}`], ...runtimeDaemonJson }, null, 2)
+  const ghcrCacheHost = process.env.REGISTRY_CACHE_GHCR_HOST ?? 'registry-cache:5001'
+  return JSON.stringify({ 'registry-mirrors': [`http://${cacheHost}`], 'insecure-registries': [cacheHost, ghcrCacheHost, `registry.${hostDomain}`], ...runtimeDaemonJson }, null, 2)
 }
 
 
