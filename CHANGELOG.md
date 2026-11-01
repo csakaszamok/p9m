@@ -4,6 +4,10 @@ All notable changes are listed here. Versions follow [semantic versioning](https
 
 ## [Unreleased]
 
+## [0.18.4] - 2026-11-01
+
+Upgrading from 0.18.3: `docker compose pull && docker compose up -d`. Over https everyone is signed out once (the sign-in cookies are renamed); the process limit applies to sandboxes made from now on.
+
 ### Security
 
 - **Requests without a sign-in could run Purgatorium out of memory:** every request's body was read into memory up to `FILES_MAX_UPLOAD` (100 MB) before any route checked who was asking, so a few dozen parallel ones were enough. Now a body is read up to 2 MB; only a Files upload (`PUT …/files/content`) with a session or a token, checked from its headers before the body is read, gets `FILES_MAX_UPLOAD`. A larger body: 413.
@@ -955,7 +959,8 @@ The first release.
 
 - The project used to be called Leander. Existing `leander-` sandboxes and `ldr_` tokens keep working; see "Upgrading from Leander" in the README.
 
-[Unreleased]: https://github.com/csakaszamok/p9m/compare/v0.18.3...HEAD
+[Unreleased]: https://github.com/csakaszamok/p9m/compare/v0.18.4...HEAD
+[0.18.4]: https://github.com/csakaszamok/p9m/releases/tag/v0.18.4
 [0.18.3]: https://github.com/csakaszamok/p9m/releases/tag/v0.18.3
 [0.18.2]: https://github.com/csakaszamok/p9m/releases/tag/v0.18.2
 [0.18.1]: https://github.com/csakaszamok/p9m/releases/tag/v0.18.1
