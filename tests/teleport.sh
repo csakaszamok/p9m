@@ -25,6 +25,7 @@ case $args in
   *" inspect claude "*) if [ -f "$FAKE/template-claude" ]; then echo '/home/agent /var/run/docker.sock'; else echo '/home/agent /home/agent/.secrets /var/run/docker.sock'; fi; exit 0 ;;
   *" compose ls "*) [ -f "$FAKE/ctx-fail" ] && exit 1; exit 0 ;;
   *" ps -q --filter name=^claude\$ "*) [ -f "$FAKE/has-claude" ] && echo abc; exit 0 ;;
+  *" pull -q registry-cache:5001/"*) [ -f "$FAKE/ghcr-cache" ]; exit ;;
   *" compose -p claude "*" up -d "*) if [ -f "$FAKE/compose-fail" ]; then echo 'Error: pull access denied' >&2; exit 1; fi; touch "$FAKE/has-claude"; exit 0 ;;
   *" exec claude test -e "*) [ -f "$FAKE/exists" ]; exit ;;
   *" cp "*) for a in "$@"; do case $a in claude:*) ;; *.tgz) cp "$a" "$FAKE/copied/";; esac; done; exit 0 ;;
@@ -48,7 +49,7 @@ esac
 SH
 chmod +x "$FAKE/bin/"*
 export PATH="$FAKE/bin:$PATH"
-reset() { rm -f "$FAKE"/log "$FAKE"/{ctx-fail,has-claude,compose-fail,exists,started,asleep,never-wakes,redirect,template-claude}; rm -rf "$FAKE/copied"/*; }
+reset() { rm -f "$FAKE"/log "$FAKE"/{ctx-fail,has-claude,compose-fail,exists,started,asleep,never-wakes,redirect,template-claude,ghcr-cache}; rm -rf "$FAKE/copied"/*; }
 
 # The project (as in tests/teleport-lib.sh), tied to p9m-shop, with a conversation
 proj=$tmp/shop; mkdir -p "$proj/b c" "$proj/config" "$proj/node_modules"
@@ -115,8 +116,26 @@ mkdir -p "$tmp/unpacked" && tar -xzf "$FAKE"/copied/stage.tgz -C "$tmp/unpacked"
 has "$listing" "stage/session.jsonl" "run: the conversation"
 eq "run: the resume line comes last" "$(tail -n 1 <<<"$out")" $'resume\tabc\t/home/agent/workspace/shop'
 
+# The claude image through Purgatorium's ghcr.io cache when the sandbox has it, tagged as compose names it
+reset; touch "$FAKE/ghcr-cache"
+tp --run >/dev/null
+log=$(cat "$FAKE/log")
+pl=$(grep -n '|pull|-q|registry-cache:5001/csakaszamok/p9m-claude-code-minimal:latest|' <<<"$log" | head -1 | cut -d: -f1)
+tg=$(grep -n '|tag|registry-cache:5001/csakaszamok/p9m-claude-code-minimal:latest|ghcr.io/csakaszamok/p9m-claude-code-minimal:latest|' <<<"$log" | head -1 | cut -d: -f1)
+up=$(grep -n 'compose|-p|claude|' <<<"$log" | head -1 | cut -d: -f1)
+[ -n "$pl" ] && [ -n "$tg" ] && [ -n "$up" ] && [ "$pl" -lt "$tg" ] && [ "$tg" -lt "$up" ] && pass "run: the image from the ghcr.io cache, tagged, before compose up" || fail "cache pull: $log"
+reset; touch "$FAKE/ghcr-cache"
+tp --run --ecc >/dev/null
+grep -q '|pull|-q|registry-cache:5001/csakaszamok/p9m-claude-code-ecc:latest|' "$FAKE/log" && pass "run --ecc: the ECC image from the cache" || fail "ecc cache pull"
+# No cache (an older server or sandbox): nothing tagged, compose pulls from ghcr.io as before
+reset
+tp --run >/dev/null
+grep -q '|tag|' "$FAKE/log" && fail "nothing may be tagged without the cache" || pass "run: no cache, no tag"
+grep -q 'compose|-p|claude|' "$FAKE/log" && pass "run: no cache, compose up still" || fail "compose up without cache"
+
 reset; touch "$FAKE/has-claude"
 tp --run >/dev/null
+grep -q '|pull|' "$FAKE/log" && fail "an existing claude container needs no pull" || pass "run: an existing claude container, no pull"
 grep -q 'compose|-p|claude|' "$FAKE/log" && fail "a claude container there already must not be deployed again" || pass "run: an existing claude container is reused"
 
 reset; touch "$FAKE/has-claude" "$FAKE/exists"

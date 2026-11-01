@@ -117,6 +117,11 @@ fi
 if [ "$exists" = yes ] && [ -z "$replace" ]; then printf 'exists\t/home/agent/workspace/%s\n' "$project"; exit 3; fi
 
 if [ -z "$has_claude" ]; then
+  # From Purgatorium's ghcr.io cache when the sandbox has it (registry-cache:5001): the image comes from the server,
+  # not from the internet, for every participant after the first. An older server or sandbox has none: compose then
+  # pulls from ghcr.io itself, as before
+  cached=registry-cache:5001/${image#ghcr.io/}
+  if dk pull -q "$cached" >/dev/null 2>&1; then dk tag "$cached" "$image" >/dev/null 2>&1 || true; fi
   out=$(TELEPORT_IMAGE=$image dk compose -p claude -f "$(hostpath "$here/teleport-compose.yaml")" up -d 2>&1) \
     || err "the claude container did not start: $(printf '%s\n' "$out" | tail -n 1)"
   secrets_volume=yes

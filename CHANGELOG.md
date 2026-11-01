@@ -4,6 +4,10 @@ All notable changes are listed here. Versions follow [semantic versioning](https
 
 ## [Unreleased]
 
+### Changed
+
+- **`/p9m:teleport`'s claude image comes from Purgatorium, not from the internet:** a second registry cache (`registry-cache-ghcr`) keeps the ghcr.io images, which the sandboxes reach as `registry-cache:5001` (dockerd uses a mirror only for Docker Hub, so the teleport script pulls the image by that name and tags it). The first teleport downloads the claude image (about 270 MB) once; every other participant's comes from the server: in a test the teleport step went from 27 s to 18 s. Sandboxes made before this version, or an older server, pull from ghcr.io as before. `REGISTRY_CACHE_TTL` applies to both caches.
+
 ## [0.18.7] - 2026-11-01
 
 Upgrading from 0.18.6: `docker compose pull && docker compose up -d`; `claude plugin update p9m@p9m` gets the plugin's fix (then restart Claude Code).

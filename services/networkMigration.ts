@@ -23,7 +23,7 @@ type Compose = { services?: Record<string, Service | undefined> }
 
 /** socat's relays (runtimes/*.yaml): frps's vhost and API for Traefik and Purgatorium, Purgatorium's services for the sandbox */
 const socatCommand = (name: string) =>
-  `-c "trap 'exit 0' TERM; for r in 8080:${name}-frps:${FRPS_PORTS.vhost} 7500:${name}-frps:${FRPS_PORTS.api} 5000:p9m-registry-cache:5000 80:traefik:80 443:traefik:443; do socat TCP-LISTEN:$\${r%%:*},fork,reuseaddr TCP:$\${r#*:} & done; wait"`
+  `-c "trap 'exit 0' TERM; for r in 8080:${name}-frps:${FRPS_PORTS.vhost} 7500:${name}-frps:${FRPS_PORTS.api} 5000:p9m-registry-cache:5000 5001:p9m-registry-cache-ghcr:5000 80:traefik:80 443:traefik:443; do socat TCP-LISTEN:$\${r%%:*},fork,reuseaddr TCP:$\${r#*:} & done; wait"`
 
 const onTraefikNet = (networks: unknown): boolean =>
   Array.isArray(networks) ? networks.includes('traefik-net') : !!networks && typeof networks === 'object' && 'traefik-net' in networks

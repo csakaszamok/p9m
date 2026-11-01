@@ -120,7 +120,9 @@ describe('the Claude Code plugin', () => {
     }
   })
 
-  it('a script a skill runs directly is executable in git (Linux and macOS installs keep the mode)', () => {
+  // Only in a git checkout (a release's source tarball has no index to ask)
+  const inGit = (() => { try { return execFileSync('git', ['rev-parse', '--show-toplevel'], { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim() === root } catch { return false } })()
+  it.skipIf(!inGit)('a script a skill runs directly is executable in git (Linux and macOS installs keep the mode)', () => {
     const skills = files(path.join(pluginDir, 'skills')).filter(f => f.endsWith('SKILL.md')).map(f => fs.readFileSync(f, 'utf8')).join('\n')
     const direct = [...skills.matchAll(/^\s*"\$\{CLAUDE_PLUGIN_ROOT\}\/(scripts\/[^"]+)"/gm)].map(m => m[1])
     expect(direct.length).toBeGreaterThan(0)
