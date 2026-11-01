@@ -3,7 +3,7 @@ import { describe, it, expect, vi } from 'vitest'
 vi.stubEnv('SESSION_SECRET', 'test-secret')
 vi.stubEnv('PUBLIC_URL', 'http://p9m.lvh.me')
 
-import { createSession, readSession, signValue, verifyValue, getCookie, cookieHeader, publicUrl, SESSION_MAX_AGE, idleTimeout, idleLeft, touchedSessionCookie } from '../../services/session'
+import { createSession, readSession, signValue, verifyValue, getCookie, cookieHeader, publicUrl, SESSION_MAX_AGE, idleTimeout, idleLeft, touchedSessionCookie, setsSessionCookie } from '../../services/session'
 
 describe('signed out for doing nothing (SESSION_IDLE_TIMEOUT)', () => {
   const now = Date.UTC(2026, 9, 26, 12)
@@ -103,5 +103,15 @@ describe('__Host- cookies over https: a sibling app cannot plant one', () => {
       expect(getCookie(req('p9m_session=planted'), 'p9m_session')).toBeUndefined()
       expect(getCookie(req('p9m_oidc=planted'), 'p9m_oidc')).toBeUndefined()
     } finally { vi.stubEnv('PUBLIC_URL', 'http://p9m.lvh.me') }
+  })
+  it('a page that signs in sets the session itself: it is not renewed after (the old one would win)', () => {
+    vi.stubEnv('PUBLIC_URL', 'https://p9m.example.com')
+    try {
+      expect(setsSessionCookie([cookieHeader('p9m_session', 'new', 60)])).toBe(true)
+      expect(setsSessionCookie(['p9m_session=new; Path=/'])).toBe(false)
+      expect(setsSessionCookie([cookieHeader('p9m_oidc', '', 0)])).toBe(false)
+    } finally { vi.stubEnv('PUBLIC_URL', 'http://p9m.lvh.me') }
+    expect(setsSessionCookie([cookieHeader('p9m_session', 'new', 60)])).toBe(true)
+    expect(setsSessionCookie([])).toBe(false)
   })
 })
