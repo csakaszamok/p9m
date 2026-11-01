@@ -4,6 +4,10 @@ All notable changes are listed here. Versions follow [semantic versioning](https
 
 ## [Unreleased]
 
+### Changed
+
+- **The load tests sign in the way people do:** since users work from Claude Code with a token, the tests' signed browser sessions reached no API (401). `tests/load/burst.mjs` (it replaces `workshop.mjs`) has many people sign in for the first time at once: `/device/code`, approval in the browser (the sandbox is made), `/device/token`, the project folder, apps deployed through the sandbox's dockerd, then the apps, sleep and wake. `tests/load/soak.mjs` makes its sandboxes the same way; `soak.sh` needs `first-sign-in.mjs` next to it (it downloads both otherwise, from `main` by default).
+
 ## [0.18.4] - 2026-11-01
 
 Upgrading from 0.18.3: `docker compose pull && docker compose up -d`. Over https everyone is signed out once (the sign-in cookies are renamed); the process limit applies to sandboxes made from now on.
