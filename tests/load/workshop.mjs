@@ -43,7 +43,7 @@ async function user(i) {
   const n = String(i + 1).padStart(2, '0')
   const sub = `load${n}@${USER_DOMAIN}`
   const name = `ld${RUN}${n}`
-  const cookie = `p9m_session=${session(sub)}`
+  const cookie = `${P9M_URL.startsWith('https:') ? '__Host-' : ''}p9m_session=${session(sub)}`
   const api = (path, init = {}) => fetch(`${P9M_URL}${path}`, { ...init, redirect: 'manual', headers: { cookie, origin: P9M_URL, 'content-type': 'application/json', ...(init.headers ?? {}) } })
   const pub = `https://${name}-web.${DOMAIN}`, own = `https://${name}-own.${DOMAIN}`
   const state = { name, own, created: false }

@@ -8,7 +8,7 @@ const { createSession } = await import('../../../services/session')
 const { guiSession } = await import('../../../services/ui/headlessPage')
 
 const at = (host: string, path: string, role?: 'user' | 'admin') =>
-  guiSession(new Request(`http://localhost${path}`, { headers: { host, ...(role ? { cookie: `p9m_session=${createSession(role === 'admin' ? 'admin' : 'bob@example.com', role)}` } : {}) } }))
+  guiSession(new Request(`http://localhost${path}`, { headers: { host, ...(role ? { cookie: `__Host-p9m_session=${createSession(role === 'admin' ? 'admin' : 'bob@example.com', role)}` } : {}) } }))
 const location = (r: unknown) => r instanceof Response ? r.headers.get('location') : null
 
 afterEach(() => vi.stubEnv('USER_HOST', 'off'))

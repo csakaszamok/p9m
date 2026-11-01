@@ -20,13 +20,23 @@ describe('hub session', () => {
   })
   it('is a Secure, host-only cookie on an https Hub', () => {
     const h = hubCookieHeader(HUB_COOKIE, 'v', 60)
-    expect(h).toContain('p9m_hub=v; Path=/; HttpOnly; SameSite=Lax; Max-Age=60; Secure')
+    expect(h).toContain('__Host-p9m_hub=v; Path=/; HttpOnly; SameSite=Lax; Max-Age=60; Secure')
     expect(h).not.toContain('Domain=')
   })
   it('hubViewer re-checks the lists', () => {
-    expect(hubViewer(req(`p9m_hub=${createHubSession('peter@example.com', null)}`))?.sub).toBe('peter@example.com')
-    expect(hubViewer(req(`p9m_hub=${createHubSession('admin', null)}`))?.sub).toBe('admin')
-    expect(hubViewer(req(`p9m_hub=${createHubSession('eve@other.org', null)}`))).toBeNull()
+    expect(hubViewer(req(`__Host-p9m_hub=${createHubSession('peter@example.com', null)}`))?.sub).toBe('peter@example.com')
+    expect(hubViewer(req(`__Host-p9m_hub=${createHubSession('admin', null)}`))?.sub).toBe('admin')
+    expect(hubViewer(req(`__Host-p9m_hub=${createHubSession('eve@other.org', null)}`))).toBeNull()
     expect(hubViewer(req())).toBeNull()
+  })
+})
+
+describe('the Hub cookies are __Host- over https: a sandbox app (a sibling host) cannot plant one', () => {
+  it('written and read as __Host-; a planted plain p9m_hub is ignored', () => {
+    expect(hubCookieHeader(HUB_COOKIE, 'v', 60)).toMatch(/^__Host-p9m_hub=v; Path=\/; .*Secure$/)
+    expect(hubCookieHeader('p9m_hub_oidc', 'v', 60)).toMatch(/^__Host-p9m_hub_oidc=v;/)
+    const value = createHubSession('anna@example.com', 'Anna')
+    expect(hubViewer(new Request('https://hub.example.com/', { headers: { cookie: `p9m_hub=${value}` } }))).toBeNull()
+    expect(hubViewer(new Request('https://hub.example.com/', { headers: { cookie: `__Host-p9m_hub=${value}` } }))?.sub).toBe('anna@example.com')
   })
 })

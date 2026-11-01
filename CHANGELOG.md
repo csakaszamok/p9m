@@ -4,6 +4,10 @@ All notable changes are listed here. Versions follow [semantic versioning](https
 
 ## [Unreleased]
 
+### Security
+
+- **A sandbox app could sign a visitor in as someone else:** apps are siblings of Purgatorium's address, and one could set a `p9m_session` (or `p9m_oidc`, `p9m_next`) cookie for the whole parent domain, which Purgatorium then read. A participant's app could so make another participant approve their `/p9m:init` as the attacker: the victim's Claude Code got a token for the attacker's sandbox and deployed the project, with its secrets, there. Over https these cookies (and the Hub's) are now `__Host-` cookies, which a browser takes only from Purgatorium's own address; a planted plain one is ignored. Upgrading signs everyone out once. Local http (lvh.me) keeps the plain names.
+
 ## [0.18.3] - 2026-11-01
 
 Upgrading from 0.18.2: `docker compose pull && docker compose up -d`.
