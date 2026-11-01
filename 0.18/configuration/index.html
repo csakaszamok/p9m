@@ -1807,7 +1807,7 @@
 <tr>
 <td><code>REGISTRY_CACHE_TTL</code></td>
 <td><code>720h</code> (30 days)</td>
-<td>How long the sandboxes' Docker Hub cache (<code>registry-cache</code>) keeps an image, counted from its <strong>first</strong> download: pulling it again does not extend it, so an image is downloaded again once its time is up, even in the middle of a workshop. In hours (<code>168h</code> = 7 days); <code>0</code> keeps everything for ever (the cache only grows: watch the disk). Not in hours (e.g. <code>7d</code>): the cache does not start, and the sandboxes pull from Docker Hub directly</td>
+<td>How long the sandboxes' Docker Hub cache (<code>registry-cache</code>) and ghcr.io cache (<code>registry-cache-ghcr</code>) keep an image, counted from its <strong>first</strong> download: pulling it again does not extend it, so an image is downloaded again once its time is up, even in the middle of a workshop. In hours (<code>168h</code> = 7 days); <code>0</code> keeps everything for ever (the cache only grows: watch the disk). Not in hours (e.g. <code>7d</code>): the cache does not start, and the sandboxes pull from Docker Hub directly</td>
 </tr>
 </tbody>
 </table>
