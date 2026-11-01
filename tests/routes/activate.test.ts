@@ -40,7 +40,7 @@ const { createSandboxRequest } = await import('../../services/sandboxCreate')
 const { default: get } = await import('../../routes/activate/GET')
 const { default: post } = await import('../../routes/activate/POST')
 
-const cookie = (sub: string, role: 'user' | 'admin' = 'user') => `p9m_session=${createSession(sub, role)}`
+const cookie = (sub: string, role: 'user' | 'admin' = 'user') => `__Host-p9m_session=${createSession(sub, role)}`
 const page = (code: string | null, c?: string, ip?: string) =>
   get(new Request(`https://p9m.example.com/activate${code === null ? '' : `?code=${encodeURIComponent(code)}`}`, { headers: { ...(c ? { cookie: c } : {}), ...(ip ? { 'x-real-ip': ip } : {}) } }))
 const send = (fields: Record<string, string>, c: string | undefined = cookie('alice@example.com'), origin = 'https://p9m.example.com') =>
@@ -63,8 +63,8 @@ describe('/activate', () => {
     const res = await page('bcdf-ghjk')
     expect(res.status).toBe(303)
     expect(res.headers.get('location')).toBe('/login')
-    const value = res.headers.get('set-cookie')!.split(';')[0].slice('p9m_next='.length)
-    expect(nextAfterSignIn(new Request('https://p9m.example.com/', { headers: { cookie: `p9m_next=${value}` } }))).toBe('/activate?code=bcdf-ghjk')
+    const value = res.headers.get('set-cookie')!.split(';')[0].slice("__Host-p9m_next=".length)
+    expect(nextAfterSignIn(new Request('https://p9m.example.com/', { headers: { cookie: `__Host-p9m_next=${value}` } }))).toBe('/activate?code=bcdf-ghjk')
   })
 
   it('with USER_HOST, on the admin\'s address: to the users\' one, with the code', async () => {
