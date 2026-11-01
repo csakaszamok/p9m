@@ -4,6 +4,14 @@ All notable changes are listed here. Versions follow [semantic versioning](https
 
 ## [Unreleased]
 
+## [0.18.3] - 2026-11-01
+
+Upgrading from 0.18.2: `docker compose pull && docker compose up -d`.
+
+### Fixed
+
+- **Creating a sandbox from the UI broke the list (0.18.2):** a script error (*n.startsWith is not a function*) as soon as Create was clicked: no rows, an empty panel and no stopwatch until the create had finished. A new end-to-end test drives the New sandbox dialog in a real browser on every pull request (`tests/browser.sh`).
+
 ## [0.18.2] - 2026-11-01
 
 Upgrading from 0.18.1: `docker compose pull && docker compose up -d`.
@@ -936,7 +944,8 @@ The first release.
 
 - The project used to be called Leander. Existing `leander-` sandboxes and `ldr_` tokens keep working; see "Upgrading from Leander" in the README.
 
-[Unreleased]: https://github.com/csakaszamok/p9m/compare/v0.18.2...HEAD
+[Unreleased]: https://github.com/csakaszamok/p9m/compare/v0.18.3...HEAD
+[0.18.3]: https://github.com/csakaszamok/p9m/releases/tag/v0.18.3
 [0.18.2]: https://github.com/csakaszamok/p9m/releases/tag/v0.18.2
 [0.18.1]: https://github.com/csakaszamok/p9m/releases/tag/v0.18.1
 [0.18.0]: https://github.com/csakaszamok/p9m/releases/tag/v0.18.0

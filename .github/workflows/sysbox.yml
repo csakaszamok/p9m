@@ -49,6 +49,7 @@ jobs:
           ADMIN_PASSWORD=$(head -c 12 /dev/urandom | od -An -tx1 | tr -d ' \n')
           # The scripts open the hello app without signing in (the default is owner since 0.12.12: a sign-in redirect)
           APPS_ACCESS_DEFAULT=public
+          ADMIN_LOGIN=on
           # The image from this checkout (p9m and p9m-init), not the released one: the release compose file has no build.
           # Its hostname not its ID, as a server had: Purgatorium must find its own container anyway
           COMPOSE_FILE=docker-compose.yml:docker-compose.dev.yml:tests/compose/hostname-not-id.yml
@@ -73,6 +74,9 @@ jobs:
 
       - name: tests/new-sandbox.sh (made as the UI makes it; running in the list and its details, not restarting)
         run: bash tests/new-sandbox.sh
+
+      - name: tests/browser.sh (the New sandbox dialog in a real browser)
+        run: P9M_PASSWORD=$(grep '^ADMIN_PASSWORD=' .env | cut -d= -f2-) bash tests/browser.sh
 
       - name: tests/sablier-wake.sh
         run: bash tests/sablier-wake.sh
