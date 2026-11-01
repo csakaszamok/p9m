@@ -808,3 +808,19 @@ describe("Apps: the admin's links", () => {
     expect(panelOf(P.renderPanel(running, user), 'access')).toContain('href="https://shop-portainer.lvh.me"')
   })
 })
+
+describe('how long the create took', () => {
+  it('Details: Created in, from the server', () => {
+    expect(panelOf(P.renderPanel({ ...running, created_in_ms: 42400 }, ctx), 'settings')).toContain('<td class="k">Created in</td><td>42 s</td>')
+    expect(panelOf(P.renderPanel({ ...running, created_in_ms: 65000 }, ctx), 'settings')).toContain('<td>1 min 5 s</td>')
+    // Made before it was kept: no row
+    expect(panelOf(P.renderPanel(running, ctx), 'settings')).not.toContain('Created in')
+  })
+  it('a stopwatch while it is being created, ticking from when it started', () => {
+    const started = Date.parse('2026-10-04T14:59:48Z')
+    expect(P.stopwatch(started, ctx.now)).toBe(`<span data-since="${started}">0:12</span>`)
+    expect(P.stopwatch(started - 60000, ctx.now)).toContain('>1:12<')
+    expect(P.creatingPanel('p9m-shop', started, ctx)).toContain('Creating… <span data-since=')
+    expect(P.elapsed(started, ctx.now)).toBe('0:12')
+  })
+})

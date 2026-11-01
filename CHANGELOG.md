@@ -4,6 +4,14 @@ All notable changes are listed here. Versions follow [semantic versioning](https
 
 ## [Unreleased]
 
+## [0.18.2] - 2026-11-01
+
+Upgrading from 0.18.1: `docker compose pull && docker compose up -d`.
+
+### Added
+
+- **How long a create takes:** while a sandbox is being created from the UI, its row and its panel show a stopwatch (*creating… 0:12*); its Details then say *Created in 42 s*, for every sandbox made from now on however it was made (the UI, the API, `/p9m:init`), also in `GET /sandboxes/{name}` as `created_in_ms`. The same time as the log's `[create] … ready in` line.
+
 ## [0.18.1] - 2026-10-31
 
 Upgrading from 0.18.0: `docker compose pull && docker compose up -d`. A server still on an older release's `docker-compose.yml` should take this release's first (`curl -fsSL -o docker-compose.yml https://github.com/csakaszamok/p9m/releases/latest/download/docker-compose.yml`). A `HOST_SANDBOXES_DIR` set by hand to get around the bug below can stay.
@@ -928,7 +936,8 @@ The first release.
 
 - The project used to be called Leander. Existing `leander-` sandboxes and `ldr_` tokens keep working; see "Upgrading from Leander" in the README.
 
-[Unreleased]: https://github.com/csakaszamok/p9m/compare/v0.18.1...HEAD
+[Unreleased]: https://github.com/csakaszamok/p9m/compare/v0.18.2...HEAD
+[0.18.2]: https://github.com/csakaszamok/p9m/releases/tag/v0.18.2
 [0.18.1]: https://github.com/csakaszamok/p9m/releases/tag/v0.18.1
 [0.18.0]: https://github.com/csakaszamok/p9m/releases/tag/v0.18.0
 [0.17.0]: https://github.com/csakaszamok/p9m/releases/tag/v0.17.0

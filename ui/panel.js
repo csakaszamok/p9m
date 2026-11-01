@@ -29,6 +29,19 @@
     return words.every(w => hay.includes(w))
   }
   const countdown = (iso, now) => `<span data-until="${esc(iso)}">${esc(remaining(iso, now))}</span>`
+  // Since a time (ms), as m:ss: a create's stopwatch, ticked by ui/app.js (data-since)
+  function elapsed(since, now) {
+    const sec = Math.max(0, Math.floor(((now ?? Date.now()) - since) / 1000))
+    return `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`
+  }
+  const stopwatch = (since, now) => `<span data-since="${Number(since)}">${elapsed(since, now)}</span>`
+  /** The panel of a sandbox being created from this page: a stopwatch from when it was asked for. */
+  const creatingPanel = (name, since, ctx) => `<h2>${esc(ctx.shortName(name))}</h2><p class="muted">Creating… ${stopwatch(since, ctx.now)}</p>`
+  // How long a create took: 42 s, 1 min 5 s
+  function duration(ms) {
+    const sec = Math.round(ms / 1000)
+    return sec < 60 ? `${sec} s` : `${Math.floor(sec / 60)} min${sec % 60 ? ` ${sec % 60} s` : ''}`
+  }
 
   const GB = 1024 ** 3
   const fmtBytes = b => b >= GB ? `${(b / GB).toFixed(1).replace(/\.0$/, '')} GB` : `${Math.round(b / 1024 ** 2)} MB`
@@ -279,6 +292,7 @@
       ...(ctx.isAdmin && !ctx.simple ? [kv('Owner', esc(s.owner === 'admin' ? 'admin API' : s.owner))] : []),
       ...(ctx.simple ? [] : [kv('Runtime · Template', `${esc([s.runtime, s.template].filter(Boolean).join(' · ') || '—')}${s.compose === 'edited' ? ' <span class="muted">(edited)</span>' : ''}`)]),
       kv('Created', when),
+      ...(Number.isFinite(s.created_in_ms) ? [kv('Created in', duration(s.created_in_ms))] : []),
       // When it last ran (~ when only estimated), the exact time on hover
       kv('Last ran', s.status === 'running' ? 'now (running)'
         : s.last_running_at ? `<span title="${esc(new Date(s.last_running_at).toLocaleString())}">${s.last_running_estimated ? '~' : ''}${esc(ago(s.last_running_at, ctx.now))}</span>`
@@ -540,7 +554,7 @@
     return `/p9m:init ${u} ${sandboxShort}`
   }
 
-  const api = { usersTable, matchesFilter, loadingPanel, initCommand, filesView, volumesView, quotaLine, placesBadge, overviewHtml, countsOf, esc, TABS, statusLabel, statusClass, remaining, countdown, fmtBytes, meter, portainerShown, parseCreated, relativeAge, appRows, resourcesTable, mountsSection, registryTable, containersTable, renderPanel, STALE_APPS, STARTING_APPS }
+  const api = { usersTable, matchesFilter, loadingPanel, initCommand, filesView, volumesView, quotaLine, placesBadge, overviewHtml, countsOf, esc, TABS, statusLabel, statusClass, remaining, countdown, elapsed, stopwatch, creatingPanel, fmtBytes, meter, portainerShown, parseCreated, relativeAge, appRows, resourcesTable, mountsSection, registryTable, containersTable, renderPanel, STALE_APPS, STARTING_APPS }
   if (typeof module !== 'undefined' && module.exports) module.exports = api
   else root.P9mPanel = api
 })(typeof window !== 'undefined' ? window : globalThis)

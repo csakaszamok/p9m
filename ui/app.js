@@ -62,12 +62,14 @@ function deepSleepCell(s) {
 // Update countdown text in place every second (no panel re-render).
 setInterval(() => {
   for (const el of document.querySelectorAll('[data-until]')) el.textContent = remaining(el.dataset.until)
+  for (const el of document.querySelectorAll('[data-since]')) el.textContent = P9mPanel.elapsed(Number(el.dataset.since))
 }, 1000)
 
 // ---------- sandboxes ----------
 let sandboxes = []
 let selected = null
-const pending = new Set()
+// Being created from this page: name → when it was asked for (ms), for its stopwatch
+const pending = new Map()
 let renderedName = null, renderedJSON = null
 
 function filtered() {
@@ -90,14 +92,14 @@ function renderRows() {
   $('[data-head]').innerHTML = `<tr>${cols.map(c => `<th${ADV_COLS.includes(c) ? ' class="adv"' : ''}>${c}</th>`).join('')}</tr>`
   const rows = [...filtered()]
   const filtering = !!($('[data-filter-text]')?.value.trim() || $('[data-filter-status]')?.value)
-  for (const name of pending) if (!rows.some(s => s.name === name)) rows.unshift({ name, status: 'starting', runtime: '', template: '', created_at: '' })
+  for (const name of pending) if (!rows.some(s => s.name === name)) rows.unshift({ name, status: 'creating', runtime: '', template: '', created_at: '' })
   $('[data-rows]').innerHTML = rows.length ? rows.map(s => `
     <tr data-name="${esc(s.name)}" class="${s.name === selected ? 'selected' : ''}">
       <td><strong>${esc(shortName(s.name))}</strong></td>
       ${view === 'all' ? `<td>${esc(s.owner === 'admin' ? 'admin API' : s.owner)}</td>` : ''}
       <td>${busy.has(s.name)
         ? `<span class="status starting">${esc(ACTIONS[busy.get(s.name)].row)}</span>`
-        : `<span class="status ${esc(statusClass(s))}">${esc(s.start_error ? 'failed to start' : statusLabel(s.status))}</span>`}${s.apps_stale ? (s.starting ? ` <span class="muted" title="${esc(P9mPanel.STARTING_APPS)}">⏳</span><span class="sr-only">${esc(P9mPanel.STARTING_APPS)}</span>`
+        : `<span class="status ${esc(statusClass(s))}">${esc(s.start_error ? 'failed to start' : statusLabel(s.status))}</span>${pending.has(s.name) ? ` ${P9mPanel.stopwatch(pending.get(s.name))}` : ''}`}${s.apps_stale ? (s.starting ? ` <span class="muted" title="${esc(P9mPanel.STARTING_APPS)}">⏳</span><span class="sr-only">${esc(P9mPanel.STARTING_APPS)}</span>`
           : ` <span class="warn" title="${esc(P9mPanel.STALE_APPS)}">⚠</span><span class="sr-only">${esc(P9mPanel.STALE_APPS)}</span>`) : ''}</td>
       <td>${sleepCell(s)}</td>
       <td class="adv">${deepSleepCell(s)}</td>
@@ -167,7 +169,8 @@ function initHubFeed() {
 async function loadList() {
   try {
     sandboxes = (await api('/sandboxes')).map(onLocalClock)
-    for (const s of sandboxes) pending.delete(s.name)
+    // Listed while still being created (creating): its stopwatch runs on until the create answers
+    for (const s of sandboxes) if (s.status !== 'creating') pending.delete(s.name)
     renderRows()
     loadQuota()
   } catch (e) { if (e.message !== 'signed out') console.error(e) }
@@ -481,7 +484,7 @@ async function showPanel(name) {
   selected = name
   renderRows()
   const panel = $('[data-panel]')
-  if (pending.has(name)) { panel.innerHTML = `<h2>${esc(shortName(name))}</h2><p class="muted">Creating… usually 10–30 s.</p>`; renderedName = name; renderedJSON = null; return }
+  if (pending.has(name)) { panel.innerHTML = P9mPanel.creatingPanel(name, pending.get(name), { shortName }); renderedName = name; renderedJSON = null; return }
   // Another sandbox than the one shown: its name and status at once, never the previous one's details while its load
   if (renderedName !== name) {
     panel.innerHTML = P9mPanel.loadingPanel(sandboxes.find(s => s.name === name) ?? { name, status: '' }, { shortName })
@@ -861,7 +864,7 @@ async function submitNew(ev) {
   // must not lose what is being typed. A failed create puts the submitted values back.
   const draft = { values: data, inner: form.create_inner_stack.checked }
   form.reset()
-  pending.add(full)
+  pending.set(full, Date.now())
   $('[data-new-dialog]').close()
   renderRows()
   showPanel(full)
