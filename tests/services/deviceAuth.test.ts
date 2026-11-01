@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import { startDevice, normalizeUserCode, deviceByUserCode, claimDevice, releaseDevice, approveDevice, denyDevice, redeemDevice, _resetDevices, DEVICE_TTL_MS, DEVICE_MAX_PENDING, DEVICE_MAX_TRIES } from '../../services/deviceAuth'
+import { startDevice, normalizeUserCode, deviceByUserCode, claimDevice, releaseDevice, approveDevice, denyDevice, redeemDevice, _resetDevices, DEVICE_TTL_MS, DEVICE_MAX_PENDING, DEVICE_MAX_PER_ADDRESS, DEVICE_MAX_TRIES } from '../../services/deviceAuth'
 
 const T = 1_000_000
 const grant = { sandbox: 'p9m-shop', owner: 'alice' }
@@ -86,8 +86,28 @@ describe('device codes', () => {
   })
 
   it('caps the pending ones, but not the expired', () => {
-    for (let i = 0; i < DEVICE_MAX_PENDING; i++) startDevice({}, T)
-    expect(() => startDevice({}, T + 1)).toThrow('too many pending')
-    expect(() => startDevice({}, T + DEVICE_TTL_MS)).not.toThrow()
+    for (let i = 0; i < DEVICE_MAX_PENDING; i++) startDevice({ ip: `10.${i >> 16}.${(i >> 8) & 255}.${i & 255}` }, T)
+    expect(() => startDevice({ ip: '11.0.0.1' }, T + 1)).toThrow('too many pending')
+    expect(() => startDevice({ ip: '11.0.0.1' }, T + DEVICE_TTL_MS)).not.toThrow()
+  })
+
+  // /device/code needs no sign-in: a loop of requests must not stop /p9m:init for everyone else (a workshop)
+  it("room for a workshop: the global cap is far above one address's", () => {
+    expect(DEVICE_MAX_PENDING).toBeGreaterThanOrEqual(10_000)
+    expect(DEVICE_MAX_PER_ADDRESS).toBeLessThanOrEqual(DEVICE_MAX_PENDING / 10)
+  })
+  it("one address flooding: never refused, its own oldest pending codes go, never another address's", () => {
+    const other = startDevice({ ip: '203.0.113.9' }, T)
+    const first = startDevice({ ip: '198.51.100.1' }, T)
+    for (let i = 0; i < DEVICE_MAX_PER_ADDRESS + 50; i++) expect(() => startDevice({ ip: '198.51.100.1' }, T + 1)).not.toThrow()
+    expect(deviceByUserCode(first.user_code, T + 2)).toBeNull()
+    expect(deviceByUserCode(other.user_code, T + 2)?.status).toBe('pending')
+  })
+  it('an approved code of the flooding address stays: only pending ones are pushed out', () => {
+    const mine = startDevice({ ip: '198.51.100.1' }, T)
+    claimDevice(mine.user_code, T)
+    approveDevice(mine.user_code, { sandbox: 'p9m-a', owner: 'a@x' }, T)
+    for (let i = 0; i < DEVICE_MAX_PER_ADDRESS + 5; i++) startDevice({ ip: '198.51.100.1' }, T + 1)
+    expect(deviceByUserCode(mine.user_code, T + 2)?.status).toBe('approved')
   })
 })

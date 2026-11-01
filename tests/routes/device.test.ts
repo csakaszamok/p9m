@@ -56,7 +56,7 @@ describe('POST /device/code', () => {
   })
 
   it('at the cap: 503', async () => {
-    for (let i = 0; i < DEVICE_MAX_PENDING; i++) startDevice()
+    for (let i = 0; i < DEVICE_MAX_PENDING; i++) startDevice({ ip: `10.${i >> 16}.${(i >> 8) & 255}.${i & 255}` })
     const res = await ask()
     expect(res.status).toBe(503)
     expect(res.headers.get('cache-control')).toBe('no-store')
