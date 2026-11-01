@@ -113,3 +113,9 @@ export function cookieHeader(name: string, value: string, maxAgeSec: number): st
   const secure = publicUrl().startsWith('https://') ? '; Secure' : ''
   return `${cookieName(name)}=${value}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAgeSec}${secure}`
 }
+
+/** Whether these Set-Cookie headers set the session (its name over https is __Host-): a sign-in or sign-out, not to be renewed after */
+export function setsSessionCookie(setCookies: string[]): boolean {
+  const prefix = `${cookieName(SESSION_COOKIE)}=`
+  return setCookies.some(c => c.startsWith(prefix))
+}

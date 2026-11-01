@@ -4,6 +4,19 @@ All notable changes are listed here. Versions follow [semantic versioning](https
 
 ## [Unreleased]
 
+## [0.18.5] - 2026-11-01
+
+Upgrading from 0.18.4: `docker compose pull && docker compose up -d`.
+
+### Changed
+
+- **The load tests sign in the way people do:** since users work from Claude Code with a token, the tests' signed browser sessions reached no API (401). `tests/load/burst.mjs` (it replaces `workshop.mjs`) has many people sign in for the first time at once: `/device/code`, approval in the browser (the sandbox is made), `/device/token`, the project folder, apps deployed through the sandbox's dockerd, then the apps, sleep and wake. `tests/load/soak.mjs` makes its sandboxes the same way; `soak.sh` needs `first-sign-in.mjs` next to it (it downloads both otherwise, from `main` by default).
+- **An end-to-end test of the Claude Code plugin:** `tests/claude-code/plugin-e2e.mjs` runs a headless Claude Code with `plugins/p9m` in a new project folder: `/p9m:init` (the test approves the code in the browser's place), then *deploy this app, public*; it checks that `.p9m` holds the sandbox's token, that the app answers at its address with its own page, and that the token is in nothing Claude Code printed or read.
+
+### Fixed
+
+- **Signing in with OIDC while signed in as someone else kept the old account (https, 0.18.4):** opening a page renews the session cookie unless the page sets one itself, and that check still looked for the plain `p9m_session` name. Over https the sign-in's new `__Host-p9m_session` was followed by the old session renewed, which the browser kept. Now a page that sets the session is never followed by a renewed one.
+
 ## [0.18.4] - 2026-11-01
 
 Upgrading from 0.18.3: `docker compose pull && docker compose up -d`. Over https everyone is signed out once (the sign-in cookies are renamed); the process limit applies to sandboxes made from now on.
@@ -959,7 +972,8 @@ The first release.
 
 - The project used to be called Leander. Existing `leander-` sandboxes and `ldr_` tokens keep working; see "Upgrading from Leander" in the README.
 
-[Unreleased]: https://github.com/csakaszamok/p9m/compare/v0.18.4...HEAD
+[Unreleased]: https://github.com/csakaszamok/p9m/compare/v0.18.5...HEAD
+[0.18.5]: https://github.com/csakaszamok/p9m/releases/tag/v0.18.5
 [0.18.4]: https://github.com/csakaszamok/p9m/releases/tag/v0.18.4
 [0.18.3]: https://github.com/csakaszamok/p9m/releases/tag/v0.18.3
 [0.18.2]: https://github.com/csakaszamok/p9m/releases/tag/v0.18.2

@@ -6,8 +6,8 @@
 #   sh soak.sh [USERS] [SANDBOXES] [MINUTES]        e.g. sh soak.sh 10 3 30
 #
 # The other settings as environment variables (see soak.mjs): RATE, SLEEP_EVERY, CPUS, MEMORY, USER_DOMAIN,
-# MAX_ERRORS, KEEP, INSECURE, P9M_URL. soak.mjs is taken from next to this script, else downloaded (SOAK_REF:
-# the branch or tag, release/0.12).
+# MAX_ERRORS, KEEP, INSECURE, P9M_URL, TEMPLATE. soak.mjs and first-sign-in.mjs are taken from next to this script,
+# else downloaded (SOAK_REF: the branch or tag, main).
 set -eu
 USERS=${1:-${USERS:-10}}
 SANDBOXES=${2:-${SANDBOXES:-2}}
@@ -24,11 +24,13 @@ export SESSION_SECRET P9M_URL
 USER_DOMAIN=${USER_DOMAIN:-$(env_value OIDC_ALLOWED_DOMAINS | cut -d, -f1 | tr -d ' ')}
 [ -n "$USER_DOMAIN" ] && export USER_DOMAIN || unset USER_DOMAIN
 
-script=$(dirname "$0")/soak.mjs
-if [ ! -f "$script" ]; then
-  script=$(mktemp)
-  trap 'rm -f "$script"' EXIT
-  curl -fsSL "https://raw.githubusercontent.com/csakaszamok/p9m/${SOAK_REF:-release/0.12}/tests/load/soak.mjs" -o "$script"
+dir=$(cd "$(dirname "$0")" && pwd)
+if [ ! -f "$dir/soak.mjs" ] || [ ! -f "$dir/first-sign-in.mjs" ]; then
+  dir=$(mktemp -d)
+  trap 'rm -rf "$dir"' EXIT
+  for f in soak.mjs first-sign-in.mjs; do
+    curl -fsSL "https://raw.githubusercontent.com/csakaszamok/p9m/${SOAK_REF:-main}/tests/load/$f" -o "$dir/$f"
+  done
 fi
 
 # Where the images came from: the sandboxes pull Docker Hub images through Purgatorium's registry-cache, so a second
@@ -56,10 +58,10 @@ images_before=$(host_images)
 tty=""; [ -t 0 ] && tty="-t"
 trap ':' INT # Ctrl+C is the test's: this script still reports the images after it
 status=0
-docker run --rm -i $tty --network host --init -v "$(cd "$(dirname "$script")" && pwd)/$(basename "$script"):/soak.mjs:ro" \
+docker run --rm -i $tty --network host --init -v "$dir:/load:ro" \
   -e SESSION_SECRET -e P9M_URL -e USERS -e SANDBOXES -e MINUTES \
-  -e RATE -e SLEEP_EVERY -e CPUS -e MEMORY -e USER_DOMAIN -e MAX_ERRORS -e KEEP -e INSECURE \
-  node:22.23.4-alpine node /soak.mjs || status=$?
+  -e RATE -e SLEEP_EVERY -e CPUS -e MEMORY -e USER_DOMAIN -e MAX_ERRORS -e KEEP -e INSECURE -e TEMPLATE \
+  node:22.23.4-alpine node /load/soak.mjs || status=$?
 
 echo
 if [ -n "$cache" ]; then

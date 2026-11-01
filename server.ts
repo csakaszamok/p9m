@@ -25,7 +25,7 @@ import { writeWebResponse, readBody } from "./services/http";
 import { bodyLimit } from "./services/bodyLimit";
 import { attachTerminals } from "./services/terminalServer";
 import { CLIENT_IP_HEADER, clientAddress } from "./services/loginGuard";
-import { getCookie, SESSION_COOKIE, touchedSessionCookie } from "./services/session";
+import { getCookie, SESSION_COOKIE, setsSessionCookie, touchedSessionCookie } from "./services/session";
 import { startUsageSampler } from "./services/usageSampler";
 import { startDiskSampler } from "./services/diskUsage";
 import { repoInfo, p9mVersion } from "./services/repoInfo";
@@ -287,7 +287,7 @@ async function handle(req: IncomingMessage, res: ServerResponse, internal: boole
       const webReq = await toWebRequest(req);
       const webRes = await (handler as NewHandlerModule).default(webReq);
       // Opening a page is doing something: the session's idle time starts again (background polls are not pages)
-      if (method === "GET" && req.headers["sec-fetch-mode"] === "navigate" && !webRes.headers.getSetCookie().some(c => c.startsWith(`${SESSION_COOKIE}=`))) {
+      if (method === "GET" && req.headers["sec-fetch-mode"] === "navigate" && !setsSessionCookie(webRes.headers.getSetCookie())) {
         const touched = touchedSessionCookie(getCookie(webReq, SESSION_COOKIE));
         // A Response.redirect() has immutable headers: that page is not opened, nothing to renew
         if (touched) try { webRes.headers.append("set-cookie", touched); } catch { /* immutable */ }
