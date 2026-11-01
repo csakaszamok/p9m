@@ -4,6 +4,10 @@ All notable changes are listed here. Versions follow [semantic versioning](https
 
 ## [Unreleased]
 
+### Fixed
+
+- **Signing in with OIDC while signed in as someone else kept the old account (https, 0.18.4):** opening a page renews the session cookie unless the page sets one itself, and that check still looked for the plain `p9m_session` name. Over https the sign-in's new `__Host-p9m_session` was followed by the old session renewed, which the browser kept. Now a page that sets the session is never followed by a renewed one.
+
 ## [0.18.4] - 2026-11-01
 
 Upgrading from 0.18.3: `docker compose pull && docker compose up -d`. Over https everyone is signed out once (the sign-in cookies are renamed); the process limit applies to sandboxes made from now on.
