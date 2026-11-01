@@ -11,6 +11,10 @@ export function createStepTimer(now: () => number = () => performance.now()) {
       steps.push(`${name} ${s(t - last)}${note ? ` (${note})` : ''}`)
       last = t
     },
+    /** From the start to the last step, in ms. */
+    totalMs(): number {
+      return Math.round(last - start)
+    },
     summary(): string {
       return `${s(last - start)}: ${steps.join(', ')}`
     },

@@ -36,6 +36,14 @@ import { listProjectVolumes, exportVolume, removeVolume, stopProjectContainers, 
 const dirOf = (name: string) => sandboxDir(name) ?? `${sandboxParent(name)}/${name}`
 
 /** Removes an owner directory its last sandbox has left. */
+/** How long its create took, from its created-in file (see createSandbox); undefined when not kept. */
+function createdInMs(dir: string): number | undefined {
+  let text: string
+  try { text = fs.readFileSync(`${dir}/created-in`, 'utf8') } catch { return undefined }
+  const ms = Number(String(text).trim())
+  return Number.isSafeInteger(ms) && ms >= 0 ? ms : undefined
+}
+
 function removeEmptyOwnerDir(dir: string): void {
   const parent = path.posix.dirname(dir)
   if (path.posix.dirname(parent) !== sandboxesDir()) return
@@ -54,6 +62,8 @@ export interface SandboxInfo extends SandboxMeta {
   /** Started less than STARTING_MS ago and its apps have not all answered yet: they are on their way */
   starting?: true
   extras: Record<string, string>
+  /** How long its create took (ms), up to its apps answering; none for a sandbox made before 0.18.2 */
+  created_in_ms?: number
 }
 
 export interface CreateSandboxResult {
@@ -360,6 +370,8 @@ export const sandboxService = {
     if (!await primeSablierSession(name, 40, 250).catch(() => false)) openSleepSession(name)
     timer.lap('router')
     console.log(`[create] ${name} ready in ${timer.summary()}`)
+    // For its Details (Created in)
+    fs.writeFileSync(`${dir}/created-in`, `${timer.totalMs()}\n`)
 
     return {
       name,
@@ -415,7 +427,8 @@ export const sandboxService = {
     const extras = fs.existsSync(`${dirOf(name)}/extras.json`)
       ? JSON.parse(fs.readFileSync(`${dirOf(name)}/extras.json`, 'utf8')) as Record<string, string>
       : {}
-    return { ...meta, ...certs, tunnel_urls, ...(view?.stale ? { apps_stale: true as const } : {}), ...(starting ? { starting: true as const } : {}), extras, ...(offline.length ? { app_services: Object.fromEntries(offline.map(e => [e.host, e.service])) } : {}) }
+    const createdIn = createdInMs(dirOf(name))
+    return { ...meta, ...certs, tunnel_urls, ...(view?.stale ? { apps_stale: true as const } : {}), ...(starting ? { starting: true as const } : {}), extras, ...(createdIn !== undefined ? { created_in_ms: createdIn } : {}), ...(offline.length ? { app_services: Object.fromEntries(offline.map(e => [e.host, e.service])) } : {}) }
   },
 
   async refreshStatus(name: string): Promise<SandboxInfo> {

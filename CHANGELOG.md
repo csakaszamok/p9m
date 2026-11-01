@@ -4,6 +4,10 @@ All notable changes are listed here. Versions follow [semantic versioning](https
 
 ## [Unreleased]
 
+### Added
+
+- **How long a create takes:** while a sandbox is being created from the UI, its row and its panel show a stopwatch (*creating… 0:12*); its Details then say *Created in 42 s*, for every sandbox made from now on however it was made (the UI, the API, `/p9m:init`), also in `GET /sandboxes/{name}` as `created_in_ms`. The same time as the log's `[create] … ready in` line.
+
 ## [0.18.1] - 2026-10-31
 
 Upgrading from 0.18.0: `docker compose pull && docker compose up -d`. A server still on an older release's `docker-compose.yml` should take this release's first (`curl -fsSL -o docker-compose.yml https://github.com/csakaszamok/p9m/releases/latest/download/docker-compose.yml`). A `HOST_SANDBOXES_DIR` set by hand to get around the bug below can stay.
