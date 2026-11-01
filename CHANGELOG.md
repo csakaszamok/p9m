@@ -4,6 +4,10 @@ All notable changes are listed here. Versions follow [semantic versioning](https
 
 ## [Unreleased]
 
+### Security
+
+- **Requests without a sign-in could run Purgatorium out of memory:** every request's body was read into memory up to `FILES_MAX_UPLOAD` (100 MB) before any route checked who was asking, so a few dozen parallel ones were enough. Now a body is read up to 2 MB; only a Files upload (`PUT …/files/content`) with a session or a token, checked from its headers before the body is read, gets `FILES_MAX_UPLOAD`. A larger body: 413.
+
 ## [0.18.3] - 2026-11-01
 
 Upgrading from 0.18.2: `docker compose pull && docker compose up -d`.
