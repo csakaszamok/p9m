@@ -4,6 +4,10 @@ All notable changes are listed here. Versions follow [semantic versioning](https
 
 ## [Unreleased]
 
+### Fixed
+
+- **`/p9m:teleport` stopped at its first step on Linux and macOS:** its script was not executable in the repository, so a plugin installed from the marketplace answered *Permission denied* (Claude Code sometimes recovered by running it with `bash`). It is executable now, and a test checks every script a skill runs directly.
+
 ## [0.18.6] - 2026-11-01
 
 Upgrading from 0.18.5: `docker compose pull && docker compose up -d`.
