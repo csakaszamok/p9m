@@ -50,11 +50,6 @@ export function composeDown(composePath: string): Promise<void> {
   return run(`docker compose -f "${composePath}" down`)
 }
 
-/** Takes a sandbox away with its volumes: for one whose create failed, nothing in it yet. */
-export function composeRemove(composePath: string): Promise<void> {
-  return run(`docker compose -f "${composePath}" down -v`)
-}
-
 /** A command run in a sandbox container (docker exec, no TTY): execRun in services/docker. */
 export type SandboxExec = (name: string, cmd: string[]) => Promise<{ code: number; stdout: string; stderr: string }>
 
@@ -91,18 +86,6 @@ async function runInner(name: string, cmd: string[], opts: InnerOpts): Promise<{
     await sleep(500)
   }
   throw new Error("Timed out waiting for the sandbox's Docker to accept docker compose")
-}
-
-/**
- * Why docker compose (in the sandbox) rejects its /inner compose file, or null when it takes it. Warnings (e.g. an
- * unset variable) are not a rejection. At most 20 s: e.g. a remote include it tries to fetch must not hold the create.
- */
-export async function composeConfigInner(name: string, project: string, opts: InnerOpts): Promise<string | null> {
-  const { code, stderr } = await runInner(name, innerComposeCmd(project, ['config', '-q'], 20), opts)
-  if (code === 0) return null
-  if (code === 124 || code === 143) return 'docker compose config took too long'
-  const lines = stderr.split('\n').map(l => l.trim()).filter(l => l && !/level=warning|^WARN/i.test(l))
-  return lines.join(' ').replace(/^validating [^:]*: /, '') || `docker compose config exited with ${code}`
 }
 
 /** compose up of the sandbox's /inner stack, in the sandbox; returns how many tries it took. */

@@ -22,10 +22,10 @@ import { stat, readdir } from "node:fs/promises";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { writeWebResponse, readBody } from "./services/http";
-import { filesMaxUpload } from "./services/sandboxFiles";
+import { bodyLimit } from "./services/bodyLimit";
 import { attachTerminals } from "./services/terminalServer";
 import { CLIENT_IP_HEADER, clientAddress } from "./services/loginGuard";
-import { getCookie, SESSION_COOKIE, touchedSessionCookie } from "./services/session";
+import { getCookie, SESSION_COOKIE, setsSessionCookie, touchedSessionCookie } from "./services/session";
 import { startUsageSampler } from "./services/usageSampler";
 import { startDiskSampler } from "./services/diskUsage";
 import { repoInfo, p9mVersion } from "./services/repoInfo";
@@ -173,14 +173,14 @@ function authorized(req: IncomingMessage): boolean {
 }
 
 // Convert IncomingMessage to Web API Request
-// Read into memory, so capped: the largest upload the Files tab takes, and a little more
+// Read into memory, so capped (services/bodyLimit): 2 MB, the largest Files upload for a signed-in one
 async function toWebRequest(req: IncomingMessage): Promise<Request> {
-  const body = await readBody(req, filesMaxUpload() + 1024 * 1024);
   const url = new URL(req.url ?? "/", `http://localhost`);
   const headers = new Headers();
   for (const [k, v] of Object.entries(req.headers)) {
     if (v) headers.set(k, Array.isArray(v) ? v.join(", ") : v);
   }
+  const body = await readBody(req, bodyLimit(req.method ?? "GET", url.pathname, headers));
   // Who is asking, for the sign-in limits: set here, so a client cannot send its own
   const xff = req.headers["x-forwarded-for"];
   headers.set(CLIENT_IP_HEADER, clientAddress(req.socket.remoteAddress, Array.isArray(xff) ? xff.join(", ") : xff));
@@ -194,7 +194,7 @@ async function toWebRequest(req: IncomingMessage): Promise<Request> {
 /** A body over the cap (readBody): 413, and the connection closed so the rest is not read. */
 function tooLarge(err: unknown, res: ServerResponse): boolean {
   if ((err as { status?: number }).status !== 413 || res.headersSent) return false;
-  res.writeHead(413, { "Content-Type": "application/json", Connection: "close" }).end(JSON.stringify({ error: `Request body too large (over FILES_MAX_UPLOAD)` }));
+  res.writeHead(413, { "Content-Type": "application/json", Connection: "close" }).end(JSON.stringify({ error: `Request body too large` }));
   return true;
 }
 
@@ -287,7 +287,7 @@ async function handle(req: IncomingMessage, res: ServerResponse, internal: boole
       const webReq = await toWebRequest(req);
       const webRes = await (handler as NewHandlerModule).default(webReq);
       // Opening a page is doing something: the session's idle time starts again (background polls are not pages)
-      if (method === "GET" && req.headers["sec-fetch-mode"] === "navigate" && !webRes.headers.getSetCookie().some(c => c.startsWith(`${SESSION_COOKIE}=`))) {
+      if (method === "GET" && req.headers["sec-fetch-mode"] === "navigate" && !setsSessionCookie(webRes.headers.getSetCookie())) {
         const touched = touchedSessionCookie(getCookie(webReq, SESSION_COOKIE));
         // A Response.redirect() has immutable headers: that page is not opened, nothing to renew
         if (touched) try { webRes.headers.append("set-cookie", touched); } catch { /* immutable */ }

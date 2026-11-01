@@ -241,8 +241,8 @@ export const SANDBOX_VIEW_BODY = `
     <small class="muted"><span data-name-hint>lowercase letters, digits, - and _</span> · <button type="button" class="link" data-new-name>another name</button></small>
     <label class="adv">Runtime<select name="runtime" data-runtimes></select></label>
     <label>Template<select name="template" data-templates></select></label>
-    <details class="adv" data-compose-section><summary>Compose <small class="muted">the stack inside the sandbox: edit the template's, or pick <b>empty</b> and paste your own</small></summary>
-      <textarea name="compose" data-compose-editor rows="24" spellcheck="false" autocomplete="off" aria-label="Compose" placeholder="Paste your docker compose file here"></textarea>
+    <details class="adv" data-compose-section><summary>Starter stack <small class="muted">what the template starts inside the sandbox, as it is; add your own apps afterwards</small></summary>
+      <pre class="code" data-compose-view aria-label="Starter stack"></pre>
     </details>
     <details class="adv"><summary>Advanced</summary>
       <label>Sleep after no traffic for<input name="idle_timeout" value="30m" pattern="([1-9][0-9]*(s|m|h|d)|0|off)"></label>

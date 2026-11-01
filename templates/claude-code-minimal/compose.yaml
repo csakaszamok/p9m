@@ -1,0 +1,25 @@
+# Claude Code in the sandbox, slim (ghcr.io/csakaszamok/p9m-claude-code-minimal, images/claude-code-minimal): open the sandbox's terminal in the "claude" container and run `claude`.
+# It drives the sandbox's own Docker (docker compose, ports published on all interfaces get an address).
+# The home directory is a volume: the sign-in and /home/agent/workspace survive a restart and sleep.
+services:
+  claude:
+    image: ghcr.io/csakaszamok/p9m-claude-code-minimal:latest
+    container_name: claude
+    # The image's docker group, to the socket's group (passwordless sudo in the image); then stay up for the terminal
+    entrypoint: ["bash", "-c", "g=$$(stat -c %g /var/run/docker.sock); [ \"$$(getent group docker | cut -d: -f3)\" = \"$$g\" ] || sudo groupmod -o -g \"$$g\" docker; exec sleep infinity"]
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - home:/home/agent
+    restart: unless-stopped
+
+  http-echo:
+    image: hashicorp/http-echo:latest
+    container_name: http-echo
+    command:
+      - "-text=hello ${name}"
+    ports:
+      - "5678:5678"
+    restart: unless-stopped
+
+volumes:
+  home:

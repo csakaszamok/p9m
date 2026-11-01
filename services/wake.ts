@@ -18,6 +18,7 @@ const creating = new Set<string>()
 /** False if it was marked already (another create of the same name, which will fail): that one clears it */
 export function markCreating(name: string): boolean { if (creating.has(name)) return false; creating.add(name); return true }
 export function creatingDone(name: string): void { creating.delete(name) }
+export function isCreating(name: string): boolean { return creating.has(name) }
 
 export function wakeInProgress(name: string): boolean {
   return starting.has(name) || creating.has(name)

@@ -4,7 +4,7 @@
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `POST` | `/sandboxes` | Create a sandbox (`name`, or none for a generated one like `k3x9q2`; optional `runtime` like `dind`, `template` like `starter`, `compose` (your own compose text instead of the template's; its `before_script` and defaults still apply), `idle_timeout` like `30m`, `deep_sleep_after` like `7d` or `off`, `ssh_keys` (extra SSH public keys for this sandbox only), `cpus` like `2`, `memory` like `4g`, `create_inner_stack: false` for no template stack) |
+| `POST` | `/sandboxes` | Create a sandbox (`name`, or none for a generated one like `k3x9q2`; optional `runtime` like `dind`, `template` like `starter` (its starter stack as it is: a `compose` text is refused), `idle_timeout` like `30m`, `deep_sleep_after` like `7d` or `off`, `ssh_keys` (extra SSH public keys for this sandbox only), `cpus` like `2`, `memory` like `4g`, `create_inner_stack: false` for no template stack) |
 | `GET` | `/sandboxes` | List all sandboxes |
 | `GET` | `/sandboxes/summary` | How many sandboxes: `quota`, `total`, `free`, `running`, `asleep`, `deep_sleep`, `archived`; your own (and `server_full`), or for the admin the whole server, `by_owner`, `server_limit` / `server_used` and `resources` (not with a token limited to one sandbox) |
 | `GET` | `/sandboxes/:name` | Get sandbox details; the Docker client certificates and key (`ca_cert`, `client_cert`, `client_key`) only with `?include_keys=true` |
@@ -47,7 +47,7 @@
 | `GET` | `/sandboxes/:name/logs` | The logs page (signed-in browsers) |
 | `GET` | `/sandboxes/:name/logs/stream` | The sandbox's app logs as Server-Sent Events: the last 100 lines of every container, then live (token too) |
 | `DELETE` | `/ssh-keys/:id` | Delete one of your keys (it stops working at once) |
-| `GET` | `/templates/:name` | A template's `compose.yaml` as written (`compose`), to show or edit before a create |
+| `GET` | `/templates/:name` | A template's `compose.yaml` as written (`compose`), to show before a create |
 | `GET` | `/me` | Who you are signed in as, Purgatorium's own address (`url`), your running sandboxes and limit, and `server_places`: the sandbox places on the server, `used` and `limit` (`null` without a server limit) |
 | `PUT` | `/me/view` | The web UI's view for this account: `{"view": "simple"}` or `"advanced"` (`GET /me` returns it as `view`, and whether the account may switch as `view_switch`); a user gets 403 unless `USER_VIEW_SWITCH=true` |
 | `PUT` | `/me/theme` | The web UI's theme for this account: `{"theme": "light"}`, `"dark"`, or `"system"` to follow the device again (`GET /me` returns it as `theme`, `null` when the device decides); any account may set it |

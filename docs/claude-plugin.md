@@ -60,12 +60,24 @@ The `.p9m` folder in the project's root folder says which Purgatorium and which 
 
 In your project's folder, ask in your own words, e.g. *deploy this app to my sandbox* or *give me a link to show this to someone*, or run `/p9m:deploy`. You need Docker installed on your machine (the build runs in the sandbox, but the `docker` command line talks to it). In a project without a `.p9m` folder, the agent tells you to run `/p9m:init` first.
 
-The plugin has two skills:
+The plugin has three skills:
 
 - **`/p9m:init`**: ties the project to a sandbox, as above;
-- **`/p9m:deploy`**: the steps of the [agent guide](agent-guide.md) in short, for an agent that may be talking to someone who is not a developer. It works from `.p9m/p9m.env` with the REST API, and gets fresh Docker keys through a single-use link (unpacked to the disk, so a key never passes through the model: copied by a model a key gets garbled, and it would end up in the transcript).
+- **`/p9m:deploy`**: the steps of the [agent guide](agent-guide.md) in short, for an agent that may be talking to someone who is not a developer. It works from `.p9m/p9m.env` with the REST API, and gets fresh Docker keys through a single-use link (unpacked to the disk, so a key never passes through the model: copied by a model a key gets garbled, and it would end up in the transcript);
+- **`/p9m:teleport`**: moves the project into its sandbox, to continue there (below).
 
 The plugin does not bring the MCP server. Purgatorium still has one, for other MCP clients: see [MCP](mcp.md).
+
+## Continue in the sandbox: `/p9m:teleport`
+
+`/p9m:teleport` (or `/p9m:teleport --ecc`) moves the project you are working on, with this conversation, into a `claude` container in the project's own sandbox, next to its apps; there `claude --resume` picks the conversation up where it stopped. It shows first what would move and asks:
+
+- **the files**: the working folder as it is, uncommitted changes too; what `.gitignore` leaves out stays home (`node_modules`, build output; without git a built-in list);
+- **secrets**: files that look like secrets (`.env`, `*.pem`, `credentials*.json`, …) go only if you say yes to each, by name. In the sandbox they are in a volume of their own, readable only by the `claude` container (folders `700`, files `600`), with a symlink in their place in the project; the container has no address; an [archive](archive.md) never holds them. The server's administrator can still read them, as everything on the server;
+- **this conversation**, and your portable settings: global `CLAUDE.md`, your skills, the enabled plugins (installed again from their marketplaces), the `permissions`. Not your MCP servers, hooks or `env`: they point at things on your machine;
+- **not the Claude Code sign-in**: sign in once in the container (`claude`, then `/login`); it stays there.
+
+The files go straight to the sandbox's Docker with the project's keys (`.p9m/docker`): Purgatorium only wakes the sandbox. Then open the sandbox's panel → the **claude** container's terminal, `cd` into the folder it names and `claude --resume <id>`. It is one way: the local folder keeps the moment of the teleport; bring work back with git. `--ecc` starts the container from the image with [ECC](runtimes-templates.md) (only when the sandbox has no `claude` container yet). Teleporting the same project again asks before it replaces the sandbox's copy.
 
 ## Where it works
 

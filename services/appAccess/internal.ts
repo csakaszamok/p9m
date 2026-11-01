@@ -20,8 +20,8 @@ type SelfInspect = () => Promise<{ NetworkSettings?: { Networks?: Record<string,
 export async function internalListenAddress(inspect?: SelfInspect): Promise<string | null> {
   try {
     const self = await (inspect ?? (async () => {
-      const [{ default: Dockerode }, os] = await Promise.all([import('dockerode'), import('node:os')])
-      return new Dockerode({ socketPath: '/var/run/docker.sock' }).getContainer(os.hostname()).inspect()
+      const [{ default: Dockerode }, { selfContainerId }] = await Promise.all([import('dockerode'), import('../selfContainer')])
+      return new Dockerode({ socketPath: '/var/run/docker.sock' }).getContainer(selfContainerId()).inspect()
     }))()
     return self.NetworkSettings?.Networks?.[INTERNAL_NETWORK]?.IPAddress || null
   } catch { return null }

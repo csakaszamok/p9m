@@ -16,7 +16,7 @@ import { loadRuntime } from './runtimeLoader'
 import { appEntriesOffline, appHostsFromCompose } from './appUrls'
 import { waitForTunnels } from './tunnelWait'
 import { appLinks, appLinksForView, frpsDomains, rememberedApps } from './appLinks'
-import { primeSablierSession, markWoken, markCreating, creatingDone } from './wake'
+import { primeSablierSession, markWoken, markCreating, creatingDone, isCreating } from './wake'
 import { writeAuthorizedKeys, createGeneratedKey } from './sandboxSsh'
 import { sshKeysOf } from './sshKeys'
 import { resourceDefaults, memoryForCompose, type Limits } from './resources'
@@ -24,7 +24,7 @@ import { sandboxName, rawNameOf, readLabel } from './naming'
 import { sessionDurationOf, cappedSleepDefault } from './sleepSettings'
 import { listManagedContainers, resolveHostSandboxesDir, execRun, justStarted, type SandboxMeta } from './docker'
 import { sandboxDir, sandboxParent, listSandboxDirs, newSandboxDir, archiveRoot, ownerDirName, ownerOfCompose, sandboxesDir, forgetSandboxDir, sandboxesMounted, SANDBOX_NAME } from './sandboxPaths'
-import { composeUp, composeStop, composeStart, composeDown, composeUpInner, composeConfigInner, composeRemove } from './compose'
+import { composeUp, composeStop, composeStart, composeDown, composeUpInner } from './compose'
 import { concurrency } from './concurrency'
 import { parseComposeText } from './composeCache'
 import { hashPassword } from './registryAuth'
@@ -36,6 +36,14 @@ import { listProjectVolumes, exportVolume, removeVolume, stopProjectContainers, 
 const dirOf = (name: string) => sandboxDir(name) ?? `${sandboxParent(name)}/${name}`
 
 /** Removes an owner directory its last sandbox has left. */
+/** How long its create took, from its created-in file (see createSandbox); undefined when not kept. */
+function createdInMs(dir: string): number | undefined {
+  let text: string
+  try { text = fs.readFileSync(`${dir}/created-in`, 'utf8') } catch { return undefined }
+  const ms = Number(String(text).trim())
+  return Number.isSafeInteger(ms) && ms >= 0 ? ms : undefined
+}
+
 function removeEmptyOwnerDir(dir: string): void {
   const parent = path.posix.dirname(dir)
   if (path.posix.dirname(parent) !== sandboxesDir()) return
@@ -54,6 +62,8 @@ export interface SandboxInfo extends SandboxMeta {
   /** Started less than STARTING_MS ago and its apps have not all answered yet: they are on their way */
   starting?: true
   extras: Record<string, string>
+  /** How long its create took (ms), up to its apps answering; none for a sandbox made before 0.18.2 */
+  created_in_ms?: number
 }
 
 export interface CreateSandboxResult {
@@ -186,27 +196,29 @@ function offlineApps(meta: SandboxMeta): Array<{ host: string; service: string }
 
 export const sandboxService = {
   /** A free name for a new sandbox nobody named (sandboxNames.ts): no sandbox has it or conflicts with it, and it
-   *  would not take one of Purgatorium's own addresses. Null when none was found. */
+   *  would not take one of Purgatorium's own addresses. Null when none was found. From the sandbox directories only
+   *  (a directory listing): asking Docker about every container took 10-20 s on a busy server; the create checks the
+   *  containers again, and a create without a name draws another one on a clash. */
   async suggestName(): Promise<string | null> {
-    const rawNames = existingRawNames(await listManagedContainers())
+    const rawNames = existingRawNames([])
     return generateSandboxName(raw => !rawNames.has(raw) && !conflictingRawName(raw, rawNames) && !ownHostTaken(raw))
   },
 
   /** Creates a sandbox; while it does, a request to its address waits instead of starting it (wake.ts). */
-  async createSandbox(rawName: string, createInnerStack = true, idleTimeout?: string, deepSleepAfter?: string, owner = 'admin', templateName?: string, runtimeName?: string, customCompose?: string, sshKeys?: string[], limits?: Limits): Promise<CreateSandboxResult> {
+  async createSandbox(rawName: string, createInnerStack = true, idleTimeout?: string, deepSleepAfter?: string, owner = 'admin', templateName?: string, runtimeName?: string, sshKeys?: string[], limits?: Limits): Promise<CreateSandboxResult> {
     const name = sandboxName(rawName)
     // One at a time per name: a second create of the same name (another user at the same moment) passed the
     // "does it exist" check before the first made its directory, and both worked on one sandbox
     if (!markCreating(name)) throw new Error(`Sandbox already exists: ${name}`)
     const marked = true
     try {
-      return await this.createSandboxUnmarked(rawName, createInnerStack, idleTimeout, deepSleepAfter, owner, templateName, runtimeName, customCompose, sshKeys, limits)
+      return await this.createSandboxUnmarked(rawName, createInnerStack, idleTimeout, deepSleepAfter, owner, templateName, runtimeName, sshKeys, limits)
     } finally {
       if (marked) creatingDone(name)
     }
   },
 
-  async createSandboxUnmarked(rawName: string, createInnerStack = true, idleTimeout?: string, deepSleepAfter?: string, owner = 'admin', templateName?: string, runtimeName?: string, customCompose?: string, sshKeys?: string[], limits?: Limits): Promise<CreateSandboxResult> {
+  async createSandboxUnmarked(rawName: string, createInnerStack = true, idleTimeout?: string, deepSleepAfter?: string, owner = 'admin', templateName?: string, runtimeName?: string, sshKeys?: string[], limits?: Limits): Promise<CreateSandboxResult> {
     // || : an empty variable (DEFAULT_TEMPLATE= in .env) means unset, as in POST /sandboxes
     const resolvedTemplateName = templateName ?? (process.env.DEFAULT_TEMPLATE || 'starter')
     const resolvedRuntimeName = runtimeName ?? await (await import('./defaultRuntime')).defaultRuntime()
@@ -243,6 +255,13 @@ export const sandboxService = {
       throw new Error(`SSH key store unreadable (data/ssh-keys.json): ${err instanceof Error ? err.message : err}`)
     }
 
+    // Where opt/sandboxes is on the host, for the sandbox's bind mounts. /opt/sandboxes without HOST_SANDBOXES_DIR is
+    // resolveHostSandboxesDir's "cannot tell": a sandbox mounted under a guess restarts for ever, so none is made
+    const hostSandboxesDir = await resolveHostSandboxesDir()
+    if (hostSandboxesDir === '/opt/sandboxes' && !process.env.HOST_SANDBOXES_DIR) {
+      throw new Error("Purgatorium cannot tell where opt/sandboxes is on the host (it could not inspect its own container): set HOST_SANDBOXES_DIR in .env to its full path (e.g. /opt/p9m/opt/sandboxes), then docker compose up -d")
+    }
+
     const services = (runtime.docker_compose.services ?? {}) as Record<string, unknown>
     const hasFrps = 'frps' in services
 
@@ -251,7 +270,6 @@ export const sandboxService = {
     const certs = generateCertBundle(hostAddress, name, 2048, [`${rawName}-docker.${appDomain}`])
     timer.lap('certificates')
     const createdAt = new Date().toISOString()
-    const hostSandboxesDir = await resolveHostSandboxesDir()
 
     const serverCertsDir = `${dir}/certs/server`
     const clientCertsDir = `${dir}/certs/client`
@@ -277,7 +295,8 @@ export const sandboxService = {
       raw_name: rawName,
       runtime_name: runtime.name,
       template_name: template.name,
-      compose_source: customCompose === undefined ? 'template' : 'edited',
+      // p9m.compose label: "edited" on sandboxes made from a changed compose text before it was removed
+      compose_source: 'template',
       created_at: createdAt,
       // ${host_users_dir}/${name} (custom runtimes) and ${sandbox_dir} both name the sandbox's own directory
       host_users_dir: `${hostSandboxesDir}/${ownerDirName(owner)}`,
@@ -311,8 +330,7 @@ export const sandboxService = {
     fs.writeFileSync(`${dir}/docker-compose.yml`, applyVars(runtimeCompose, vars))
     let innerText: string | undefined
     if (createInnerStack) {
-      // A given compose text keeps its own comments and layout; the template's goes through yaml.dump as before
-      const inner = customCompose === undefined ? applyVars(template.compose, vars) : applyVarsText(customCompose, vars)
+      const inner = applyVars(template.compose, vars)
       fs.writeFileSync(`${dir}/inner/docker-compose.yml`, inner)
       innerText = inner
     }
@@ -331,18 +349,7 @@ export const sandboxService = {
 
     if (createInnerStack) {
       const project = template.inner_project_name ?? 'inner'
-      // docker compose runs in the sandbox (see composeUpInner). A given text is checked by it first: a schema error
-      // found by its compose up would leave a half-made sandbox holding the name, so the sandbox is taken down again
-      if (customCompose !== undefined) {
-        const problem = await composeConfigInner(name, project, { exec: execRun })
-        if (problem) {
-          await composeRemove(`${dir}/docker-compose.yml`).catch(err => console.warn(`[create] ${name}: ${err instanceof Error ? err.message : err}`))
-          fs.rmSync(dir, { recursive: true, force: true })
-          removeEmptyOwnerDir(dir)
-          throw new Error(`compose is not a valid compose file: ${problem}`)
-        }
-        timer.lap('compose check')
-      }
+      // docker compose runs in the sandbox (see composeUpInner)
       const tries = await composeUpInner(name, project, { exec: execRun })
       timer.lap('inner stack', tries > 1 ? `${tries} tries` : undefined)
     }
@@ -363,6 +370,8 @@ export const sandboxService = {
     if (!await primeSablierSession(name, 40, 250).catch(() => false)) openSleepSession(name)
     timer.lap('router')
     console.log(`[create] ${name} ready in ${timer.summary()}`)
+    // For its Details (Created in)
+    fs.writeFileSync(`${dir}/created-in`, `${timer.totalMs()}\n`)
 
     return {
       name,
@@ -391,14 +400,16 @@ export const sandboxService = {
         return { ...meta, tunnel_urls: links.map(l => l.url), ...(stale ? { apps_stale: true as const } : {}), ...(starting ? { starting: true as const } : {}) }
       })
     )
-    return [...running, ...deepSleepingSandboxes(live).filter(only).map(meta => ({ ...meta, tunnel_urls: fs.existsSync(`${dirOf(meta.name)}/frps.toml`) ? offlineApps(meta).map(e => e.host) : [] }))]
+    const all = [...running, ...deepSleepingSandboxes(live).filter(only).map(meta => ({ ...meta, tunnel_urls: fs.existsSync(`${dirOf(meta.name)}/frps.toml`) ? offlineApps(meta).map(e => e.host) : [] }))]
+    // Being created: its directory comes before its containers (deep sleep), its containers before they run (asleep)
+    return all.map(s => isCreating(s.name) ? { ...s, status: 'creating' } : s)
   },
 
   /** Every sandbox with its state and owner, without asking the running ones for their apps (as listSandboxes does):
    * what counting for the quota needs, cheap however many sandboxes run. */
   async listSandboxStates(): Promise<SandboxMeta[]> {
     const live = await listManagedContainers()
-    return [...live, ...deepSleepingSandboxes(live)]
+    return [...live, ...deepSleepingSandboxes(live)].map(s => isCreating(s.name) ? { ...s, status: 'creating' } : s)
   },
 
   async getSandbox(name: string): Promise<SandboxInfo> {
@@ -416,7 +427,8 @@ export const sandboxService = {
     const extras = fs.existsSync(`${dirOf(name)}/extras.json`)
       ? JSON.parse(fs.readFileSync(`${dirOf(name)}/extras.json`, 'utf8')) as Record<string, string>
       : {}
-    return { ...meta, ...certs, tunnel_urls, ...(view?.stale ? { apps_stale: true as const } : {}), ...(starting ? { starting: true as const } : {}), extras, ...(offline.length ? { app_services: Object.fromEntries(offline.map(e => [e.host, e.service])) } : {}) }
+    const createdIn = createdInMs(dirOf(name))
+    return { ...meta, ...certs, tunnel_urls, ...(view?.stale ? { apps_stale: true as const } : {}), ...(starting ? { starting: true as const } : {}), extras, ...(createdIn !== undefined ? { created_in_ms: createdIn } : {}), ...(offline.length ? { app_services: Object.fromEntries(offline.map(e => [e.host, e.service])) } : {}) }
   },
 
   async refreshStatus(name: string): Promise<SandboxInfo> {
@@ -486,6 +498,9 @@ export const sandboxService = {
 // waiting. At most 4 at a time; the others wait their turn
 const archiving = concurrency(4)
 
+/** /p9m:teleport's secrets volume, as a path in the inner Docker's data (docker_data) */
+const SECRETS_IN_DOCKER_DATA = './volumes/claude_secrets'
+
 async function archive(name: string): Promise<string> {
   if (!SANDBOX_NAME.test(name)) throw new Error(`Invalid sandbox name: ${name}`)
   // Only a known sandbox directory: dirOf's fallback for an unknown name could be another directory, removed below
@@ -504,7 +519,8 @@ async function archive(name: string): Promise<string> {
   const dest = `${archiveRoot(owner)}/${name}-${archivedAt.toISOString().replace(/[:.]/g, '-')}`
   const volumes = await listProjectVolumes(name)
   fs.mkdirSync(`${dest}/volumes`, { recursive: true })
-  for (const volume of volumes) await exportVolume(volume, `${dest}/volumes/${volume}.tar.gz`)
+  // A project teleported into the sandbox keeps its secrets in the inner Docker's claude_secrets volume: never archived
+  for (const volume of volumes) await exportVolume(volume, `${dest}/volumes/${volume}.tar.gz`, volume.endsWith('_docker_data') ? [SECRETS_IN_DOCKER_DATA] : [])
   fs.cpSync(dir, `${dest}/config`, { recursive: true })
   fs.writeFileSync(`${dest}/manifest.json`, JSON.stringify({
     name,
@@ -513,7 +529,8 @@ async function archive(name: string): Promise<string> {
     runtime: meta?.runtime || null,
     created_at: meta?.created_at ?? null,
     archived_at: archivedAt.toISOString(),
-    volumes
+    volumes,
+    secrets_excluded: true
   }, null, 2))
 
   // Archive is complete — only now remove the live sandbox.

@@ -17,6 +17,7 @@ import { lastRunningOf } from '../../../services/lastRunning'
 import { hubEnabled, hubUrl } from '../../../services/hub/config'
 import { mountsOf, hostMountRoots } from '../../../services/hostMounts'
 import { markStarted } from '../../../services/docker'
+import { isCreating } from '../../../services/wake'
 
 export const openapi = {
   mcp: { name: 'get_sandbox' },
@@ -25,7 +26,7 @@ export const openapi = {
   security: [{ bearerAuth: [] }],
   parameters: [{ name: 'include_keys', in: 'query', required: false, description: "true: also the Docker client certificates and private key (ca_cert, client_cert, client_key). Leave it out for an agent: the Claude Code plugin's setup_project_dir writes them to disk without them passing through the model", schema: { type: 'boolean' } }],
   responses: {
-    200: { description: 'Sandbox record (the Docker client keys only with include_keys=true); apps: each link with answers true/false (null when not running) and access (p9m.access: public, domain or owner; access_invalid when its label is not one); apps_stale: true when the sandbox runs but did not answer just now (a busy server), and apps are the ones it last had; starting: true after it started, until its apps have all answered (at most 90 s): one that does not answer yet is on its way; mounts: the host folders mounted into it (the admin also gets host_mount_roots)' },
+    200: { description: 'Sandbox record (the Docker client keys only with include_keys=true); apps: each link with answers true/false (null when not running) and access (p9m.access: public, domain or owner; access_invalid when its label is not one); apps_stale: true when the sandbox runs but did not answer just now (a busy server), and apps are the ones it last had; starting: true after it started, until its apps have all answered (at most 90 s): one that does not answer yet is on its way; mounts: the host folders mounted into it (the admin also gets host_mount_roots); created_in_ms: how long its create took, until its apps answered (none for one made before 0.18.2)' },
     401: { description: 'Unauthorized' },
     404: { description: 'Sandbox not found' }
   }
@@ -66,7 +67,8 @@ export default async (req: Request): Promise<Response> => {
     // Not running: when it last ran (asleep: its container's stop time; deep sleep: remembered, or estimated)
     const last = await lastRunningOf(name, sandbox.status)
     const ssh = sandbox.ssh ? { address: `${rawNameOf(name) ?? name}-shell-tcp.${domain}:443`, user: 'root', keys: sshKeyCount(name), generated_key: hasGeneratedKey(name) } : null
-    return Response.json({ ...info, ...(await sleepTimes(name)), idle_timeout: sleepSettingsOf(name).idle_timeout ?? null, tcp_urls, tcp_addresses, apps, ssh, docker_access: dockerAccessInfo(name, sandbox.status), limits: limitsOf(name), disk: diskOf(name), usage: sandbox.status === 'running' ? usageOf(name) : null, hub, last_running_at: last.at, last_running_estimated: last.estimated, mounts: mountsOf(name), ...(p.role === 'admin' ? { host_mount_roots: hostMountRoots() } : {}) })
+    // Being created: its half-made containers would read as asleep or deep sleep
+    return Response.json({ ...info, ...(isCreating(name) ? { status: 'creating' } : {}), ...(await sleepTimes(name)), idle_timeout: sleepSettingsOf(name).idle_timeout ?? null, tcp_urls, tcp_addresses, apps, ssh, docker_access: dockerAccessInfo(name, sandbox.status), limits: limitsOf(name), disk: diskOf(name), usage: sandbox.status === 'running' ? usageOf(name) : null, hub, last_running_at: last.at, last_running_estimated: last.estimated, mounts: mountsOf(name), ...(p.role === 'admin' ? { host_mount_roots: hostMountRoots() } : {}) })
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'error'
     if (msg.includes('not found')) return Response.json({ error: msg }, { status: 404 })

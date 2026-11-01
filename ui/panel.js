@@ -4,7 +4,7 @@
   const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))
   const TABS = [['apps', 'App ports'], ['containers', 'Containers'], ['access', 'Access'], ['files', 'Files'], ['resources', 'Resources'], ['registry', 'Registry'], ['settings', 'Details']]
 
-  const statusLabel = s => ({ exited: 'asleep', created: 'asleep', deep_sleep: 'deep sleep', starting: 'creating…' }[s] || s)
+  const statusLabel = s => ({ exited: 'asleep', created: 'asleep', deep_sleep: 'deep sleep', starting: 'creating…', creating: 'creating…' }[s] || s)
   // A stopped sandbox whose last start failed is not asleep; "created" (recreated, never started) is asleep
   const statusClass = s => s.start_error ? 'failed' : s.status === 'created' ? 'exited' : s.status
 
@@ -29,6 +29,19 @@
     return words.every(w => hay.includes(w))
   }
   const countdown = (iso, now) => `<span data-until="${esc(iso)}">${esc(remaining(iso, now))}</span>`
+  // Since a time (ms), as m:ss: a create's stopwatch, ticked by ui/app.js (data-since)
+  function elapsed(since, now) {
+    const sec = Math.max(0, Math.floor(((now ?? Date.now()) - since) / 1000))
+    return `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`
+  }
+  const stopwatch = (since, now) => `<span data-since="${Number(since)}">${elapsed(since, now)}</span>`
+  /** The panel of a sandbox being created from this page: a stopwatch from when it was asked for. */
+  const creatingPanel = (name, since, ctx) => `<h2>${esc(ctx.shortName(name))}</h2><p class="muted">Creating… ${stopwatch(since, ctx.now)}</p>`
+  // How long a create took: 42 s, 1 min 5 s
+  function duration(ms) {
+    const sec = Math.round(ms / 1000)
+    return sec < 60 ? `${sec} s` : `${Math.floor(sec / 60)} min${sec % 60 ? ` ${sec % 60} s` : ''}`
+  }
 
   const GB = 1024 ** 3
   const fmtBytes = b => b >= GB ? `${(b / GB).toFixed(1).replace(/\.0$/, '')} GB` : `${Math.round(b / 1024 ** 2)} MB`
@@ -97,6 +110,10 @@
     return rows
   }
 
+  // The apps' sign-in is on USER_HOST, where the admin has no session (the admin's is UI_HOST's): the admin's link goes
+  // through /auth/app/start on this page's host, which hands the app a ticket from the session here
+  const appHref = (url, ctx) => ctx.isAdmin ? `/auth/app/start?rd=${encodeURIComponent(new URL(url).toString())}` : url
+
   const copyButton = text => `<button class="link copy-btn" data-copy-text="${esc(text)}" title="Copy">copy</button>`
   const secret = value => `<span class="muted" data-secret-mask>••••••••</span><code data-secret hidden>${esc(value)}</code> <button class="link" data-show>show</button> ${copyButton(value)}`
   const table = (head, rows, cls = '') => `<table class="panel-table ${cls}">${head ? `<thead><tr>${head.map(h => `<th>${h}</th>`).join('')}</tr></thead>` : ''}<tbody>${rows.join('')}</tbody></table>`
@@ -164,7 +181,7 @@
     const accessTag = r => ACCESS_TAG[r.access] ? ` <span class="tag" title="p9m.access: ${esc(r.access)}">${ACCESS_TAG[r.access]}</span>` : ''
     const body = rows.map(r => `<tr>
       <td>${esc(r.service)}</td>
-      <td>${r.url ? `<a href="${esc(ctx.protocol)}//${esc(r.url)}" target="_blank" rel="noopener" title="${esc(r.url)}">open ↗</a>${mark(r.answers)}${accessTag(r)}${onHub(r)}` : '<span class="muted">—</span>'}</td>
+      <td>${r.url ? `<a href="${esc(appHref(`${ctx.protocol}//${r.url}`, ctx))}" target="_blank" rel="noopener" title="${esc(r.url)}">open ↗</a>${mark(r.answers)}${accessTag(r)}${onHub(r)}` : '<span class="muted">—</span>'}</td>
       ${ctx.simple ? '' : `<td>${r.tcp ? `<span class="tcp">${esc(r.tcp.address)}</span> ${copyButton(r.tcp.address)}` : ''}</td>
       <td>${r.tcp ? `<button class="link" data-connect="${esc(r.tcp.address)}" data-port="${esc(r.tcp.port ?? '')}" data-user="${esc(r.tcp.user ?? '')}"${extras.demo_password ? ` data-demo-password="${esc(extras.demo_password)}"` : ''}>Connect…</button>` : ''}</td>`}
     </tr>`)
@@ -193,7 +210,7 @@
     const portainerLink = portainerShown(s, extras)
     if (portainerLink || extras.portainer_password) {
       parts.push(table(['Portainer', ''], [
-        ...(portainerLink ? [kv('Address', `<a href="${esc(extras.portainer_url)}" target="_blank" rel="noopener">${esc(new URL(extras.portainer_url).host)} ↗</a>`)] : []),
+        ...(portainerLink ? [kv('Address', `<a href="${esc(appHref(extras.portainer_url, ctx))}" target="_blank" rel="noopener">${esc(new URL(extras.portainer_url).host)} ↗</a>`)] : []),
         ...(extras.portainer_password ? [kv('Password', secret(extras.portainer_password))] : []),
       ]))
     }
@@ -275,6 +292,7 @@
       ...(ctx.isAdmin && !ctx.simple ? [kv('Owner', esc(s.owner === 'admin' ? 'admin API' : s.owner))] : []),
       ...(ctx.simple ? [] : [kv('Runtime · Template', `${esc([s.runtime, s.template].filter(Boolean).join(' · ') || '—')}${s.compose === 'edited' ? ' <span class="muted">(edited)</span>' : ''}`)]),
       kv('Created', when),
+      ...(Number.isFinite(s.created_in_ms) ? [kv('Created in', duration(s.created_in_ms))] : []),
       // When it last ran (~ when only estimated), the exact time on hover
       kv('Last ran', s.status === 'running' ? 'now (running)'
         : s.last_running_at ? `<span title="${esc(new Date(s.last_running_at).toLocaleString())}">${s.last_running_estimated ? '~' : ''}${esc(ago(s.last_running_at, ctx.now))}</span>`
@@ -409,7 +427,8 @@
   // ---------- overview (GET /sandboxes/summary + the list) ----------
   /** The counts of these sandboxes, with quota and archived from the server's summary (the list itself is fresher). */
   function countsOf(list, quota, archived) {
-    const running = list.filter(s => s.status === 'running').length
+    // Being created: it takes a place already
+    const running = list.filter(s => s.status === 'running' || s.status === 'creating').length
     const deep_sleep = list.filter(s => s.status === 'deep_sleep').length
     return { quota, total: list.length, free: quota === null ? null : Math.max(0, quota - running), running, asleep: list.length - running - deep_sleep, deep_sleep, archived }
   }
@@ -535,7 +554,7 @@
     return `/p9m:init ${u} ${sandboxShort}`
   }
 
-  const api = { usersTable, matchesFilter, loadingPanel, initCommand, filesView, volumesView, quotaLine, placesBadge, overviewHtml, countsOf, esc, TABS, statusLabel, statusClass, remaining, countdown, fmtBytes, meter, portainerShown, parseCreated, relativeAge, appRows, resourcesTable, mountsSection, registryTable, containersTable, renderPanel, STALE_APPS, STARTING_APPS }
+  const api = { usersTable, matchesFilter, loadingPanel, initCommand, filesView, volumesView, quotaLine, placesBadge, overviewHtml, countsOf, esc, TABS, statusLabel, statusClass, remaining, countdown, elapsed, stopwatch, creatingPanel, fmtBytes, meter, portainerShown, parseCreated, relativeAge, appRows, resourcesTable, mountsSection, registryTable, containersTable, renderPanel, STALE_APPS, STARTING_APPS }
   if (typeof module !== 'undefined' && module.exports) module.exports = api
   else root.P9mPanel = api
 })(typeof window !== 'undefined' ? window : globalThis)

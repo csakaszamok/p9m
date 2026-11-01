@@ -217,10 +217,12 @@ describe('pages', () => {
   })
 
   // Most creates use the template's stack as it is: its compose is one click away, not a 24-line box to scroll past
-  it('New sandbox: the compose is in a section that starts closed', async () => {
+  it('New sandbox: the starter stack is shown, read-only, in a section that starts closed', async () => {
     const home = await (await index(r('/', ADMIN))).text()
     const section = /<details[^>]*data-compose-section[^>]*>[\s\S]*?<\/details>/.exec(home)?.[0] ?? ''
-    expect(section).toContain('data-compose-editor')
+    expect(section).toContain('data-compose-view')
+    // The template's stack cannot be changed: nothing in the form to send a compose text with
+    expect(section).not.toMatch(/<textarea|name="compose"/)
     expect(section).not.toMatch(/<details[^>]*data-compose-section[^>]*\bopen\b/)
   })
 
@@ -228,7 +230,7 @@ describe('pages', () => {
     const home = await (await index(r('/', ADMIN))).text()
     expect(home).toContain('data-connect-dialog')
     expect(home).toContain('data-runtimes')
-    expect(home).toContain('data-compose-editor')
+    expect(home).toContain('data-compose-view')
     expect(home).toContain('data-resource-dialog')
     expect(home).toContain('name="cpus"')
     expect(home).toContain('name="memory"')

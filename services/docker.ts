@@ -1,9 +1,9 @@
 import crypto from 'node:crypto'
 import type { Limits } from './resources'
-import fs from 'node:fs'
 import { PassThrough } from 'node:stream'
 import { composeDeepSleepAfter } from './sleepSettings'
 import { managedLabelFilters, readLabel } from './naming'
+import { selfContainerId } from './selfContainer'
 import Dockerode from 'dockerode'
 
 const docker = new Dockerode({ socketPath: '/var/run/docker.sock' })
@@ -24,8 +24,7 @@ const normalize = (p: string) => p.replace(/\\/g, '/').replace(/\/$/, '')
 /** The host path of p9m's own mount on `destination`, or null when it cannot be told. */
 async function ownMountSource(destination: string): Promise<string | null> {
   try {
-    const hostname = fs.readFileSync('/etc/hostname', 'utf8').trim()
-    const info = await docker.getContainer(hostname).inspect()
+    const info = await docker.getContainer(selfContainerId()).inspect()
     const mount = (info.Mounts as Array<{ Destination: string; Source: string }>).find(m => m.Destination === destination)
     return mount?.Source ? normalize(mount.Source) : null
   } catch {

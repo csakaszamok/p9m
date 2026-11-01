@@ -17,8 +17,6 @@ vi.mock('../../services/compose', () => ({
   composeStop: vi.fn().mockResolvedValue(undefined),
   composeStart: vi.fn().mockResolvedValue(undefined),
   composeDown: vi.fn().mockResolvedValue(undefined),
-  composeConfigInner: vi.fn().mockResolvedValue(null),
-  composeRemove: vi.fn().mockResolvedValue(undefined)
 }))
 
 // Opening the Sablier session needs Traefik; here only that it is asked for
@@ -28,6 +26,7 @@ vi.mock('../../services/wake', () => ({
   primeSablierSession: vi.fn(async () => {}), markWoken: vi.fn(),
   markCreating: vi.fn((n: string) => creating.has(n) ? false : (creating.add(n), true)),
   creatingDone: vi.fn((n: string) => { creating.delete(n) }),
+  isCreating: vi.fn((n: string) => creating.has(n)),
 }))
 let slot: unknown = { ok: true, release: () => {} }
 vi.mock('../../services/quota', () => ({ reserveWake: vi.fn(async () => slot) }))
@@ -83,7 +82,7 @@ const realFs = await vi.importActual<typeof import('fs')>('fs')
 import { listManagedContainers } from '../../services/docker'
 import { primeSablierSession } from '../../services/wake'
 import { writeAuthorizedKeys } from '../../services/sandboxSsh'
-import { composeUp, composeUpInner, composeDown, composeConfigInner, composeRemove, composeStart, composeStop } from '../../services/compose'
+import { composeUp, composeUpInner, composeDown, composeStart, composeStop } from '../../services/compose'
 import { listProjectVolumes, exportVolume, removeVolume, stopProjectContainers, removeProjectContainers } from '../../services/project'
 import fs from 'fs'
 import yaml from 'js-yaml'
@@ -112,6 +111,15 @@ describe('sandbox service', () => {
     // The starter has no Portainer
     expect(result.extras).toEqual({})
     expect(result.tunnel_urls).toEqual(['p9m-u1-inner-http-echo-port5678.my.local'])
+  }, 60000)
+
+  // How long it took, for its Details (Created in): the time the log's "[create] … ready in" line gives
+  it('keeps how long the create took in the sandbox directory', async () => {
+    vi.mocked(fs.writeFileSync).mockClear()
+    await sandboxService.createSandbox('u1t')
+    const call = vi.mocked(fs.writeFileSync).mock.calls.find(c => String(c[0]).endsWith('/p9m-u1t/created-in'))
+    expect(call).toBeTruthy()
+    expect(String(call![1])).toMatch(/^\d+\n$/)
   }, 60000)
 
   it('the portainer template returns its address and password', async () => {
@@ -265,6 +273,29 @@ describe('sandbox service', () => {
     } finally { vi.stubEnv('SANDBOXES_DIR', '/opt/sandboxes') }
   }, 60000)
 
+  // The host path of opt/sandboxes unknown (p9m could not inspect its own container): a sandbox mounted under a guess
+  // restarts for ever ("Instance name file not found"); refused before anything is written, saying what to set
+  it('refuses to create a sandbox when the host path of opt/sandboxes cannot be told', async () => {
+    const { resolveHostSandboxesDir } = await import('../../services/docker')
+    vi.mocked(resolveHostSandboxesDir).mockResolvedValueOnce('/opt/sandboxes')
+    vi.stubEnv('HOST_SANDBOXES_DIR', '')
+    vi.mocked(composeUp).mockClear(); vi.mocked(fs.writeFileSync).mockClear()
+    try {
+      await expect(sandboxService.createSandbox('guess1')).rejects.toThrow('HOST_SANDBOXES_DIR')
+      expect(composeUp).not.toHaveBeenCalled()
+      expect(vi.mocked(fs.writeFileSync).mock.calls.filter(c => String(c[0]).includes('p9m-guess1'))).toEqual([])
+    } finally { vi.stubEnv('HOST_SANDBOXES_DIR', '') }
+  }, 60000)
+
+  it('creates under /opt/sandboxes when HOST_SANDBOXES_DIR says that is the host path', async () => {
+    const { resolveHostSandboxesDir } = await import('../../services/docker')
+    vi.mocked(resolveHostSandboxesDir).mockResolvedValueOnce('/opt/sandboxes')
+    vi.stubEnv('HOST_SANDBOXES_DIR', '/opt/sandboxes')
+    try {
+      await expect(sandboxService.createSandbox('real1', false)).resolves.toBeTruthy()
+    } finally { vi.stubEnv('HOST_SANDBOXES_DIR', '') }
+  }, 60000)
+
   it('refuses a name that exists only in the legacy layout (not moved yet)', async () => {
     const realExists = vi.mocked(fs.existsSync).getMockImplementation()!
     vi.mocked(fs.existsSync).mockImplementation(p => p === '/opt/sandboxes/admin/p9m-old1' || realExists(p))
@@ -384,39 +415,6 @@ describe('sandbox service', () => {
     expect(vi.mocked(composeUpInner)).toHaveBeenCalledWith('p9m-demo9', 'inner', { exec: expect.any(Function) })
   }, 60000)
 
-  it('builds the inner stack from a given compose text: comments kept, variables filled, template before_script run', async () => {
-    vi.mocked(fs.writeFileSync).mockClear()
-    const text = '# my edit\nservices:\n  portainer:\n    image: portainer/portainer-ce:2.21.5\n    command: ["--admin-password", "${portainer_admin_password_hash}"]\n  extra:\n    image: hashicorp/http-echo\n    command: ["-text=hi ${name}"]\n'
-    const result = await sandboxService.createSandbox('ed1', true, undefined, undefined, 'admin', 'portainer', 'dind', text)
-    const inner = written('p9m-ed1', 'inner/docker-compose.yml')!
-    expect(inner.startsWith('# my edit\n')).toBe(true)
-    expect(inner).toContain('-text=hi p9m-ed1')
-    expect(inner).not.toContain('${portainer_admin_password_hash}')
-    expect(inner).toMatch(/\$\$2[aby]\$\$10\$\$/) // the bcrypt hash, $ escaped for compose
-    expect(result.extras.portainer_password).toBeTruthy()
-    const labels = (yaml.load(written('p9m-ed1', 'docker-compose.yml')!) as { services: { sandbox: { labels: Record<string, string> } } }).services.sandbox.labels
-    expect(labels['p9m.compose']).toBe('edited')
-  }, 60000)
-
-  it('checks a given compose text with docker compose in the sandbox before its stack, and takes the sandbox away when it fails', async () => {
-    vi.mocked(composeConfigInner).mockResolvedValueOnce("volumes.echo2 additional properties 'image' not allowed")
-    vi.mocked(composeUpInner).mockClear()
-    vi.mocked(composeRemove).mockClear()
-    vi.mocked(fs.rmSync).mockClear()
-    await expect(sandboxService.createSandbox('ed3', true, undefined, undefined, 'admin', 'starter', 'dind', 'services:\n  a:\n    image: x\n'))
-      .rejects.toThrow("compose is not a valid compose file: volumes.echo2 additional properties 'image' not allowed")
-    expect(composeConfigInner).toHaveBeenCalledWith('p9m-ed3', 'inner', { exec: expect.any(Function) })
-    expect(composeUpInner).not.toHaveBeenCalled()
-    expect(composeRemove).toHaveBeenCalledWith('/opt/sandboxes/admin/p9m-ed3/docker-compose.yml')
-    expect(vi.mocked(fs.rmSync)).toHaveBeenCalledWith('/opt/sandboxes/admin/p9m-ed3', { recursive: true, force: true })
-  }, 60000)
-
-  it('does not run the docker compose check for a template text', async () => {
-    vi.mocked(composeConfigInner).mockClear()
-    await sandboxService.createSandbox('ed4')
-    expect(composeConfigInner).not.toHaveBeenCalled()
-  }, 60000)
-
   it('labels a sandbox built from its template text as compose: template', async () => {
     vi.mocked(fs.writeFileSync).mockClear()
     await sandboxService.createSandbox('ed2', false)
@@ -430,7 +428,7 @@ describe('sandbox service', () => {
     vi.mocked(writeAuthorizedKeys).mockImplementationOnce(() => { order.push('keys'); return 1 })
     vi.mocked(composeUp).mockImplementationOnce(async () => { order.push('up') })
     const extra = 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAILQbLq+klAOn7bvdZ+bf7t83dWYc3AfKM/YVFsjF6tLa'
-    await sandboxService.createSandbox('ssh1', false, undefined, undefined, 'alice@example.com', undefined, undefined, undefined, [extra])
+    await sandboxService.createSandbox('ssh1', false, undefined, undefined, 'alice@example.com', undefined, undefined, [extra])
     expect(vi.mocked(fs.mkdirSync).mock.calls.map(c => c[0])).toContain('/opt/sandboxes/alice@example.com/p9m-ssh1/ssh-host-keys')
     expect(written('p9m-ssh1', 'ssh-extra-keys')).toBe(`${extra}\n`)
     expect(writeAuthorizedKeys).toHaveBeenCalledWith('p9m-ssh1', 'alice@example.com')
@@ -461,7 +459,7 @@ describe('sandbox service', () => {
     expect(d.services.sandbox).toMatchObject({ cpus: 2, mem_limit: '4096m', memswap_limit: '4096m' })
     expect(d.services.frps.mem_limit).toBeUndefined()
     vi.mocked(fs.writeFileSync).mockClear()
-    await sandboxService.createSandbox('lim2', false, undefined, undefined, 'admin', undefined, undefined, undefined, undefined, { cpus: 0.5, memory: 512 * 1024 * 1024 })
+    await sandboxService.createSandbox('lim2', false, undefined, undefined, 'admin', undefined, undefined, undefined, { cpus: 0.5, memory: 512 * 1024 * 1024 })
     expect((yaml.load(written('p9m-lim2', 'docker-compose.yml')!) as { services: { sandbox: Record<string, unknown> } }).services.sandbox).toMatchObject({ cpus: 0.5, mem_limit: '512m' })
   }, 60000)
 
@@ -525,6 +523,15 @@ describe('archiveSandbox', () => {
     expect(archive).toMatch(new RegExp(`^/opt/archive/ann@x\.io/${name}-`))
     const manifest = JSON.parse(vi.mocked(fs.writeFileSync).mock.calls.find(c => String(c[0]).endsWith('manifest.json'))![1] as string)
     expect(manifest.owner).toBe('Ann@x.io')
+  })
+
+  it("leaves a teleported project's secrets (claude_secrets) out of the inner Docker's data, and says so", async () => {
+    vi.mocked(listProjectVolumes).mockImplementation(async n => n === name ? [vol, `${name}_frps`] : [])
+    vi.mocked(exportVolume).mockClear()
+    await sandboxService.archiveSandbox(name)
+    expect(vi.mocked(exportVolume).mock.calls.map(c => [c[0], c[2]])).toEqual([[vol, ['./volumes/claude_secrets']], [`${name}_frps`, []]])
+    const manifest = JSON.parse(vi.mocked(fs.writeFileSync).mock.calls.find(c => String(c[0]).endsWith('manifest.json'))![1] as string)
+    expect(manifest.secrets_excluded).toBe(true)
   })
 
   it('stops and removes containers even when the sandbox has no compose file', async () => {
@@ -683,6 +690,7 @@ describe('deep-sleeping sandboxes in the API', () => {
       p === `${dir}/docker-compose.yml`
         ? 'services:\n  sandbox:\n    labels:\n      p9m.template: dind-standard\n      p9m.created_at: "2026-09-01T00:00:00Z"\n      p9m.owner: alice@example.com\n'
         : p === `${dir}/extras.json` ? '{}'
+        : p === `${dir}/created-in` ? '42400\n'
         : realRead(p as string, o as BufferEncoding)) as typeof fs.readFileSync)
   })
 
@@ -712,6 +720,7 @@ describe('deep-sleeping sandboxes in the API', () => {
   it('returns deep_sleep details for such a sandbox', async () => {
     const info = await sandboxService.getSandbox(name)
     expect(info.status).toBe('deep_sleep')
+    expect(info.created_in_ms).toBe(42400)
     expect(info.tunnel_urls).toEqual([])
   })
 
@@ -885,5 +894,44 @@ describe('final review fixes: restart, wake timing, swap order', () => {
     expect(reserveWake).toHaveBeenLastCalledWith('u@x', 'p9m-x', 'exited', 'p9m-shop')
     expect(composeStop).not.toHaveBeenCalled()
     spy.mockRestore()
+  })
+})
+
+// GET /sandbox-name and a create without a name: answered from the sandbox directories (a directory listing), not by
+// asking Docker about every container (10-20 s on a busy server, with the New sandbox dialog waiting on it)
+describe('suggestName', () => {
+  it('does not ask Docker, and suggests a generated name', async () => {
+    vi.mocked(listManagedContainers).mockClear()
+    const name = await sandboxService.suggestName()
+    expect(name).toMatch(/^[a-z][a-z0-9]{5}$/)
+    expect(listManagedContainers).not.toHaveBeenCalled()
+  })
+})
+
+// While a sandbox is being made, its directory exists before its containers (read as deep sleep), then its containers
+// before they run (asleep): the list said deep sleep, then asleep, for a sandbox that was only being created
+describe('a sandbox being created', () => {
+  it('is listed as creating, whatever its containers say', async () => {
+    const { markCreating, creatingDone } = await import('../../services/wake')
+    vi.mocked(listManagedContainers).mockResolvedValueOnce([
+      { name: 'p9m-cr1', template: 'starter', runtime: 'sysbox', compose: 'template', ssh: false, owner: 'admin', status: 'created', container_id: 'c1', created_at: '' },
+      { name: 'p9m-cr2', template: 'starter', runtime: 'sysbox', compose: 'template', ssh: false, owner: 'admin', status: 'exited', container_id: 'c2', created_at: '' },
+    ])
+    markCreating('p9m-cr1')
+    try {
+      const list = await sandboxService.listSandboxes()
+      expect(list.find(s => s.name === 'p9m-cr1')?.status).toBe('creating')
+      expect(list.find(s => s.name === 'p9m-cr2')?.status).toBe('exited')
+    } finally { creatingDone('p9m-cr1') }
+  })
+  it('counts as creating in the summary (not asleep, not deep sleep)', async () => {
+    const { markCreating, creatingDone } = await import('../../services/wake')
+    vi.mocked(listManagedContainers).mockResolvedValueOnce([
+      { name: 'p9m-cr3', template: 'starter', runtime: 'sysbox', compose: 'template', ssh: false, owner: 'admin', status: 'created', container_id: 'c3', created_at: '' },
+    ])
+    markCreating('p9m-cr3')
+    try {
+      expect((await sandboxService.listSandboxStates()).find(s => s.name === 'p9m-cr3')?.status).toBe('creating')
+    } finally { creatingDone('p9m-cr3') }
   })
 })

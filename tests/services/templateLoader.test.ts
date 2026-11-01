@@ -77,7 +77,7 @@ describe('a template directory without or with an empty template.yaml', () => {
 
 describe('listTemplates', () => {
   it('returns the built-in templates', () => {
-    expect(listTemplates(TEMPLATES_DIR).map(t => t.name)).toEqual(['claude-code', 'empty', 'portainer', 'starter', 'tcp-demo'])
+    expect(listTemplates(TEMPLATES_DIR).map(t => t.name)).toEqual(['claude-code', 'claude-code-ecc', 'claude-code-minimal', 'empty', 'portainer', 'starter', 'tcp-demo'])
   })
 })
 

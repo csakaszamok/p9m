@@ -18,8 +18,7 @@ export const openapi = {
             cpus: { type: 'number', example: 2, description: 'CPU limit (cores). Default SANDBOX_CPUS; users up to SANDBOX_MAX_CPUS, the admin up to the host.' },
             memory: { type: 'string', example: '4g', description: 'Memory limit (512m, 4g). Default SANDBOX_MEMORY; users up to SANDBOX_MAX_MEMORY, the admin up to the host.' },
             ssh_keys: { type: 'array', maxItems: 10, items: { type: 'string' }, description: 'Extra SSH public keys for this sandbox only (your keys from /ssh-keys always get in)' },
-            compose: { type: 'string', description: "Use this compose text instead of the template's compose.yaml (the template's before_script and defaults still apply). GET /templates/:name gives the template's text to start from. At most 256 KB." },
-            create_inner_stack: { type: 'boolean', default: true, description: 'Whether to deploy the inner docker-compose stack defined in the template' },
+            create_inner_stack: { type: 'boolean', default: true, description: "Whether to deploy the template's starter stack, as it is (it cannot be changed; deploy your own apps afterwards)" },
             idle_timeout: { type: 'string', pattern: '^([1-9][0-9]*(s|m|h|d)|0|off)$', example: '30m', description: 'Stop the sandbox after this long without HTTP traffic; the next request wakes it. Days are kept as hours (1d = 24h). 0 or off = never. Omit for template idle_timeout (default 30m).' },
             deep_sleep_after: { type: 'string', pattern: '^([1-9][0-9]*(m|h|d)|0|off)$', example: '7d', description: 'Take the sandbox down (containers + network freed, data kept) after it has been stopped this long; the next request rebuilds it. "off" disables. Omit for template deep_sleep_after (default 7d).' }
           }

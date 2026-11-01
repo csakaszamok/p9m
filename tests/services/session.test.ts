@@ -3,7 +3,7 @@ import { describe, it, expect, vi } from 'vitest'
 vi.stubEnv('SESSION_SECRET', 'test-secret')
 vi.stubEnv('PUBLIC_URL', 'http://p9m.lvh.me')
 
-import { createSession, readSession, signValue, verifyValue, getCookie, cookieHeader, publicUrl, SESSION_MAX_AGE, idleTimeout, idleLeft, touchedSessionCookie } from '../../services/session'
+import { createSession, readSession, signValue, verifyValue, getCookie, cookieHeader, publicUrl, SESSION_MAX_AGE, idleTimeout, idleLeft, touchedSessionCookie, setsSessionCookie } from '../../services/session'
 
 describe('signed out for doing nothing (SESSION_IDLE_TIMEOUT)', () => {
   const now = Date.UTC(2026, 9, 26, 12)
@@ -78,5 +78,40 @@ describe('cookie helpers', () => {
     expect(cookieHeader('n', 'v', 0)).toBe('n=v; Path=/; HttpOnly; SameSite=Lax; Max-Age=0; Secure')
     expect(publicUrl()).toBe('https://p9m.example.com')
     vi.stubEnv('PUBLIC_URL', 'http://p9m.lvh.me')
+  })
+})
+
+// A sandbox app is a sibling of Purgatorium's host: it can set a cookie for the whole parent domain, and a
+// p9m_session (or p9m_oidc) of its own would sign a participant in as someone else (an /activate approved for the
+// attacker hands them the victim's project). Over https these cookies are __Host-: the browser takes them only from
+// Purgatorium's own host, never with a Domain.
+describe('__Host- cookies over https: a sibling app cannot plant one', () => {
+  it('the session, OIDC flow and next cookies are __Host- over https, plain over http (lvh.me dev)', () => {
+    vi.stubEnv('PUBLIC_URL', 'https://p9m.example.com')
+    try {
+      for (const n of ['p9m_session', 'p9m_oidc', 'p9m_next']) expect(cookieHeader(n, 'v', 60)).toBe(`__Host-${n}=v; Path=/; HttpOnly; SameSite=Lax; Max-Age=60; Secure`)
+      expect(cookieHeader('other', 'v', 60)).toMatch(/^other=v;/)
+    } finally { vi.stubEnv('PUBLIC_URL', 'http://p9m.lvh.me') }
+    expect(cookieHeader('p9m_session', 'v', 60)).toMatch(/^p9m_session=v;/)
+  })
+  it('over https only the __Host- one is read: a planted plain p9m_session is ignored, whatever its order', () => {
+    vi.stubEnv('PUBLIC_URL', 'https://p9m.example.com')
+    try {
+      const req = (cookie: string) => new Request('https://p9m.example.com/activate', { headers: { cookie } })
+      expect(getCookie(req('p9m_session=planted; __Host-p9m_session=mine'), 'p9m_session')).toBe('mine')
+      expect(getCookie(req('__Host-p9m_session=mine; p9m_session=planted'), 'p9m_session')).toBe('mine')
+      expect(getCookie(req('p9m_session=planted'), 'p9m_session')).toBeUndefined()
+      expect(getCookie(req('p9m_oidc=planted'), 'p9m_oidc')).toBeUndefined()
+    } finally { vi.stubEnv('PUBLIC_URL', 'http://p9m.lvh.me') }
+  })
+  it('a page that signs in sets the session itself: it is not renewed after (the old one would win)', () => {
+    vi.stubEnv('PUBLIC_URL', 'https://p9m.example.com')
+    try {
+      expect(setsSessionCookie([cookieHeader('p9m_session', 'new', 60)])).toBe(true)
+      expect(setsSessionCookie(['p9m_session=new; Path=/'])).toBe(false)
+      expect(setsSessionCookie([cookieHeader('p9m_oidc', '', 0)])).toBe(false)
+    } finally { vi.stubEnv('PUBLIC_URL', 'http://p9m.lvh.me') }
+    expect(setsSessionCookie([cookieHeader('p9m_session', 'new', 60)])).toBe(true)
+    expect(setsSessionCookie([])).toBe(false)
   })
 })

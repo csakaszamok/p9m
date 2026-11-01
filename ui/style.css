@@ -169,7 +169,7 @@ table.grid tbody tr.selected { background: var(--selected) }
 .status { display: inline-flex; align-items: center; gap: 8px }
 .status::before { content: ""; width: 9px; height: 9px; border-radius: 50%; flex: none }
 .status.running::before { background: radial-gradient(circle at 50% 60%, #fff3c4 0 18%, #ffb347 40%, #ff6a00 75%); box-shadow: 0 0 6px 2px rgba(255,120,20,.6); animation: ember-flicker 1.6s infinite ease-in-out }
-.status.exited::before, .status.starting::before { background: radial-gradient(circle at 50% 55%, #ff9a3c 0 25%, #c2410c 70%, #7a1f05); animation: ember-breathe 3.2s infinite ease-in-out }
+.status.exited::before, .status.starting::before, .status.creating::before { background: radial-gradient(circle at 50% 55%, #ff9a3c 0 25%, #c2410c 70%, #7a1f05); animation: ember-breathe 3.2s infinite ease-in-out }
 .status.deep_sleep { color: var(--muted) }
 .status.deep_sleep::before { background: radial-gradient(circle at 45% 45%, #8b8b90, #4a4a4f 70%) }
 .status.failed { color: var(--err-soft) }
@@ -177,7 +177,7 @@ table.grid tbody tr.selected { background: var(--selected) }
 .panel-head > .status { font-size: 12.5px; padding: 2px 10px 2px 9px; border-radius: 999px; border: 1px solid transparent; gap: 7px }
 .panel-head > .status::before { width: 7px; height: 7px }
 .panel-head > .status.running { color: var(--ember-text); background: rgba(255,106,0,.12); border-color: rgba(255,140,40,.35) }
-.panel-head > .status.exited, .panel-head > .status.starting { color: var(--ember-text-2); background: rgba(194,65,12,.12); border-color: rgba(194,65,12,.35) }
+.panel-head > .status.exited, .panel-head > .status.starting, .panel-head > .status.creating { color: var(--ember-text-2); background: rgba(194,65,12,.12); border-color: rgba(194,65,12,.35) }
 .panel-head > .status.deep_sleep { background: rgba(120,120,128,.1); border-color: rgba(120,120,128,.3) }
 .panel-head > .status.failed { color: var(--err-text); background: rgba(239,68,68,.1); border-color: rgba(239,68,68,.35) }
 @keyframes ember-flicker { 0%,100% { transform: scale(1) } 30% { transform: scale(1.14); box-shadow: 0 0 9px 3px rgba(255,150,40,.8) } 60% { transform: scale(.94) } }
@@ -223,8 +223,7 @@ body.login .confirm-line .user-code { margin: 0 }
 dialog.wide { width: min(880px, 94vw) }
 pre.code { margin: 0; max-height: 60vh; overflow: auto; background: var(--code-bg); border: 1px solid var(--line-2); border-radius: 8px; padding: 12px 14px;
            font: 12.5px/1.5 ui-monospace, SFMono-Regular, Consolas, monospace; color: var(--code-fg); white-space: pre }
-textarea[data-compose-editor] { display: block; width: 100%; min-height: 24em; margin-top: 6px; box-sizing: border-box; resize: vertical; font: 12px/1.45 ui-monospace, SFMono-Regular, Consolas, monospace; background: var(--code-bg); color: var(--fg); border: 1px solid var(--line-2); border-radius: 8px; padding: 10px 12px; tab-size: 2; white-space: pre; overflow: auto }
-textarea[data-compose-editor]:disabled { opacity: .5 }
+pre[data-compose-view] { max-height: 24em; margin-top: 6px; overflow: auto }
 .small { font-size: 12px; margin-top: 8px }
 dialog .actions form { margin: 0 }
 .tcp { font: 12.5px ui-monospace, SFMono-Regular, Consolas, monospace; color: var(--code-fg) }

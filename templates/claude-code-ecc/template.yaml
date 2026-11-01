@@ -1,0 +1,1 @@
+description: "Claude Code with ECC (agents, skills and hooks for a plan → test → review workflow, github.com/affaan-m/ECC) on the slim image; for trying it out: about 31k tokens of context in every session"

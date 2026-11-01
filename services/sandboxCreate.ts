@@ -5,7 +5,6 @@ import { normalizeIdleTimeout, normalizeDeepSleepAfter, sleepLimitError } from '
 import type { Principal } from './principal'
 import { listTemplates, loadTemplate } from './templateLoader'
 import { listRuntimes } from './runtimeLoader'
-import { checkCompose } from './composeInput'
 import { parsePublicKey } from './sshKeys'
 import { checkLimits, resourceDefaults, clampToHost } from './resources'
 import { hostResources } from './docker'
@@ -13,7 +12,7 @@ import { recordSandboxCreated } from './userStats'
 
 /** POST /sandboxes for this principal and body; /activate creates a new sandbox for Claude Code through it too */
 export async function createSandboxRequest(p: Principal, body: Record<string, unknown>): Promise<Response> {
-  const { name, runtime, template, compose, ssh_keys, cpus, memory, create_inner_stack, idle_timeout, deep_sleep_after } = body as { name?: string; runtime?: unknown; template?: unknown; compose?: unknown; ssh_keys?: unknown; cpus?: unknown; memory?: unknown; create_inner_stack?: boolean; idle_timeout?: unknown; deep_sleep_after?: unknown }
+  const { name, runtime, template, ssh_keys, cpus, memory, create_inner_stack, idle_timeout, deep_sleep_after } = body as { name?: string; runtime?: unknown; template?: unknown; ssh_keys?: unknown; cpus?: unknown; memory?: unknown; create_inner_stack?: boolean; idle_timeout?: unknown; deep_sleep_after?: unknown }
 
   // No name (omitted or null): one is generated right before the create
   const given = name === undefined || name === null ? undefined : name
@@ -24,6 +23,12 @@ export async function createSandboxRequest(p: Principal, body: Record<string, un
   const trimmed = given?.trim()
   if (trimmed !== undefined && !/^[a-z0-9][a-z0-9_-]{0,62}$/.test(trimmed)) {
     return Response.json({ error: 'name must be 1-63 lowercase alphanumeric/underscore/hyphen characters' }, { status: 400 })
+  }
+
+  // A sandbox starts from its template as it is: the starter stack cannot be replaced or edited, at the create or later.
+  // Apps go in afterwards, through the sandbox's Docker (docker, SSH or an agent), like anything else
+  if ('compose' in body) {
+    return Response.json({ error: "compose was removed: a sandbox starts with its template's stack as it is; deploy your own apps afterwards with docker, SSH or an agent (docs: agent-guide.md)" }, { status: 400 })
   }
 
   if ('ttl' in body) {
@@ -64,17 +69,10 @@ export async function createSandboxRequest(p: Principal, body: Record<string, un
   if (!listTemplates().some(t => t.name === templateName)) {
     return Response.json({ error: 'Unknown template' }, { status: 400 })
   }
-  // e.g. the empty template: nothing to start unless the request brings a compose text
+  // e.g. the empty template: no services, so no starter stack
   const templateServices = (loadTemplate(templateName).compose as { services?: unknown }).services
   const hasServices = !!templateServices && typeof templateServices === 'object' && Object.keys(templateServices).length > 0
-  if (compose === undefined && create_inner_stack !== false && !hasServices) {
-    return Response.json({ error: `The ${templateName} template has no services: paste a compose file` }, { status: 400 })
-  }
-  if (compose !== undefined) {
-    const problem = checkCompose(compose)
-    if (problem) return Response.json({ error: problem }, { status: 400 })
-    if (create_inner_stack === false) return Response.json({ error: 'compose needs create_inner_stack' }, { status: 400 })
-  }
+  const innerStack = hasServices && create_inner_stack !== false
   let sshKeys: string[] | undefined
   if (ssh_keys !== undefined) {
     if (!Array.isArray(ssh_keys) || ssh_keys.some(k => typeof k !== 'string')) return Response.json({ error: 'ssh_keys must be a list of public keys' }, { status: 400 })
@@ -109,7 +107,7 @@ export async function createSandboxRequest(p: Principal, body: Record<string, un
       const chosen = trimmed ?? await sandboxService.suggestName()
       if (!chosen) return Response.json({ error: 'No free sandbox name was found: give one' }, { status: 503 })
       try {
-        const result = await sandboxService.createSandbox(chosen, create_inner_stack ?? true, idle, deep, p.sub, templateName, runtimeName, compose as string | undefined, sshKeys, limits)
+        const result = await sandboxService.createSandbox(chosen, innerStack, idle, deep, p.sub, templateName, runtimeName, sshKeys, limits)
         recordSandboxCreated(p.sub)
         return Response.json(result, { status: 201 })
       } catch (err) {
@@ -122,7 +120,6 @@ export async function createSandboxRequest(p: Principal, body: Record<string, un
     const msg = err instanceof Error ? err.message : 'Unknown error'
     console.error('[POST /sandboxes] error:', err instanceof Error ? err.stack : err)
     if (msg.includes('already exists') || msg.includes('conflicts with an existing sandbox') || msg.includes("would take Purgatorium's own address")) return Response.json({ error: msg }, { status: 409 })
-    if (msg.startsWith('compose is not a valid compose file')) return Response.json({ error: msg }, { status: 400 })
     if (msg.includes('No free ports')) return Response.json({ error: msg }, { status: 503 })
     if (msg.includes('fully subnetted')) return Response.json({ error: 'No free Docker networks available — run docker network prune' }, { status: 503 })
     return Response.json({ error: msg }, { status: 500 })

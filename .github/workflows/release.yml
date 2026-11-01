@@ -66,6 +66,38 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      # The claude-code-minimal template's image, with the same tags. No build cache: each release gets the newest Claude Code
+      - id: meta-claude
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/p9m-claude-code-minimal
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest,enable=${{ steps.latest.outputs.is_latest }}
+      - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: images/claude-code-minimal
+          push: true
+          tags: ${{ steps.meta-claude.outputs.tags }}
+          labels: ${{ steps.meta-claude.outputs.labels }}
+      # The claude-code-ecc template's image: the one just built, with ECC
+      - id: meta-ecc
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/p9m-claude-code-ecc
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest,enable=${{ steps.latest.outputs.is_latest }}
+      - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: images/claude-code-ecc
+          build-args: BASE=ghcr.io/${{ github.repository_owner }}/p9m-claude-code-minimal:${{ steps.meta-claude.outputs.version }}
+          push: true
+          tags: ${{ steps.meta-ecc.outputs.tags }}
+          labels: ${{ steps.meta-ecc.outputs.labels }}
+
       - name: GitHub release from CHANGELOG.md
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -4,7 +4,7 @@
  * idle or sleep at any moment, and a full server asks people to put theirs to sleep. The disk caps it: every
  * sandbox, asleep too, may take SANDBOX_DISK. check-host.sh and setup.sh count the same way.
  */
-import os from 'os'
+import { selfContainerId } from './selfContainer'
 
 export const OVERCOMMIT = 2
 const RESERVED_MEMORY = 2 * 1024 ** 3
@@ -30,7 +30,7 @@ export async function dockerDiskFree(): Promise<number | null> {
   try {
     const { default: Dockerode } = await import('dockerode')
     const docker = new Dockerode({ socketPath: '/var/run/docker.sock' })
-    const self = await docker.getContainer(os.hostname()).inspect()
+    const self = await docker.getContainer(selfContainerId()).inspect()
     const c = await docker.createContainer({
       Image: self.Image, Entrypoint: ['sh', '-c', 'df -Pk /d | tail -1'], Cmd: [], NetworkDisabled: true,
       Volumes: { '/d': {} }, Labels: { 'p9m.helper': 'disk-free' },

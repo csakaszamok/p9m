@@ -4,6 +4,96 @@ All notable changes are listed here. Versions follow [semantic versioning](https
 
 ## [Unreleased]
 
+## [0.18.5] - 2026-11-01
+
+Upgrading from 0.18.4: `docker compose pull && docker compose up -d`.
+
+### Changed
+
+- **The load tests sign in the way people do:** since users work from Claude Code with a token, the tests' signed browser sessions reached no API (401). `tests/load/burst.mjs` (it replaces `workshop.mjs`) has many people sign in for the first time at once: `/device/code`, approval in the browser (the sandbox is made), `/device/token`, the project folder, apps deployed through the sandbox's dockerd, then the apps, sleep and wake. `tests/load/soak.mjs` makes its sandboxes the same way; `soak.sh` needs `first-sign-in.mjs` next to it (it downloads both otherwise, from `main` by default).
+- **An end-to-end test of the Claude Code plugin:** `tests/claude-code/plugin-e2e.mjs` runs a headless Claude Code with `plugins/p9m` in a new project folder: `/p9m:init` (the test approves the code in the browser's place), then *deploy this app, public*; it checks that `.p9m` holds the sandbox's token, that the app answers at its address with its own page, and that the token is in nothing Claude Code printed or read.
+
+### Fixed
+
+- **Signing in with OIDC while signed in as someone else kept the old account (https, 0.18.4):** opening a page renews the session cookie unless the page sets one itself, and that check still looked for the plain `p9m_session` name. Over https the sign-in's new `__Host-p9m_session` was followed by the old session renewed, which the browser kept. Now a page that sets the session is never followed by a renewed one.
+
+## [0.18.4] - 2026-11-01
+
+Upgrading from 0.18.3: `docker compose pull && docker compose up -d`. Over https everyone is signed out once (the sign-in cookies are renamed); the process limit applies to sandboxes made from now on.
+
+### Security
+
+- **Requests without a sign-in could run Purgatorium out of memory:** every request's body was read into memory up to `FILES_MAX_UPLOAD` (100 MB) before any route checked who was asking, so a few dozen parallel ones were enough. Now a body is read up to 2 MB; only a Files upload (`PUT …/files/content`) with a session or a token, checked from its headers before the body is read, gets `FILES_MAX_UPLOAD`. A larger body: 413.
+- **A sandbox app could sign a visitor in as someone else:** apps are siblings of Purgatorium's address, and one could set a `p9m_session` (or `p9m_oidc`, `p9m_next`) cookie for the whole parent domain, which Purgatorium then read. A participant's app could so make another participant approve their `/p9m:init` as the attacker: the victim's Claude Code got a token for the attacker's sandbox and deployed the project, with its secrets, there. Over https these cookies (and the Hub's) are now `__Host-` cookies, which a browser takes only from Purgatorium's own address; a planted plain one is ignored. Upgrading signs everyone out once. Local http (lvh.me) keeps the plain names.
+- **A loop of requests could stop `/p9m:init` for everyone:** `/device/code` needs no sign-in, and at 500 pending codes it refused every new one for 10 minutes. Now one client address has at most 500 pending codes, a new one pushing out that address's oldest pending one (never one being approved), and the server holds up to 10 000: a loop only pushes out its own address's codes.
+- **A fork bomb in one sandbox could stop the whole server:** a sandbox had no limit on its processes, so one could use up the host's process table, and then no sandbox, nor Purgatorium, could start a process. A sandbox now has at most 4096 processes and threads (its dockerd and apps included). For sandboxes made from now on; an existing one keeps its compose file.
+
+### Fixed
+
+- **A room behind one address could lock itself out of Google sign-in:** every failed OIDC sign-in (a wrong account, a cancelled or expired sign-in) counted against the client's address, and after 5 in 15 minutes everyone behind it — a workshop or an office behind one NAT — was refused for 1 minute, then 2, 4… up to an hour, valid sign-ins too. Failed OIDC sign-ins are now only logged (a callback cannot be guessed); OIDC sign-in is never refused because of failures from the address, the admin's password ones included. The limits on the admin's password stay.
+
+## [0.18.3] - 2026-11-01
+
+Upgrading from 0.18.2: `docker compose pull && docker compose up -d`.
+
+### Fixed
+
+- **Creating a sandbox from the UI broke the list (0.18.2):** a script error (*n.startsWith is not a function*) as soon as Create was clicked: no rows, an empty panel and no stopwatch until the create had finished. A new end-to-end test drives the New sandbox dialog in a real browser on every pull request (`tests/browser.sh`).
+
+## [0.18.2] - 2026-11-01
+
+Upgrading from 0.18.1: `docker compose pull && docker compose up -d`.
+
+### Added
+
+- **How long a create takes:** while a sandbox is being created from the UI, its row and its panel show a stopwatch (*creating… 0:12*); its Details then say *Created in 42 s*, for every sandbox made from now on however it was made (the UI, the API, `/p9m:init`), also in `GET /sandboxes/{name}` as `created_in_ms`. The same time as the log's `[create] … ready in` line.
+
+## [0.18.1] - 2026-10-31
+
+Upgrading from 0.18.0: `docker compose pull && docker compose up -d`. A server still on an older release's `docker-compose.yml` should take this release's first (`curl -fsSL -o docker-compose.yml https://github.com/csakaszamok/p9m/releases/latest/download/docker-compose.yml`). A `HOST_SANDBOXES_DIR` set by hand to get around the bug below can stay.
+
+### Fixed
+
+- **New sandboxes started for ever and never answered** on a server where Purgatorium's container had a hostname other than its ID (a container that compose recreated): it found its own container by hostname, so it could not tell where `opt/sandboxes` is on the host, and mounted every new sandbox's files from a guessed `/opt/sandboxes`. The sandbox restarted every few seconds (*Instance name file not found*), the list said *restarting* and its panel *deep sleep*. Purgatorium now finds its own container by the ID its mounts name; existing sandboxes mounted from the guess are moved to the right path at the next start. If it still cannot tell, creating a sandbox fails with what to set (`HOST_SANDBOXES_DIR`) instead of making one that never starts. The same lookup also fixes the disk usage, the free space and the internal port's network (*not on the sablier-net network* in the log).
+- **A new end-to-end test on every pull request:** a sandbox made as the UI makes it, on sysbox, with Purgatorium's hostname not its ID, must be running in the list and in its details, not restart, have every mount from the host and its app answering.
+- **A sandbox being created says so:** the list, its panel and the summary showed *deep sleep*, then *asleep · not counted* while a new sandbox was only being made (its directory comes before its containers, its containers before they run). It is now *creating…*, counted as running (it takes a place already).
+- **The New sandbox dialog opens at once, and its name comes fast:** `GET /sandbox-name` (and a create without a name) picks a free name from the sandbox directories instead of asking Docker about every container, which took 10-20 seconds on a busy server; the dialog opens before the runtimes, templates and the template's stack have loaded, and does not wait for them for the name.
+- **The admin opens a sandbox's app from the console:** since 0.16.0 the apps' sign-in is on `USER_HOST` (`sbx.<domain>`), where the admin, signed in on `UI_HOST`, has no session (and cannot sign in with the password): an app open to its owner or the domain asked the admin to sign in with Google, or refused. The admin's app links (Apps, Portainer) now go through `/auth/app/start` on `UI_HOST`, which hands the app a ticket from the admin's session there. Users' links are unchanged.
+
+## [0.18.0] - 2026-10-31
+
+Upgrading from 0.17.x: `docker compose pull && docker compose up -d`; nothing else changes on the server. The Claude Code plugin updates itself (`/plugin` → update, or reinstall).
+
+### Added
+
+- **`/p9m:teleport`: continue in the sandbox.** The Claude Code plugin moves the project you are working on into a `claude` container in its own sandbox, next to its apps: the files (uncommitted changes too, `.gitignore` respected), the secret files you confirm one by one, this conversation (`claude --resume` picks it up there) and your portable settings (global `CLAUDE.md`, skills, enabled plugins, `permissions`). It goes straight to the sandbox's Docker with the project's keys; secrets live in a volume only the `claude` container sees. `--ecc` for the image with ECC. One way: back with git.
+- **Archives never hold a teleported project's secrets:** archiving leaves the `claude_secrets` volume out of the inner Docker's data, and the manifest says `secrets_excluded: true`.
+
+## [0.17.0] - 2026-10-31
+
+Upgrading from 0.16.x: `docker compose pull && docker compose up -d`. A script or agent that sent `compose` when creating a sandbox gets a 400: create from a template, then deploy the apps through the sandbox's Docker.
+
+### Changed
+
+- **A template is only the start, as it is.** A sandbox's starter stack can no longer be replaced or edited: `POST /sandboxes` (and the MCP `create_sandbox` tool) refuse a `compose` text, and the **New sandbox** dialog shows the template's stack read-only. Apps, Claude Code in a sandbox made from `starter`, anything else, go in afterwards like every app, through the sandbox's Docker (`docker`, SSH or an agent). One less way to hand Purgatorium a compose text of a user's. Sandboxes made from an edited text before keep it.
+- **The `empty` template is a sandbox without a starter stack** (it wanted a pasted compose text).
+
+## [0.16.3] - 2026-10-31
+
+Upgrading from 0.16.x: `docker compose pull && docker compose up -d`; nothing else changes.
+
+### Added
+
+- **A `claude-code-ecc` template:** the slim image with [ECC](https://github.com/affaan-m/ECC) 2.2.3 (MIT) installed into Claude Code as the `ecc@ecc` plugin: agents, skills and hooks for a plan → test → review workflow, with Node.js and Python for its hooks. `ghcr.io/csakaszamok/p9m-claude-code-ecc`, built with every release on that release's `p9m-claude-code-minimal`. For trying ECC out: it adds about 31k tokens of context to every session.
+
+## [0.16.2] - 2026-10-31
+
+Upgrading from 0.16.x: `docker compose pull && docker compose up -d`; nothing else changes.
+
+### Added
+
+- **A `claude-code-minimal` template:** the same as `claude-code`, with a slim image of our own, `ghcr.io/csakaszamok/p9m-claude-code-minimal` (Claude Code, the Docker CLI with compose and buildx, git; the same `agent` user, home and sudo as Docker Sandboxes' image), built with every release. About 1.5 GB of disk per sandbox instead of about 5 GB.
+
 ## [0.16.1] - 2026-10-31
 
 Upgrading from 0.16.0: `docker compose pull && docker compose up -d`; nothing else changes.
@@ -882,7 +972,16 @@ The first release.
 
 - The project used to be called Leander. Existing `leander-` sandboxes and `ldr_` tokens keep working; see "Upgrading from Leander" in the README.
 
-[Unreleased]: https://github.com/csakaszamok/p9m/compare/v0.16.1...HEAD
+[Unreleased]: https://github.com/csakaszamok/p9m/compare/v0.18.5...HEAD
+[0.18.5]: https://github.com/csakaszamok/p9m/releases/tag/v0.18.5
+[0.18.4]: https://github.com/csakaszamok/p9m/releases/tag/v0.18.4
+[0.18.3]: https://github.com/csakaszamok/p9m/releases/tag/v0.18.3
+[0.18.2]: https://github.com/csakaszamok/p9m/releases/tag/v0.18.2
+[0.18.1]: https://github.com/csakaszamok/p9m/releases/tag/v0.18.1
+[0.18.0]: https://github.com/csakaszamok/p9m/releases/tag/v0.18.0
+[0.17.0]: https://github.com/csakaszamok/p9m/releases/tag/v0.17.0
+[0.16.3]: https://github.com/csakaszamok/p9m/releases/tag/v0.16.3
+[0.16.2]: https://github.com/csakaszamok/p9m/releases/tag/v0.16.2
 [0.16.1]: https://github.com/csakaszamok/p9m/releases/tag/v0.16.1
 [0.16.0]: https://github.com/csakaszamok/p9m/releases/tag/v0.16.0
 [0.15.0]: https://github.com/csakaszamok/p9m/releases/tag/v0.15.0

@@ -34,6 +34,10 @@ jobs:
       - run: bash -n setup.sh check-host.sh scripts/install-assets.sh
       - run: bash tests/install-assets.sh
       - run: bash tests/setup.sh
+      - run: bash -n plugins/p9m/scripts/*.sh
+      - run: bash tests/teleport-lib.sh
+      - run: bash tests/teleport-in.sh
+      - run: bash tests/teleport.sh
 
   install:
     # A fresh install from the release files
@@ -70,3 +74,13 @@ jobs:
           push: false
           cache-from: type=gha
           cache-to: type=gha,mode=max
+      # The claude-code-minimal template's image too
+      - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: images/claude-code-minimal
+          push: false
+      # and the claude-code-ecc one (on the published minimal image)
+      - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: images/claude-code-ecc
+          push: false

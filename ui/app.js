@@ -62,12 +62,14 @@ function deepSleepCell(s) {
 // Update countdown text in place every second (no panel re-render).
 setInterval(() => {
   for (const el of document.querySelectorAll('[data-until]')) el.textContent = remaining(el.dataset.until)
+  for (const el of document.querySelectorAll('[data-since]')) el.textContent = P9mPanel.elapsed(Number(el.dataset.since))
 }, 1000)
 
 // ---------- sandboxes ----------
 let sandboxes = []
 let selected = null
-const pending = new Set()
+// Being created from this page: name → when it was asked for (ms), for its stopwatch
+const pending = new Map()
 let renderedName = null, renderedJSON = null
 
 function filtered() {
@@ -90,14 +92,14 @@ function renderRows() {
   $('[data-head]').innerHTML = `<tr>${cols.map(c => `<th${ADV_COLS.includes(c) ? ' class="adv"' : ''}>${c}</th>`).join('')}</tr>`
   const rows = [...filtered()]
   const filtering = !!($('[data-filter-text]')?.value.trim() || $('[data-filter-status]')?.value)
-  for (const name of pending) if (!rows.some(s => s.name === name)) rows.unshift({ name, status: 'starting', runtime: '', template: '', created_at: '' })
+  for (const name of pending.keys()) if (!rows.some(s => s.name === name)) rows.unshift({ name, status: 'creating', runtime: '', template: '', created_at: '' })
   $('[data-rows]').innerHTML = rows.length ? rows.map(s => `
     <tr data-name="${esc(s.name)}" class="${s.name === selected ? 'selected' : ''}">
       <td><strong>${esc(shortName(s.name))}</strong></td>
       ${view === 'all' ? `<td>${esc(s.owner === 'admin' ? 'admin API' : s.owner)}</td>` : ''}
       <td>${busy.has(s.name)
         ? `<span class="status starting">${esc(ACTIONS[busy.get(s.name)].row)}</span>`
-        : `<span class="status ${esc(statusClass(s))}">${esc(s.start_error ? 'failed to start' : statusLabel(s.status))}</span>`}${s.apps_stale ? (s.starting ? ` <span class="muted" title="${esc(P9mPanel.STARTING_APPS)}">⏳</span><span class="sr-only">${esc(P9mPanel.STARTING_APPS)}</span>`
+        : `<span class="status ${esc(statusClass(s))}">${esc(s.start_error ? 'failed to start' : statusLabel(s.status))}</span>${pending.has(s.name) ? ` ${P9mPanel.stopwatch(pending.get(s.name))}` : ''}`}${s.apps_stale ? (s.starting ? ` <span class="muted" title="${esc(P9mPanel.STARTING_APPS)}">⏳</span><span class="sr-only">${esc(P9mPanel.STARTING_APPS)}</span>`
           : ` <span class="warn" title="${esc(P9mPanel.STALE_APPS)}">⚠</span><span class="sr-only">${esc(P9mPanel.STALE_APPS)}</span>`) : ''}</td>
       <td>${sleepCell(s)}</td>
       <td class="adv">${deepSleepCell(s)}</td>
@@ -167,7 +169,8 @@ function initHubFeed() {
 async function loadList() {
   try {
     sandboxes = (await api('/sandboxes')).map(onLocalClock)
-    for (const s of sandboxes) pending.delete(s.name)
+    // Listed while still being created (creating): its stopwatch runs on until the create answers
+    for (const s of sandboxes) if (s.status !== 'creating') pending.delete(s.name)
     renderRows()
     loadQuota()
   } catch (e) { if (e.message !== 'signed out') console.error(e) }
@@ -481,7 +484,7 @@ async function showPanel(name) {
   selected = name
   renderRows()
   const panel = $('[data-panel]')
-  if (pending.has(name)) { panel.innerHTML = `<h2>${esc(shortName(name))}</h2><p class="muted">Creating… usually 10–30 s.</p>`; renderedName = name; renderedJSON = null; return }
+  if (pending.has(name)) { panel.innerHTML = P9mPanel.creatingPanel(name, pending.get(name), { shortName }); renderedName = name; renderedJSON = null; return }
   // Another sandbox than the one shown: its name and status at once, never the previous one's details while its load
   if (renderedName !== name) {
     panel.innerHTML = P9mPanel.loadingPanel(sandboxes.find(s => s.name === name) ?? { name, status: '' }, { shortName })
@@ -800,40 +803,33 @@ async function fillCatalog(sel, path) {
   } catch { sel.innerHTML = '<option value="">default</option>' }
 }
 
-// The compose text of the template last loaded into the editor: a create sends compose only when the text differs
-let loadedCompose = { template: null, text: '' }
+// The selected template's starter stack, to look at: a sandbox starts with it as it is (it cannot be edited)
+let shownTemplate = null
 
-async function loadComposeEditor(name) {
-  const box = $('[data-compose-editor]')
+async function showTemplateStack(name) {
+  const box = $('[data-compose-view]')
+  shownTemplate = name
   try {
     const t = await api(`/templates/${encodeURIComponent(name)}`)
-    // As the textarea will hold it: a textarea turns CRLF (a Windows checkout) into LF
     const text = t.compose.replace(/\r\n?/g, '\n')
-    loadedCompose = { template: name, text }
-    box.value = text
-    box.placeholder = 'Paste your docker compose file here'
-    // empty: the compose is the user's to paste, so show it
-    if (name === 'empty') $('[data-compose-section]').open = true
+    box.textContent = /^services:\s*\{\}\s*$/m.test(text) || !/^services:/m.test(text) ? 'No starter stack: deploy your apps with docker, SSH or an agent.' : text
   } catch (e) {
-    loadedCompose = { template: name, text: '' }
-    box.value = ''
-    box.placeholder = `Could not load the ${name} template: ${e.message}`
-    return
+    box.textContent = `Could not load the ${name} template: ${e.message}`
   }
 }
 
+// Opens at once; the name (GET /sandbox-name, a directory listing on the server) does not wait for the runtimes,
+// templates and the template's stack, which fill in beside it
 async function openNewDialog() {
   const dlg = $('[data-new-dialog]')
-  await Promise.all([fillCatalog($('[data-runtimes]'), '/runtimes'), fillCatalog($('[data-templates]'), '/templates')])
-  const tpl = $('[data-templates]').value
-  // A failed create keeps the user's text; otherwise show the selected template's
-  if (!$('[data-compose-editor]').value || loadedCompose.template !== tpl) await loadComposeEditor(tpl)
-  // Closed for a template's stack as it is; open for empty, or for a compose of the user's own (kept from a failed create)
-  $('[data-compose-section]').open = tpl === 'empty' || $('[data-compose-editor]').value !== loadedCompose.text
   $('[data-new-error]').hidden = true
   dlg.showModal()
   // An empty name (not one kept from a failed create) gets a generated one, selected: typing replaces it
-  if (!$('[data-new-form]').elements.name.value) await suggestName()
+  const named = $('[data-new-form]').elements.name.value ? null : suggestName()
+  await Promise.all([fillCatalog($('[data-runtimes]'), '/runtimes'), fillCatalog($('[data-templates]'), '/templates')])
+  const tpl = $('[data-templates]').value
+  if (shownTemplate !== tpl) await showTemplateStack(tpl)
+  await named
 }
 
 async function suggestName() {
@@ -860,18 +856,15 @@ async function submitNew(ev) {
   if (data.memory) body.memory = data.memory
   const sshKeys = (data.ssh_keys || '').split(/\r?\n/).map(l => l.trim()).filter(Boolean)
   if (sshKeys.length) body.ssh_keys = sshKeys
-  if (form.create_inner_stack.checked && data.compose !== undefined && data.compose !== loadedCompose.text) body.compose = data.compose
   // Only when changed from the form's default: otherwise the server's default, cut to its limit for users
   if (data.idle_timeout && data.idle_timeout !== form.idle_timeout.defaultValue) body.idle_timeout = data.idle_timeout
   if (data.deep_sleep_after && data.deep_sleep_after !== form.deep_sleep_after.defaultValue) body.deep_sleep_after = data.deep_sleep_after
   const full = `${prefix}-${data.name}`
   // Reset now, not when the create finishes (that can take a minute): a dialog opened meanwhile
   // must not lose what is being typed. A failed create puts the submitted values back.
-  const draft = { values: data, inner: form.create_inner_stack.checked, loaded: loadedCompose }
+  const draft = { values: data, inner: form.create_inner_stack.checked }
   form.reset()
-  $('[data-compose-editor]').value = ''
-  $('[data-compose-editor]').disabled = false
-  pending.add(full)
+  pending.set(full, Date.now())
   $('[data-new-dialog]').close()
   renderRows()
   showPanel(full)
@@ -890,11 +883,7 @@ async function submitNew(ev) {
     if (dlg.open) { err.textContent = `${data.name}: ${e.message}`; err.hidden = false; return }
     for (const [k, v] of Object.entries(draft.values)) { const el = form.elements[k]; if (el && el.type !== 'checkbox') el.value = v }
     form.create_inner_stack.checked = draft.inner
-    $('[data-compose-editor]').disabled = !draft.inner
-    loadedCompose = draft.loaded
     err.textContent = e.message; err.hidden = false
-    // A compose error: show the compose it is about
-    if (/compose/i.test(e.message)) $('[data-compose-section]').open = true
     dlg.showModal()
     return
   }
@@ -969,19 +958,7 @@ function initSandboxes() {
   })
   $('[data-new]').addEventListener('click', openNewDialog)
   $('[data-new-form]').addEventListener('submit', submitNew)
-  let previousTemplate = null
-  $('[data-templates]').addEventListener('focus', e => { previousTemplate = e.target.value })
-  $('[data-templates]').addEventListener('change', async e => {
-    const box = $('[data-compose-editor]')
-    const edited = box.value !== loadedCompose.text
-    if (edited && !await confirmDialog(`Replace your changes with the ${e.target.value} template?`, 'Replace')) {
-      e.target.value = previousTemplate ?? loadedCompose.template
-      return
-    }
-    previousTemplate = e.target.value
-    await loadComposeEditor(e.target.value)
-  })
-  $('[data-new-form] input[name=create_inner_stack]').addEventListener('change', e => { $('[data-compose-editor]').disabled = !e.target.checked })
+  $('[data-templates]').addEventListener('change', e => showTemplateStack(e.target.value))
   $('[data-sleep-form]').addEventListener('submit', submitSleep)
   $('[data-resource-form]').addEventListener('submit', submitResources)
   initTokenDialog()

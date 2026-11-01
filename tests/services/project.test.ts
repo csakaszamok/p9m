@@ -12,10 +12,21 @@ vi.mock('node:child_process', async (orig) => {
   // promisify uses the custom symbol when present; mimic child_process.execFile's { stdout, stderr } result
   ;(execFile as unknown as Record<symbol, unknown>)[Symbol.for('nodejs.util.promisify.custom')] =
     (cmd: string, args: string[]) => new Promise(resolve => execFile(cmd, args, (_e, res) => resolve(res)))
-  return { ...actual, execFile }
+  // exportVolume: a docker run whose output is the tarball; here it only records its arguments and ends with 0
+  const spawn = (cmd: string, args: string[]) => {
+    calls.push([cmd, ...args])
+    const { PassThrough } = require('node:stream') as typeof import('node:stream')
+    const { EventEmitter } = require('node:events') as typeof import('node:events')
+    const proc = Object.assign(new EventEmitter(), { stdout: new PassThrough(), stderr: new PassThrough() })
+    setImmediate(() => { proc.stdout.end(); proc.emit('close', 0) })
+    return proc
+  }
+  return { ...actual, execFile, spawn }
 })
 
-import { stopProjectContainers, removeProjectContainers, listProjectVolumes, nudgeTraefik } from '../../services/project'
+import os from 'node:os'
+import path from 'node:path'
+import { stopProjectContainers, removeProjectContainers, listProjectVolumes, nudgeTraefik, exportVolume } from '../../services/project'
 
 describe('project helpers', () => {
   beforeEach(() => { calls.length = 0; psOutput = '' })
@@ -48,5 +59,13 @@ describe('project helpers', () => {
   it('lists project volumes by label', async () => {
     psOutput = 'p9m-x_docker_data\n\n'
     expect(await listProjectVolumes('p9m-x')).toEqual(['p9m-x_docker_data'])
+  })
+
+  it('exports a volume with tar, leaving out what it is told to', async () => {
+    const dest = path.join(os.tmpdir(), `p9m-export-${process.pid}.tgz`)
+    await exportVolume('p9m-a_docker_data', dest, ['./volumes/claude_secrets'])
+    expect(calls.at(-1)!.slice(-7)).toEqual(['tar', 'czf', '-', '--exclude=./volumes/claude_secrets', '-C', '/data', '.'])
+    await exportVolume('p9m-a_frps', dest)
+    expect(calls.at(-1)!.slice(-6)).toEqual(['tar', 'czf', '-', '-C', '/data', '.'])
   })
 })

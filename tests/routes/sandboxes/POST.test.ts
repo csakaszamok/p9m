@@ -11,7 +11,6 @@ vi.mock('../../../services/sandbox', () => ({
     createSandbox: vi.fn().mockImplementation(async (name: string) => {
       if (name === 'dupe') throw new Error('Sandbox already exists: dupe')
       if (name === 'nofree') throw new Error('No free ports available in template range')
-      if (name === 'badschema') throw new Error('compose is not a valid compose file: services.web.ports must be a list')
       return { name, docker_host: 'tcp://1.2.3.4:32001', ca_cert: 'ca', client_cert: 'cc', client_key: 'ck' }
     }),
     suggestName: vi.fn(async () => 'k3x9q2'),
@@ -109,14 +108,14 @@ describe('POST /sandboxes', () => {
   it('passes a valid idle_timeout through to the service', async () => {
     const res = await handler(jsonReq({ name: 'idle', idle_timeout: '15m' }))
     expect(res.status).toBe(201)
-    expect(vi.mocked(sandboxService.createSandbox)).toHaveBeenLastCalledWith('idle', true, '15m', undefined, 'admin', 'starter', 'dind', undefined, undefined, { cpus: 2, memory: 4 * 1024 ** 3 })
+    expect(vi.mocked(sandboxService.createSandbox)).toHaveBeenLastCalledWith('idle', true, '15m', undefined, 'admin', 'starter', 'dind', undefined, { cpus: 2, memory: 4 * 1024 ** 3 })
   })
 
   it('accepts 0 or off (never) for both, passing off to the service', async () => {
     for (const v of ['0', 'off', 0]) {
       const res = await handler(jsonReq({ name: 'never', idle_timeout: v, deep_sleep_after: v }))
       expect(res.status).toBe(201)
-      expect(vi.mocked(sandboxService.createSandbox)).toHaveBeenLastCalledWith('never', true, 'off', 'off', 'admin', 'starter', 'dind', undefined, undefined, { cpus: 2, memory: 4 * 1024 ** 3 })
+      expect(vi.mocked(sandboxService.createSandbox)).toHaveBeenLastCalledWith('never', true, 'off', 'off', 'admin', 'starter', 'dind', undefined, { cpus: 2, memory: 4 * 1024 ** 3 })
     }
   })
 
@@ -131,7 +130,7 @@ describe('POST /sandboxes', () => {
     for (const deep_sleep_after of ['12h', '7d', 'off']) {
       const res = await handler(jsonReq({ name: 'deep', deep_sleep_after }))
       expect(res.status).toBe(201)
-      expect(vi.mocked(sandboxService.createSandbox)).toHaveBeenLastCalledWith('deep', true, undefined, deep_sleep_after, 'admin', 'starter', 'dind', undefined, undefined, { cpus: 2, memory: 4 * 1024 ** 3 })
+      expect(vi.mocked(sandboxService.createSandbox)).toHaveBeenLastCalledWith('deep', true, undefined, deep_sleep_after, 'admin', 'starter', 'dind', undefined, { cpus: 2, memory: 4 * 1024 ** 3 })
     }
   })
 
@@ -154,19 +153,19 @@ describe('POST /sandboxes', () => {
     const res = await handler(jsonReq({ name: 'tmpl', runtime: 'sysbox', template: 'tcp-demo' }))
     _resetDefaultRuntime(); hostRuntimes = ['runc']
     expect(res.status).toBe(201)
-    expect(vi.mocked(sandboxService.createSandbox)).toHaveBeenLastCalledWith('tmpl', true, undefined, undefined, 'admin', 'tcp-demo', 'sysbox', undefined, undefined, { cpus: 2, memory: 4 * 1024 ** 3 })
+    expect(vi.mocked(sandboxService.createSandbox)).toHaveBeenLastCalledWith('tmpl', true, undefined, undefined, 'admin', 'tcp-demo', 'sysbox', undefined, { cpus: 2, memory: 4 * 1024 ** 3 })
   })
 
   it('fills in DEFAULT_RUNTIME / DEFAULT_TEMPLATE, else auto (dind without sysbox) and starter', async () => {
     await handler(jsonReq({ name: 'def1' }))
-    expect(vi.mocked(sandboxService.createSandbox)).toHaveBeenLastCalledWith('def1', true, undefined, undefined, 'admin', 'starter', 'dind', undefined, undefined, { cpus: 2, memory: 4 * 1024 ** 3 })
+    expect(vi.mocked(sandboxService.createSandbox)).toHaveBeenLastCalledWith('def1', true, undefined, undefined, 'admin', 'starter', 'dind', undefined, { cpus: 2, memory: 4 * 1024 ** 3 })
     vi.stubEnv('DEFAULT_RUNTIME', 'sysbox')
     vi.stubEnv('DEFAULT_TEMPLATE', 'tcp-demo')
     const { _resetDefaultRuntime } = await import('../../../services/defaultRuntime')
     _resetDefaultRuntime(); hostRuntimes = ['runc', 'sysbox-runc'] // a host where sysbox is installed
     try {
       await handler(jsonReq({ name: 'def2' }))
-      expect(vi.mocked(sandboxService.createSandbox)).toHaveBeenLastCalledWith('def2', true, undefined, undefined, 'admin', 'tcp-demo', 'sysbox', undefined, undefined, { cpus: 2, memory: 4 * 1024 ** 3 })
+      expect(vi.mocked(sandboxService.createSandbox)).toHaveBeenLastCalledWith('def2', true, undefined, undefined, 'admin', 'tcp-demo', 'sysbox', undefined, { cpus: 2, memory: 4 * 1024 ** 3 })
     } finally { delete process.env.DEFAULT_RUNTIME; delete process.env.DEFAULT_TEMPLATE; _resetDefaultRuntime(); hostRuntimes = ['runc'] }
   })
 
@@ -229,49 +228,30 @@ describe('POST /sandboxes', () => {
     } finally { delete process.env.DEFAULT_TEMPLATE }
   })
 
-  it('passes a compose text through to the service', async () => {
-    const compose = 'services:\n  web:\n    image: nginx\n'
-    const res = await handler(jsonReq({ name: 'cmp', template: 'starter', compose }))
-    expect(res.status).toBe(201)
-    expect(vi.mocked(sandboxService.createSandbox)).toHaveBeenLastCalledWith('cmp', true, undefined, undefined, 'admin', 'starter', 'dind', compose, undefined, { cpus: 2, memory: 4 * 1024 ** 3 })
-  })
-
-  it('rejects a bad compose text with 400 and creates nothing', async () => {
+  it('refuses a compose text: a sandbox starts with its template as it is', async () => {
     vi.mocked(sandboxService.createSandbox).mockClear()
-    for (const [compose, error] of [
-      ['services: {}\n', 'compose needs at least one service under services:'],
-      [7, 'compose must be a string'],
-    ] as const) {
-      const res = await handler(jsonReq({ name: 'bad', compose }))
+    for (const compose of ['services:\n  web:\n    image: nginx\n', '', 7]) {
+      const res = await handler(jsonReq({ name: 'cmp', template: 'starter', compose }))
       expect(res.status).toBe(400)
-      expect((await res.json()).error).toBe(error)
+      expect((await res.json()).error).toMatch(/^compose was removed: a sandbox starts with its template's stack as it is/)
     }
-    const res = await handler(jsonReq({ name: 'bad', compose: 'services:\n  web:\n    image: x\n', create_inner_stack: false }))
-    expect((await res.json()).error).toBe('compose needs create_inner_stack')
     expect(sandboxService.createSandbox).not.toHaveBeenCalled()
   })
 
-  it('answers 400 when docker compose rejects the compose text', async () => {
-    const res = await handler(jsonReq({ name: 'badschema', compose: 'services:\n  web:\n    image: x\n    ports: 80\n' }))
-    expect(res.status).toBe(400)
-    expect((await res.json()).error).toBe('compose is not a valid compose file: services.web.ports must be a list')
-  })
-
-  it('wants a compose text for a template without services (empty), unless there is no stack', async () => {
+  it('a template without services (empty): a sandbox without a starter stack', async () => {
     vi.mocked(sandboxService.createSandbox).mockClear()
-    const res = await handler(jsonReq({ name: 'e1', template: 'empty' }))
-    expect(res.status).toBe(400)
-    expect((await res.json()).error).toBe('The empty template has no services: paste a compose file')
-    expect(sandboxService.createSandbox).not.toHaveBeenCalled()
-    expect((await handler(jsonReq({ name: 'e2', template: 'empty', compose: 'services:\n  a:\n    image: x\n' }))).status).toBe(201)
+    expect((await handler(jsonReq({ name: 'e1', template: 'empty' }))).status).toBe(201)
+    expect(vi.mocked(sandboxService.createSandbox).mock.lastCall?.[1]).toBe(false)
     expect((await handler(jsonReq({ name: 'e3', template: 'empty', create_inner_stack: false }))).status).toBe(201)
+    expect(vi.mocked(sandboxService.createSandbox).mock.lastCall?.[1]).toBe(false)
   })
+
 
   it('passes extra SSH keys (normalized) through, and refuses bad ones with their index', async () => {
     const key = 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAILQbLq+klAOn7bvdZ+bf7t83dWYc3AfKM/YVFsjF6tLa agent'
     const res = await handler(jsonReq({ name: 'k1', ssh_keys: [`  ${key}\r\n`] }))
     expect(res.status).toBe(201)
-    expect(vi.mocked(sandboxService.createSandbox)).toHaveBeenLastCalledWith('k1', true, undefined, undefined, 'admin', 'starter', 'dind', undefined, [key], { cpus: 2, memory: 4 * 1024 ** 3 })
+    expect(vi.mocked(sandboxService.createSandbox)).toHaveBeenLastCalledWith('k1', true, undefined, undefined, 'admin', 'starter', 'dind', [key], { cpus: 2, memory: 4 * 1024 ** 3 })
     for (const [ssh_keys, error] of [
       ['x', 'ssh_keys must be a list of public keys'],
       [[key, 7], 'ssh_keys must be a list of public keys'],
@@ -286,7 +266,7 @@ describe('POST /sandboxes', () => {
 
   it('takes cpus and memory within the ceiling, and refuses a user over it', async () => {
     await handler(jsonReq({ name: 'r1', cpus: 3, memory: '6g' }))
-    expect(vi.mocked(sandboxService.createSandbox).mock.lastCall![9]).toEqual({ cpus: 3, memory: 6 * 1024 ** 3 })
+    expect(vi.mocked(sandboxService.createSandbox).mock.lastCall![8]).toEqual({ cpus: 3, memory: 6 * 1024 ** 3 })
     const over = await handler(jsonReq({ name: 'r2', cpus: 6 }, 'Bearer p9m_user'))
     expect(over.status).toBe(403)
     expect((await over.json()).error).toBe('at most 4 CPUs for a sandbox: ask the administrator for more')

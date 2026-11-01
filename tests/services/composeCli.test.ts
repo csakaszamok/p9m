@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { composeConfigInner, composeUpInner, type SandboxExec } from '../../services/compose'
+import { composeUpInner, type SandboxExec } from '../../services/compose'
 
 const ok = { code: 0, stdout: '', stderr: '' }
 
@@ -42,20 +42,3 @@ describe('composeUpInner', () => {
   })
 })
 
-describe('composeConfigInner', () => {
-  it('is null when docker compose takes the file, and runs at most 20 s', async () => {
-    let cmd: string[] = []
-    expect(await composeConfigInner('p9m-x', 'inner', { exec: async (_, c) => { cmd = c; return ok } })).toBeNull()
-    expect(cmd.slice(0, 2)).toEqual(['timeout', '20'])
-    expect(cmd.slice(-2)).toEqual(['config', '-q'])
-  })
-
-  it('names the problem without its warnings', async () => {
-    const stderr = 'time="x" level=warning msg="The \\"tag\\" variable is not set"\nvalidating /inner/docker-compose.yml: volumes.echo2 additional properties \'image\' not allowed\n'
-    expect(await composeConfigInner('p9m-x', 'inner', { exec: async () => ({ code: 15, stdout: '', stderr }) })).toBe("volumes.echo2 additional properties 'image' not allowed")
-  })
-
-  it('says when it took too long (e.g. a remote include)', async () => {
-    expect(await composeConfigInner('p9m-x', 'inner', { exec: async () => ({ code: 124, stdout: '', stderr: '' }) })).toBe('docker compose config took too long')
-  })
-})

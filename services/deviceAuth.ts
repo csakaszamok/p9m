@@ -6,8 +6,14 @@ import crypto from 'node:crypto'
 
 /** How long a device code works, from when it was made, and again from its approval */
 export const DEVICE_TTL_MS = 10 * 60_000
-/** Most unexpired codes at once, so nobody can fill the memory */
-export const DEVICE_MAX_PENDING = 500
+/** Most unexpired codes at once, so nobody can fill the memory (an entry is a few hundred bytes) */
+export const DEVICE_MAX_PENDING = 10_000
+/**
+ * Most pending codes of one client address: a new one beyond it pushes out that address's oldest pending code, never
+ * refused. /device/code needs no sign-in, and refusing at a cap let a loop of requests stop /p9m:init for everyone;
+ * now a loop only pushes out its own address's codes (a room behind one NAT shares that fate).
+ */
+export const DEVICE_MAX_PER_ADDRESS = 500
 /** Wrong confirmation codes before the request is gone */
 export const DEVICE_MAX_TRIES = 5
 
@@ -21,10 +27,15 @@ interface Entry extends DeviceRequest { userCode: string; status: Status; expire
 
 const devices = new Map<string, Entry>()
 const userCodes = new Map<string, string>()
+/** The device codes of each client address, oldest first */
+const byAddress = new Map<string | null, Set<string>>()
 
 function drop(deviceCode: string, e: Entry) {
   devices.delete(deviceCode)
   userCodes.delete(e.userCode)
+  const mine = byAddress.get(e.ip)
+  mine?.delete(deviceCode)
+  if (mine && !mine.size) byAddress.delete(e.ip)
 }
 
 function purge(now: number) {
@@ -56,12 +67,19 @@ function byUserCode(userCode: string, now: number): [string, Entry] | null {
 /** A new device code for the agent and the user code to show; throws at the cap */
 export function startDevice(req: Partial<DeviceRequest> = {}, now = Date.now()): { device_code: string; user_code: string } {
   purge(now)
+  const ip = req.ip ?? null
+  const mine = byAddress.get(ip)
+  if (mine && mine.size >= DEVICE_MAX_PER_ADDRESS) {
+    // Oldest first (a Set keeps insertion order); one being approved or approved is someone's sign-in under way
+    for (const d of mine) { const e = devices.get(d); if (e?.status === 'pending') { drop(d, e); break } }
+  }
   if (devices.size >= DEVICE_MAX_PENDING) throw new Error('too many pending')
   let code = newCode()
   while (userCodes.has(code)) code = newCode()
   const device_code = crypto.randomBytes(32).toString('base64url')
-  devices.set(device_code, { sandbox: req.sandbox ?? null, template: req.template ?? null, ip: req.ip ?? null, userCode: code, status: 'pending', expires: now + DEVICE_TTL_MS, tries: 0 })
+  devices.set(device_code, { sandbox: req.sandbox ?? null, template: req.template ?? null, ip, userCode: code, status: 'pending', expires: now + DEVICE_TTL_MS, tries: 0 })
   userCodes.set(code, device_code)
+  byAddress.set(ip, (byAddress.get(ip) ?? new Set()).add(device_code))
   return { device_code, user_code: pretty(code) }
 }
 
@@ -137,4 +155,5 @@ export function redeemDevice(deviceCode: string, confirm: string, now = Date.now
 export function _resetDevices(): void {
   devices.clear()
   userCodes.clear()
+  byAddress.clear()
 }
