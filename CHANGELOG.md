@@ -4,6 +4,10 @@ All notable changes are listed here. Versions follow [semantic versioning](https
 
 ## [Unreleased]
 
+### Security
+
+- **A fork bomb in one sandbox could stop the whole server:** a sandbox had no limit on its processes, so one could use up the host's process table, and then no sandbox, nor Purgatorium, could start a process. A sandbox now has at most 4096 processes and threads (its dockerd and apps included). For sandboxes made from now on; an existing one keeps its compose file.
+
 ## [0.18.3] - 2026-11-01
 
 Upgrading from 0.18.2: `docker compose pull && docker compose up -d`.
