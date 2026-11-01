@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import fs from 'node:fs'
 import path from 'node:path'
+import { execFileSync } from 'node:child_process'
 
 const root = path.join(__dirname, '..')
 const json = (p: string) => JSON.parse(fs.readFileSync(path.join(root, p), 'utf8'))
@@ -116,6 +117,16 @@ describe('the Claude Code plugin', () => {
       // No address other than the two the deploy rules name
       const ips = [...text.matchAll(/\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b/g)].map(m => m[0])
       expect(ips.filter(ip => ip !== '127.0.0.1' && ip !== '0.0.0.0'), f).toEqual([])
+    }
+  })
+
+  it('a script a skill runs directly is executable in git (Linux and macOS installs keep the mode)', () => {
+    const skills = files(path.join(pluginDir, 'skills')).filter(f => f.endsWith('SKILL.md')).map(f => fs.readFileSync(f, 'utf8')).join('\n')
+    const direct = [...skills.matchAll(/^\s*"\$\{CLAUDE_PLUGIN_ROOT\}\/(scripts\/[^"]+)"/gm)].map(m => m[1])
+    expect(direct.length).toBeGreaterThan(0)
+    for (const script of new Set(direct)) {
+      const staged = execFileSync('git', ['ls-files', '-s', path.join(entry?.source ?? '', script)], { cwd: root, encoding: 'utf8' })
+      expect(staged.split(' ')[0], script).toBe('100755')
     }
   })
 })

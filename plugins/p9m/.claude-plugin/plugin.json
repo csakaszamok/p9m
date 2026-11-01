@@ -1,6 +1,6 @@
 {
   "name": "p9m",
-  "version": "0.18.6",
+  "version": "0.18.7",
   "description": "Deploy your app to a Purgatorium sandbox: /p9m:init ties a project to its sandbox, then deploy",
   "author": { "name": "csakaszamok", "url": "https://github.com/csakaszamok" },
   "homepage": "https://csakaszamok.github.io/p9m/latest/claude-plugin/",

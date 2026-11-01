@@ -4,6 +4,18 @@ All notable changes are listed here. Versions follow [semantic versioning](https
 
 ## [Unreleased]
 
+## [0.18.7] - 2026-11-01
+
+Upgrading from 0.18.6: `docker compose pull && docker compose up -d`; `claude plugin update p9m@p9m` gets the plugin's fix (then restart Claude Code).
+
+### Changed
+
+- **Claude Code scenarios instead of one plugin test:** `tests/claude-code/run.mjs` runs a headless Claude Code with `plugins/p9m` through what users do, each step timed: `webapp` (a web app from nothing, online), `database` (a web app with PostgreSQL; its data outlives sleep and wake), `mcp` (an MCP server online; the test speaks MCP to it) and `teleport` (a skill written, then the project and the conversation moved into the sandbox with `/p9m:teleport`). Each starts with `/p9m:init` and checks that the token is in nothing Claude Code saw. With `RECORD=<folder>` it keeps each session's messages, tool calls and screenshots, which `tests/claude-code/video.mjs` turns into demo videos (agg and ffmpeg). `plugin-e2e.mjs` is gone: `webapp` covers it.
+
+### Fixed
+
+- **`/p9m:teleport` stopped at its first step on Linux and macOS:** its script was not executable in the repository, so a plugin installed from the marketplace answered *Permission denied* (Claude Code sometimes recovered by running it with `bash`). It is executable now, and a test checks every script a skill runs directly.
+
 ## [0.18.6] - 2026-11-01
 
 Upgrading from 0.18.5: `docker compose pull && docker compose up -d`.
@@ -980,7 +992,8 @@ The first release.
 
 - The project used to be called Leander. Existing `leander-` sandboxes and `ldr_` tokens keep working; see "Upgrading from Leander" in the README.
 
-[Unreleased]: https://github.com/csakaszamok/p9m/compare/v0.18.6...HEAD
+[Unreleased]: https://github.com/csakaszamok/p9m/compare/v0.18.7...HEAD
+[0.18.7]: https://github.com/csakaszamok/p9m/releases/tag/v0.18.7
 [0.18.6]: https://github.com/csakaszamok/p9m/releases/tag/v0.18.6
 [0.18.5]: https://github.com/csakaszamok/p9m/releases/tag/v0.18.5
 [0.18.4]: https://github.com/csakaszamok/p9m/releases/tag/v0.18.4
