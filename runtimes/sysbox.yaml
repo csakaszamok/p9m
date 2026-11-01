@@ -42,6 +42,9 @@ docker_compose:
       cpus: ${cpus}
       mem_limit: ${memory}
       memswap_limit: ${memory}
+      # Processes and threads of the whole sandbox (its dockerd and apps too): a fork bomb in one must not use up the
+      # host's process table
+      pids_limit: 4096
       # Its own network only: on traefik-net it reached every other sandbox's ports. Purgatorium reaches its SSH,
       # Docker and TCP ports through frps (frpc's tcp proxies); what it needs outside, through socat
       networks:

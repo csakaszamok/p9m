@@ -40,8 +40,17 @@ detail=$(api "$API/sandboxes/$full" | jq -r .status)
 ms=$(api "$API/sandboxes/$full" | jq -r '.created_in_ms // empty')
 [[ "$ms" =~ ^[0-9]+$ ]] && [ "$ms" -gt 0 ] && pass "its details say how long the create took (${ms} ms)" || fail "no created_in_ms in its details [$ms]"
 
+answers=
 for i in $(seq 1 40); do
-  if curl -sk -L --noproxy "*" -m 5 -H "Host: $raw-inner-http-echo-port5678.$DOMAIN" "$APP/" | grep -q hello; then pass "its app answers"; exit 0; fi
+  if curl -sk -L --noproxy "*" -m 5 -H "Host: $raw-inner-http-echo-port5678.$DOMAIN" "$APP/" | grep -q hello; then answers=1; break; fi
   sleep 3
 done
-fail "its app never answered"
+[ -n "$answers" ] && pass "its app answers" || fail "its app never answered"
+
+# A fork bomb stays in its sandbox: the process limit holds, the sandbox and its app live on
+limit=$(docker inspect -f '{{.HostConfig.PidsLimit}}' "$full")
+[ "$limit" = 4096 ] && pass "its process limit is 4096" || fail "its process limit is [$limit]"
+# (the inner shell dies when it cannot fork: it counts into a file)
+started=$(docker exec "$full" sh -c 'rm -f /tmp/forks; sh -c "i=0; while [ \$i -lt 6000 ]; do sleep 60 & echo >> /tmp/forks; i=\$((i+1)); done" 2>/dev/null; wc -l < /tmp/forks; pkill -x sleep; rm -f /tmp/forks' 2>/dev/null | head -n 1 || true)
+[ -n "$started" ] && [ "$started" -lt 6000 ] && pass "a fork bomb stops at the limit ($started processes)" || fail "6000 processes started in the sandbox [$started]"
+curl -sk -L --noproxy "*" -m 10 -H "Host: $raw-inner-http-echo-port5678.$DOMAIN" "$APP/" | grep -q hello && pass "its app still answers" || fail "its app stopped answering after the fork bomb"
