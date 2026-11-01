@@ -113,6 +113,15 @@ describe('sandbox service', () => {
     expect(result.tunnel_urls).toEqual(['p9m-u1-inner-http-echo-port5678.my.local'])
   }, 60000)
 
+  // How long it took, for its Details (Created in): the time the log's "[create] … ready in" line gives
+  it('keeps how long the create took in the sandbox directory', async () => {
+    vi.mocked(fs.writeFileSync).mockClear()
+    await sandboxService.createSandbox('u1t')
+    const call = vi.mocked(fs.writeFileSync).mock.calls.find(c => String(c[0]).endsWith('/p9m-u1t/created-in'))
+    expect(call).toBeTruthy()
+    expect(String(call![1])).toMatch(/^\d+\n$/)
+  }, 60000)
+
   it('the portainer template returns its address and password', async () => {
     const result = await sandboxService.createSandbox('u1p', true, undefined, undefined, 'admin', 'portainer')
     expect(result.extras.portainer_password).toBeTruthy()
@@ -681,6 +690,7 @@ describe('deep-sleeping sandboxes in the API', () => {
       p === `${dir}/docker-compose.yml`
         ? 'services:\n  sandbox:\n    labels:\n      p9m.template: dind-standard\n      p9m.created_at: "2026-09-01T00:00:00Z"\n      p9m.owner: alice@example.com\n'
         : p === `${dir}/extras.json` ? '{}'
+        : p === `${dir}/created-in` ? '42400\n'
         : realRead(p as string, o as BufferEncoding)) as typeof fs.readFileSync)
   })
 
@@ -710,6 +720,7 @@ describe('deep-sleeping sandboxes in the API', () => {
   it('returns deep_sleep details for such a sandbox', async () => {
     const info = await sandboxService.getSandbox(name)
     expect(info.status).toBe('deep_sleep')
+    expect(info.created_in_ms).toBe(42400)
     expect(info.tunnel_urls).toEqual([])
   })
 

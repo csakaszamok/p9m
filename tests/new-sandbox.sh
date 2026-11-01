@@ -37,6 +37,8 @@ list=$(api "$API/sandboxes" | jq -r --arg n "$full" '.[] | select(.name == $n) |
 [ "$list" = running ] && pass "the list says running" || fail "the list says [$list]"
 detail=$(api "$API/sandboxes/$full" | jq -r .status)
 [ "$detail" = running ] && pass "its details say running" || fail "its details say [$detail]"
+ms=$(api "$API/sandboxes/$full" | jq -r '.created_in_ms // empty')
+[[ "$ms" =~ ^[0-9]+$ ]] && [ "$ms" -gt 0 ] && pass "its details say how long the create took (${ms} ms)" || fail "no created_in_ms in its details [$ms]"
 
 for i in $(seq 1 40); do
   if curl -sk -L --noproxy "*" -m 5 -H "Host: $raw-inner-http-echo-port5678.$DOMAIN" "$APP/" | grep -q hello; then pass "its app answers"; exit 0; fi
