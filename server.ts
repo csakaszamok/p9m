@@ -22,7 +22,7 @@ import { stat, readdir } from "node:fs/promises";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { writeWebResponse, readBody } from "./services/http";
-import { filesMaxUpload } from "./services/sandboxFiles";
+import { bodyLimit } from "./services/bodyLimit";
 import { attachTerminals } from "./services/terminalServer";
 import { CLIENT_IP_HEADER, clientAddress } from "./services/loginGuard";
 import { getCookie, SESSION_COOKIE, touchedSessionCookie } from "./services/session";
@@ -173,14 +173,14 @@ function authorized(req: IncomingMessage): boolean {
 }
 
 // Convert IncomingMessage to Web API Request
-// Read into memory, so capped: the largest upload the Files tab takes, and a little more
+// Read into memory, so capped (services/bodyLimit): 2 MB, the largest Files upload for a signed-in one
 async function toWebRequest(req: IncomingMessage): Promise<Request> {
-  const body = await readBody(req, filesMaxUpload() + 1024 * 1024);
   const url = new URL(req.url ?? "/", `http://localhost`);
   const headers = new Headers();
   for (const [k, v] of Object.entries(req.headers)) {
     if (v) headers.set(k, Array.isArray(v) ? v.join(", ") : v);
   }
+  const body = await readBody(req, bodyLimit(req.method ?? "GET", url.pathname, headers));
   // Who is asking, for the sign-in limits: set here, so a client cannot send its own
   const xff = req.headers["x-forwarded-for"];
   headers.set(CLIENT_IP_HEADER, clientAddress(req.socket.remoteAddress, Array.isArray(xff) ? xff.join(", ") : xff));
@@ -194,7 +194,7 @@ async function toWebRequest(req: IncomingMessage): Promise<Request> {
 /** A body over the cap (readBody): 413, and the connection closed so the rest is not read. */
 function tooLarge(err: unknown, res: ServerResponse): boolean {
   if ((err as { status?: number }).status !== 413 || res.headersSent) return false;
-  res.writeHead(413, { "Content-Type": "application/json", Connection: "close" }).end(JSON.stringify({ error: `Request body too large (over FILES_MAX_UPLOAD)` }));
+  res.writeHead(413, { "Content-Type": "application/json", Connection: "close" }).end(JSON.stringify({ error: `Request body too large` }));
   return true;
 }
 
