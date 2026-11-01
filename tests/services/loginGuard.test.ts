@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 vi.stubEnv('SESSION_SECRET', 'test-secret')
-const { LoginLimiter, adminLoginEnabled, adminSignIn, clientAddress, waitText, oidcSignInRefusal, oidcSignInFailed,
+const { LoginLimiter, loginLimiter, adminLoginEnabled, adminSignIn, clientAddress, waitText, oidcSignInFailed,
   FREE_FAILURES, ADMIN_FAILURES_PER_HOUR } = await import('../../services/loginGuard')
 const { hubLoginPage } = await import('../../services/hub/page')
 const login = (await import('../../routes/login/GET')).default
@@ -74,10 +74,10 @@ describe('adminSignIn', () => {
     expect(await adminSignIn('2.2.2.2', 'admin', 'pw', ok, l)).toBeNull()
   })
 
-  it('OIDC: a failed callback counts, a waiting address is refused', () => {
-    const l = new LoginLimiter()
-    for (let i = 0; i < FREE_FAILURES; i++) { expect(oidcSignInRefusal('3.3.3.3', l)).toBeNull(); oidcSignInFailed('3.3.3.3', new Error('state mismatch'), l) }
-    expect(oidcSignInRefusal('3.3.3.3', l)).toMatch(/^Too many failed sign-ins/)
+  it('OIDC: a failed callback is logged, never counted against its address (a room behind one address)', () => {
+    loginLimiter.reset()
+    for (let i = 0; i < FREE_FAILURES * 3; i++) oidcSignInFailed('3.3.3.3', new Error('state mismatch'))
+    expect(loginLimiter.waitFor('3.3.3.3')).toBe(0)
   })
 })
 

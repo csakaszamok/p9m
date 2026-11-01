@@ -107,6 +107,21 @@ describe('OIDC login', () => {
     expect(res.headers.getSetCookie().some(c => /^p9m_next=;.*Max-Age=0/.test(c))).toBe(true)
   })
 
+  // A workshop: everyone behind one company address. Failed Google sign-ins (a wrong account, a cancelled or
+  // expired flow) and failed admin passwords from that address must not lock the others out of Google sign-in:
+  // a callback cannot be guessed (the provider's code, bound to the browser's flow cookie)
+  it('failed sign-ins from a shared address never refuse a valid Google sign-in from it', async () => {
+    const room = (flow: string | undefined, state = 'state-1') =>
+      callback(new Request(`http://p9m.lvh.me/auth/callback?code=abc&state=${state}`, { headers: { 'x-p9m-client-ip': '198.51.100.7', ...(flow ? { cookie: `p9m_oidc=${flow}` } : {}) } }))
+    for (let i = 0; i < 12; i++) await room(await start(), 'other-state')
+    const pw = form({ username: 'admin', password: 'nope' })
+    pw.headers.set('x-p9m-client-ip', '198.51.100.7')
+    for (let i = 0; i < 6; i++) await loginPost(pw.clone())
+    const res = await room(await start())
+    expect(res.headers.get('location')).toBe('/')
+    expect(readSession(cookieValue(res, 'p9m_session'))).toMatchObject({ sub: 'alice@example.com' })
+  })
+
   it('rejects missing flow, bad state, no email and unverified email', async () => {
     for (const res of [
       await cb(undefined),

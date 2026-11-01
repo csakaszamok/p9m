@@ -4,6 +4,10 @@ All notable changes are listed here. Versions follow [semantic versioning](https
 
 ## [Unreleased]
 
+### Fixed
+
+- **A room behind one address could lock itself out of Google sign-in:** every failed OIDC sign-in (a wrong account, a cancelled or expired sign-in) counted against the client's address, and after 5 in 15 minutes everyone behind it — a workshop or an office behind one NAT — was refused for 1 minute, then 2, 4… up to an hour, valid sign-ins too. Failed OIDC sign-ins are now only logged (a callback cannot be guessed); OIDC sign-in is never refused because of failures from the address, the admin's password ones included. The limits on the admin's password stay.
+
 ## [0.18.3] - 2026-11-01
 
 Upgrading from 0.18.2: `docker compose pull && docker compose up -d`.
