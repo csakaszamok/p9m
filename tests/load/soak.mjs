@@ -5,7 +5,7 @@
 // Overview, a sandbox opened) are timed every 10 s. Prints a line a minute (and the
 // host's load and memory when run on the server itself), then how long each step took and whether it held.
 //
-// Needs the server's SESSION_SECRET to sign the users' sessions (as tests/load/workshop.mjs): run it on the server,
+// Needs the server's SESSION_SECRET to sign the users' sessions (as tests/load/burst.mjs): run it on the server,
 // never put the secret in a file in the repository. Node 18+, no packages; on a server without Node, soak.sh runs it
 // in a container (sh soak.sh USERS SANDBOXES MINUTES, next to Purgatorium's .env).
 //
