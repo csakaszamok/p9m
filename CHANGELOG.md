@@ -7,6 +7,7 @@ All notable changes are listed here. Versions follow [semantic versioning](https
 ### Changed
 
 - **The load tests sign in the way people do:** since users work from Claude Code with a token, the tests' signed browser sessions reached no API (401). `tests/load/burst.mjs` (it replaces `workshop.mjs`) has many people sign in for the first time at once: `/device/code`, approval in the browser (the sandbox is made), `/device/token`, the project folder, apps deployed through the sandbox's dockerd, then the apps, sleep and wake. `tests/load/soak.mjs` makes its sandboxes the same way; `soak.sh` needs `first-sign-in.mjs` next to it (it downloads both otherwise, from `main` by default).
+- **An end-to-end test of the Claude Code plugin:** `tests/claude-code/plugin-e2e.mjs` runs a headless Claude Code with `plugins/p9m` in a new project folder: `/p9m:init` (the test approves the code in the browser's place), then *deploy this app, public*; it checks that `.p9m` holds the sandbox's token, that the app answers at its address with its own page, and that the token is in nothing Claude Code printed or read.
 
 ## [0.18.4] - 2026-11-01
 
