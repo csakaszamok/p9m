@@ -4,6 +4,10 @@ All notable changes are listed here. Versions follow [semantic versioning](https
 
 ## [Unreleased]
 
+### Security
+
+- **A loop of requests could stop `/p9m:init` for everyone:** `/device/code` needs no sign-in, and at 500 pending codes it refused every new one for 10 minutes. Now one client address has at most 500 pending codes, a new one pushing out that address's oldest pending one (never one being approved), and the server holds up to 10 000: a loop only pushes out its own address's codes.
+
 ## [0.18.3] - 2026-11-01
 
 Upgrading from 0.18.2: `docker compose pull && docker compose up -d`.
