@@ -4,6 +4,10 @@ All notable changes are listed here. Versions follow [semantic versioning](https
 
 ## [Unreleased]
 
+## [0.18.8] - 2026-11-01
+
+Upgrading from 0.18.7: `docker compose pull && docker compose up -d` (it starts the new `registry-cache-ghcr`); `claude plugin update p9m@p9m` gets the teleport script that uses it. Sandboxes made from now on reach the cache.
+
 ### Changed
 
 - **`/p9m:teleport`'s claude image comes from Purgatorium, not from the internet:** a second registry cache (`registry-cache-ghcr`) keeps the ghcr.io images, which the sandboxes reach as `registry-cache:5001` (dockerd uses a mirror only for Docker Hub, so the teleport script pulls the image by that name and tags it). The first teleport downloads the claude image (about 270 MB) once; every other participant's comes from the server: in a test the teleport step went from 27 s to 18 s. Sandboxes made before this version, or an older server, pull from ghcr.io as before. `REGISTRY_CACHE_TTL` applies to both caches.
@@ -996,7 +1000,8 @@ The first release.
 
 - The project used to be called Leander. Existing `leander-` sandboxes and `ldr_` tokens keep working; see "Upgrading from Leander" in the README.
 
-[Unreleased]: https://github.com/csakaszamok/p9m/compare/v0.18.7...HEAD
+[Unreleased]: https://github.com/csakaszamok/p9m/compare/v0.18.8...HEAD
+[0.18.8]: https://github.com/csakaszamok/p9m/releases/tag/v0.18.8
 [0.18.7]: https://github.com/csakaszamok/p9m/releases/tag/v0.18.7
 [0.18.6]: https://github.com/csakaszamok/p9m/releases/tag/v0.18.6
 [0.18.5]: https://github.com/csakaszamok/p9m/releases/tag/v0.18.5
