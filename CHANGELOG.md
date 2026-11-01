@@ -4,6 +4,14 @@ All notable changes are listed here. Versions follow [semantic versioning](https
 
 ## [Unreleased]
 
+## [0.18.6] - 2026-11-01
+
+Upgrading from 0.18.5: `docker compose pull && docker compose up -d`.
+
+### Security
+
+- **node-forge 1.4.1:** Purgatorium makes the sandboxes' Docker and TLS certificates with node-forge; 1.4.0 had twelve published flaws (six high: denial of service in TLS record processing and PEM decoding, a PKCS#12 MAC forgery, a basicConstraints bypass in certificate chain checks, and RSA signatures accepted with extra ASN.1 elements). 1.4.1 is affected by none of them.
+
 ## [0.18.5] - 2026-11-01
 
 Upgrading from 0.18.4: `docker compose pull && docker compose up -d`.
@@ -972,7 +980,8 @@ The first release.
 
 - The project used to be called Leander. Existing `leander-` sandboxes and `ldr_` tokens keep working; see "Upgrading from Leander" in the README.
 
-[Unreleased]: https://github.com/csakaszamok/p9m/compare/v0.18.5...HEAD
+[Unreleased]: https://github.com/csakaszamok/p9m/compare/v0.18.6...HEAD
+[0.18.6]: https://github.com/csakaszamok/p9m/releases/tag/v0.18.6
 [0.18.5]: https://github.com/csakaszamok/p9m/releases/tag/v0.18.5
 [0.18.4]: https://github.com/csakaszamok/p9m/releases/tag/v0.18.4
 [0.18.3]: https://github.com/csakaszamok/p9m/releases/tag/v0.18.3
