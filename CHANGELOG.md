@@ -6,7 +6,14 @@ All notable changes are listed here. Versions follow [semantic versioning](https
 
 ### Security
 
+- **Requests without a sign-in could run Purgatorium out of memory:** every request's body was read into memory up to `FILES_MAX_UPLOAD` (100 MB) before any route checked who was asking, so a few dozen parallel ones were enough. Now a body is read up to 2 MB; only a Files upload (`PUT …/files/content`) with a session or a token, checked from its headers before the body is read, gets `FILES_MAX_UPLOAD`. A larger body: 413.
+- **A sandbox app could sign a visitor in as someone else:** apps are siblings of Purgatorium's address, and one could set a `p9m_session` (or `p9m_oidc`, `p9m_next`) cookie for the whole parent domain, which Purgatorium then read. A participant's app could so make another participant approve their `/p9m:init` as the attacker: the victim's Claude Code got a token for the attacker's sandbox and deployed the project, with its secrets, there. Over https these cookies (and the Hub's) are now `__Host-` cookies, which a browser takes only from Purgatorium's own address; a planted plain one is ignored. Upgrading signs everyone out once. Local http (lvh.me) keeps the plain names.
+- **A loop of requests could stop `/p9m:init` for everyone:** `/device/code` needs no sign-in, and at 500 pending codes it refused every new one for 10 minutes. Now one client address has at most 500 pending codes, a new one pushing out that address's oldest pending one (never one being approved), and the server holds up to 10 000: a loop only pushes out its own address's codes.
 - **A fork bomb in one sandbox could stop the whole server:** a sandbox had no limit on its processes, so one could use up the host's process table, and then no sandbox, nor Purgatorium, could start a process. A sandbox now has at most 4096 processes and threads (its dockerd and apps included). For sandboxes made from now on; an existing one keeps its compose file.
+
+### Fixed
+
+- **A room behind one address could lock itself out of Google sign-in:** every failed OIDC sign-in (a wrong account, a cancelled or expired sign-in) counted against the client's address, and after 5 in 15 minutes everyone behind it — a workshop or an office behind one NAT — was refused for 1 minute, then 2, 4… up to an hour, valid sign-ins too. Failed OIDC sign-ins are now only logged (a callback cannot be guessed); OIDC sign-in is never refused because of failures from the address, the admin's password ones included. The limits on the admin's password stay.
 
 ## [0.18.3] - 2026-11-01
 
