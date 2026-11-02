@@ -1,5 +1,6 @@
 // The containers in a sandbox's own Docker, for the Containers tab: a terminal opens a shell in a running one.
 import { innerDocker } from './innerDocker'
+import { resumeScript, type TerminalResume } from './terminalResume'
 import { ttyShell } from './docker'
 
 interface InnerContainer { Id: string; Names: string[]; Image: string; State: string; Status: string; Labels: Record<string, string> | null }
@@ -33,15 +34,17 @@ export async function sandboxContainers(name: string): Promise<ContainerRow[]> {
  * What runs in the container: its user's login shell from /etc/passwd (zsh in a devcontainer), else bash, else sh.
  * The pid file may not be writable (a read-only file system): the shell still opens, it is only not HUPed on close.
  */
-export const CONTAINER_SHELL = (pidFile: string) => `{ echo $$ > ${pidFile}; } 2>/dev/null
+/** The script of a container's shell; `then` runs before the login shell takes over (it ends with exec "$s" -l) */
+export const CONTAINER_SHELL = (pidFile: string, then = 'exec "$s" -l') => `{ echo $$ > ${pidFile}; } 2>/dev/null
 s=$(awk -F: -v u="$(id -u)" '$3==u{print $7; exit}' /etc/passwd 2>/dev/null)
 case "$s" in */nologin|*/false) s= ;; esac
 [ -n "$s" ] && [ -x "$s" ] || s=$(command -v bash) || s=sh
-exec "$s" -l`
+${then}`
 
 /** A shell in a container of the sandbox's own Docker, as the container's own user, in its own working dir. */
-export async function openContainerShell(name: string, container: string, cols: number, rows: number) {
+export async function openContainerShell(name: string, container: string, cols: number, rows: number, resume?: TerminalResume) {
   if (!CONTAINER_NAME.test(container)) throw new Error(`No such container: ${container}`)
+  const script = resume ? (pid: string) => CONTAINER_SHELL(pid, resumeScript(resume)) : CONTAINER_SHELL
   // timeout 0: a terminal may stay quiet for hours
-  return ttyShell(innerDocker(name, undefined, 0).getContainer(container), cols, rows, CONTAINER_SHELL, { Env: ['TERM=xterm-256color'] })
+  return ttyShell(innerDocker(name, undefined, 0).getContainer(container), cols, rows, script, { Env: ['TERM=xterm-256color'] })
 }

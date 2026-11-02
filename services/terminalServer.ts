@@ -2,14 +2,15 @@ import type { Server } from 'node:http'
 import { WebSocketServer } from 'ws'
 import { checkTerminalUpgrade, type GateResult } from './terminalGate'
 import { runTerminal } from './terminalSession'
+import type { TerminalResume } from './terminalResume'
 
 interface Deps {
   check(url: string, headers: Record<string, string | string[] | undefined>): Promise<GateResult>
-  run(ws: never, name: string, container?: string): Promise<void>
+  run(ws: never, name: string, container?: string, resume?: TerminalResume): Promise<void>
 }
 
 /** Browser terminals: /sandboxes/:name/terminal upgraded to a websocket (checked before the upgrade). */
-export function attachTerminals(server: Server, deps: Deps = { check: checkTerminalUpgrade, run: (ws, name, container) => runTerminal(ws, name, {}, container) }): void {
+export function attachTerminals(server: Server, deps: Deps = { check: checkTerminalUpgrade, run: (ws, name, container, resume) => runTerminal(ws, name, {}, container, resume) }): void {
   // Terminal input is keystrokes and resizes: a bigger message is not one of ours
   const wss = new WebSocketServer({ noServer: true, maxPayload: 64 * 1024 })
   server.on('upgrade', async (req, socket, head) => {
@@ -29,9 +30,9 @@ export function attachTerminals(server: Server, deps: Deps = { check: checkTermi
     wss.handleUpgrade(req, socket, head, ws => {
       ws.on('error', () => ws.terminate()) // a malformed frame: drop this connection, not the server
       const where = gate.container ? `${gate.name}/${gate.container}` : gate.name
-      console.log(`[terminal] ${where}: opened by ${gate.sub}`)
+      console.log(`[terminal] ${where}: opened by ${gate.sub}${gate.resume ? ` (resume ${gate.resume.resume})` : ''}`)
       ws.on('close', () => console.log(`[terminal] ${where}: closed`))
-      deps.run(ws as never, gate.name, gate.container).catch(err => {
+      deps.run(ws as never, gate.name, gate.container, gate.resume).catch(err => {
         console.error(`[terminal] ${where}: ${err instanceof Error ? err.message : err}`)
         try { ws.send(JSON.stringify({ type: 'error', text: err instanceof Error ? err.message : String(err) })); ws.close() } catch { /* gone */ }
       })

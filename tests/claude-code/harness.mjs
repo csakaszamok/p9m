@@ -212,6 +212,28 @@ export async function runScenario(scenario, c) {
       } catch (err) { out = String(err.stdout ?? '') }
       return out.replace(/\x1b\[[0-9;?<>=]*[A-Za-z~]|\x1b\][^\x07]*\x07|\x1b[()][A-Z0-9]|\r/g, '')
     },
+    /** A terminal link opened as the signed-in test user (a user, not the admin) would in a browser: the page, then its
+     *  websocket, for seconds at most; what the terminal showed, the escape codes left out */
+    async browserTerminal(link, seconds = 30) {
+      const u = new URL(link)
+      const page = await fetch(link, { headers: { cookie: session(h.sub) }, redirect: 'manual' })
+      if (page.status !== 200) throw new StepFailed(`the page answered ${page.status} ${page.headers.get('location') ?? ''}`)
+      const body = await page.text()
+      if (!body.includes('/assets/terminal.js')) throw new StepFailed('not a terminal page')
+      const { default: WebSocket } = await import('ws')
+      const ws = new WebSocket(`${u.protocol === 'https:' ? 'wss' : 'ws'}://${u.host}${u.pathname}${u.search}`,
+        { headers: { cookie: session(h.sub), origin: u.origin }, rejectUnauthorized: !c.insecure, ...(c.caFile ? { ca: fs.readFileSync(c.caFile) } : {}) })
+      let out = ''
+      await new Promise(resolve => {
+        const done = setTimeout(() => { ws.close(); resolve() }, seconds * 1000)
+        ws.on('open', () => ws.send(JSON.stringify({ type: 'resize', cols: 120, rows: 36 })))
+        ws.on('message', d => { const m = JSON.parse(String(d)); if (m.type === 'output') out += m.data; else if (m.type === 'error') out += `[${m.text}]` })
+        ws.on('unexpected-response', (_q, res) => { out += `[websocket refused: ${res.statusCode}]`; clearTimeout(done); resolve() })
+        ws.on('error', err => { out += `[${err.message}]`; clearTimeout(done); resolve() })
+        ws.on('close', () => { clearTimeout(done); resolve() })
+      })
+      return out.replace(/\x1b\[[0-9;?<>=]*[A-Za-z~]|\x1b\][^\x07]*\x07|\x1b[()][A-Z0-9]|\r/g, '')
+    },
     /** A screenshot of a page for the demo (with a record folder only); the browser runs in Playwright's image */
     async screenshot(url, label) {
       if (!rec) return

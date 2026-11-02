@@ -3,6 +3,7 @@ import { getSandboxState, openShell } from './docker'
 import { sandboxService } from './sandbox'
 import { primeSablierSession } from './wake'
 import { openContainerShell } from './sandboxContainers'
+import type { TerminalResume } from './terminalResume'
 
 export interface WsLike {
   send(data: string): void
@@ -30,7 +31,7 @@ const defaults: TerminalDeps = {
 }
 
 /** One browser terminal: wake the sandbox if needed, then a shell (in the sandbox, or in one of its containers) piped as JSON messages. */
-export async function runTerminal(ws: WsLike, name: string, overrides: Partial<TerminalDeps> = {}, container?: string): Promise<void> {
+export async function runTerminal(ws: WsLike, name: string, overrides: Partial<TerminalDeps> = {}, container?: string, resume?: TerminalResume): Promise<void> {
   const d = { ...defaults, ...overrides }
   const send = (m: Record<string, unknown>) => { try { ws.send(JSON.stringify(m)) } catch { /* gone */ } }
   let closed = false
@@ -59,7 +60,7 @@ export async function runTerminal(ws: WsLike, name: string, overrides: Partial<T
     }
   }
   if (closed) return
-  shell = container ? await d.openContainerShell(name, container, 80, 24) : await d.openShell(name, 80, 24)
+  shell = container ? await d.openContainerShell(name, container, 80, 24, resume) : await d.openShell(name, 80, 24)
   if (closed) { end(); return } // the tab went while the shell was opening
   const out = stream()!
   // The exec stream is a hijacked socket: it errors when the sandbox goes away under it

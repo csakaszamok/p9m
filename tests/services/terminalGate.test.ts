@@ -22,11 +22,14 @@ const h = (extra: Record<string, string>) => ({ host: 'p9m.lvh.me', origin: 'htt
 describe('checkTerminalUpgrade', () => {
   beforeEach(() => { for (let i = 0; i < 10; i++) terminalClosed('admin') })
 
-  it("lets the admin in; a user's sign-in not, not even to their own (headless); a missing one is 404", async () => {
+  it("lets the admin in, and a user into their own sandbox only (/p9m:teleport's link); a missing one is 404", async () => {
     const r = await checkTerminalUpgrade('/sandboxes/p9m-a1/terminal', h({ cookie: admin }))
     expect(r).toMatchObject({ ok: true, name: 'p9m-a1', sub: 'admin' })
     if (r.ok) r.release()
-    expect(await checkTerminalUpgrade('/sandboxes/p9m-a1/terminal', h({ cookie: cookie('alice@example.com') }))).toMatchObject({ ok: false, status: 401 })
+    const own = await checkTerminalUpgrade('/sandboxes/p9m-a1/terminal?container=claude', h({ cookie: cookie('alice@example.com') }))
+    expect(own).toMatchObject({ ok: true, name: 'p9m-a1', container: 'claude', sub: 'alice@example.com' })
+    if (own.ok) own.release()
+    expect(await checkTerminalUpgrade('/sandboxes/p9m-b1/terminal', h({ cookie: cookie('alice@example.com') }))).toMatchObject({ ok: false, status: 404 })
     expect(await checkTerminalUpgrade('/sandboxes/p9m-zz/terminal', h({ cookie: admin }))).toMatchObject({ ok: false, status: 404 })
   })
 
@@ -35,6 +38,23 @@ describe('checkTerminalUpgrade', () => {
     expect(await checkTerminalUpgrade('/sandboxes/p9m-a1/terminal', h({ authorization: 'Bearer p9m_x' }))).toMatchObject({ ok: false, status: 401 })
     expect(await checkTerminalUpgrade('/sandboxes/p9m-a1/terminal', h({ cookie: admin, origin: 'https://evil.example' }))).toMatchObject({ ok: false, status: 403 })
     expect(await checkTerminalUpgrade('/sandboxes/p9m-a1/terminal', { host: 'p9m.lvh.me', cookie: admin })).toMatchObject({ ok: false, status: 403 })
+  })
+
+  // A link someone else sends can at most open a conversation in your own container: a UUID and a teleport folder
+  it('passes on a conversation to continue (resume and dir, with a container); anything else is not found', async () => {
+    const id = '0f8e2a4c-1b3d-4e5f-8a9b-0c1d2e3f4a5b'
+    const ok = await checkTerminalUpgrade(`/sandboxes/p9m-a1/terminal?container=claude&resume=${id}&dir=/home/agent/workspace/shop`, h({ cookie: cookie('alice@example.com') }))
+    expect(ok).toMatchObject({ ok: true, container: 'claude', resume: { resume: id, dir: '/home/agent/workspace/shop' } })
+    if (ok.ok) ok.release()
+    for (const q of [
+      `resume=${id}&dir=/home/agent/workspace/shop`, // no container
+      `container=claude&resume=${id}`, // half
+      `container=claude&resume=x;rm%20-rf&dir=/home/agent/workspace/shop`,
+      `container=claude&resume=${id}&dir=/etc`,
+      `container=claude&resume=${id}&dir=/home/agent/workspace/../../etc`,
+      `container=claude&resume=${id}&dir=/home/agent/workspace/a%20b`,
+      `container=claude&resume=${id}&dir=/home/agent/workspace/a$(id)`,
+    ]) expect(await checkTerminalUpgrade(`/sandboxes/p9m-a1/terminal?${q}`, h({ cookie: cookie('alice@example.com') })), q).toMatchObject({ ok: false, status: 404 })
   })
 
   it("passes on a container of the sandbox's own Docker; refuses an odd name", async () => {

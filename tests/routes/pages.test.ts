@@ -47,10 +47,11 @@ describe('pages', () => {
     expect(html).toContain('<script src="/assets/app.js"')
   })
 
-  // Headless: users get and use their sandboxes from Claude Code; the sign-in only approves /p9m:init
+  // Headless: users get and use their sandboxes from Claude Code; the sign-in only approves /p9m:init. Their own
+  // sandboxes' terminals are the exception (below): /p9m:teleport's link
   it('a user gets no web UI on any page: the Claude Code steps instead', async () => {
     const user = as('alice@example.com', 'user')
-    for (const [handler, path] of [[index, '/'], [overview, '/overview'], [tokens, '/settings/tokens'], [sshKeys, '/settings/ssh-keys'], [terminalPage, '/sandboxes/p9m-mine/terminal'], [logsPage, '/sandboxes/p9m-mine/logs']] as const) {
+    for (const [handler, path] of [[index, '/'], [overview, '/overview'], [tokens, '/settings/tokens'], [sshKeys, '/settings/ssh-keys'], [logsPage, '/sandboxes/p9m-mine/logs']] as const) {
       const res = await handler(r(path, user))
       expect(res.status, path).toBe(200)
       expect(res.headers.get('x-frame-options'), path).toBe('DENY')
@@ -88,7 +89,29 @@ describe('pages', () => {
     expect(html).toContain('/assets/terminal.js')
     expect(html).toContain('data-sandbox="p9m-mine"')
     expect((await terminalPage(r('/sandboxes/p9m-other/terminal', ADMIN))).status).toBe(404)
-    expect((await terminalPage(r('/sandboxes/p9m-mine/terminal'))).status).toBe(302)
+    // Signed out: to the sign-in, and back here after it (the signed p9m_next cookie, as /activate's)
+    const out = await terminalPage(r('/sandboxes/p9m-mine/terminal?container=claude'))
+    expect(out.status).toBe(303)
+    expect(out.headers.get('location')).toBe('/login')
+    expect(out.headers.get('set-cookie')).toMatch(/^p9m_next=/)
+  })
+
+  // The one page users have besides /activate: their own sandboxes' terminals, /p9m:teleport's link
+  it("opens a user's own sandbox's terminal, not another's", async () => {
+    const alice = as('alice@example.com', 'user')
+    const page = await terminalPage(r('/sandboxes/p9m-mine/terminal?container=claude', alice))
+    expect(page.status).toBe(200)
+    expect(await page.text()).toContain('data-container="claude"')
+    expect((await terminalPage(r('/sandboxes/p9m-mine/terminal', as('bob@example.com', 'user')))).status).toBe(404)
+  })
+
+  it('continues a teleported conversation: resume and dir on the page; an odd one is not found', async () => {
+    const alice = as('alice@example.com', 'user')
+    const id = '0f8e2a4c-1b3d-4e5f-8a9b-0c1d2e3f4a5b'
+    const html = await (await terminalPage(r(`/sandboxes/p9m-mine/terminal?container=claude&resume=${id}&dir=/home/agent/workspace/shop`, alice))).text()
+    expect(html).toContain(`data-resume="${id}" data-dir="/home/agent/workspace/shop"`)
+    expect((await terminalPage(r(`/sandboxes/p9m-mine/terminal?container=claude&resume=${id}&dir=/etc`, alice))).status).toBe(404)
+    expect((await terminalPage(r('/sandboxes/p9m-mine/terminal?container=claude&resume=nope&dir=/home/agent/workspace/shop', alice))).status).toBe(404)
   })
 
   it("a terminal in one of the sandbox's containers names it on the page; an odd name is not found", async () => {
