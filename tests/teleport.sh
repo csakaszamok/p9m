@@ -29,7 +29,7 @@ case $args in
   *" compose -p claude "*" up -d "*) if [ -f "$FAKE/compose-fail" ]; then echo 'Error: pull access denied' >&2; exit 1; fi; touch "$FAKE/has-claude"; exit 0 ;;
   *" exec claude test -e "*) [ -f "$FAKE/exists" ]; exit ;;
   *" cp "*) for a in "$@"; do case $a in claude:*) ;; *.tgz) cp "$a" "$FAKE/copied/";; esac; done; exit 0 ;;
-  *"teleport-in.sh"*) printf 'resume\tabc\t/home/agent/workspace/shop\n'; exit 0 ;;
+  *"teleport-in.sh"*) if [ -f "$FAKE/in-exists" ]; then printf 'exists\t/home/agent/workspace/shop\n'; exit 3; fi; printf 'resume\tabc\t/home/agent/workspace/shop\n'; exit 0 ;;
 esac
 exit 0
 SH
@@ -49,7 +49,7 @@ esac
 SH
 chmod +x "$FAKE/bin/"*
 export PATH="$FAKE/bin:$PATH"
-reset() { rm -f "$FAKE"/log "$FAKE"/{ctx-fail,has-claude,compose-fail,exists,started,asleep,never-wakes,redirect,template-claude,ghcr-cache}; rm -rf "$FAKE/copied"/*; }
+reset() { rm -f "$FAKE"/log "$FAKE"/{ctx-fail,has-claude,compose-fail,exists,started,asleep,never-wakes,redirect,template-claude,ghcr-cache,in-exists}; rm -rf "$FAKE/copied"/*; }
 
 # The project (as in tests/teleport-lib.sh), tied to p9m-shop, with a conversation
 proj=$tmp/shop; mkdir -p "$proj/b c" "$proj/config" "$proj/node_modules"
@@ -114,7 +114,13 @@ grep -q 'stage/secrets/.env.local\|stage/secrets/key.pem\|stage/files/.env$\|sta
 mkdir -p "$tmp/unpacked" && tar -xzf "$FAKE"/copied/stage.tgz -C "$tmp/unpacked"
 [ "$(cat "$tmp/unpacked/stage/files/b c/ü.txt")" = u ] && pass "run: a path with a space and an accent" || fail "space/accent path"
 has "$listing" "stage/session.jsonl" "run: the conversation"
-eq "run: the resume line comes last" "$(tail -n 1 <<<"$out")" $'resume\tabc\t/home/agent/workspace/shop'
+has "$out" $'resume\tabc\t/home/agent/workspace/shop' "run: the resume line"
+eq "run: last, the one command that continues there" "$(tail -n 1 <<<"$out")" $'continue\tdocker --context p9m-shop exec -it -w /home/agent/workspace/shop claude claude --resume abc'
+# teleport-in.sh refusing (the project is there): its answer and its exit code, no continue line
+reset; touch "$FAKE/in-exists"
+set +e; out=$(tp --run); rc=$?; set -e
+eq "run: teleport-in.sh's exit code passes through" "$rc" 3
+grep -q '^continue' <<<"$out" && fail "no continue line when teleport-in.sh refused" || pass "run: no continue line when teleport-in.sh refused"
 
 # The claude image through Purgatorium's ghcr.io cache when the sandbox has it, tagged as compose names it
 reset; touch "$FAKE/ghcr-cache"

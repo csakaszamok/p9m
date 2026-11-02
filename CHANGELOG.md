@@ -4,6 +4,17 @@ All notable changes are listed here. Versions follow [semantic versioning](https
 
 ## [Unreleased]
 
+## [0.18.9] - 2026-11-02
+
+Upgrading from 0.18.8: `docker compose pull && docker compose up -d` (the sign-in page); `claude plugin update p9m@p9m` gets the skills' changes (then restart Claude Code).
+
+### Changed
+
+- **`/p9m:teleport` ends with one command for the user:** `docker --context p9m-<sandbox> exec -it -w <folder> claude claude --resume <id>` opens Claude Code in the sandbox, in the project's folder, with the conversation. It goes through the docker context `/p9m:init` made, so it works for every user. The skill used to send users to the claude container's terminal in the web UI, which only admins have. The script's new last line is `continue COMMAND`.
+- **`/p9m:init` in a folder tied already keeps the link:** it checks that the sandbox's Docker answers and that the token is valid (waking a sleeping sandbox), then stops, with no new code, token, keys or docker context. It ties the folder again only when the link is broken, and asks first.
+- **The sign-in page shows Claude Code users the plugin:** a *Using Claude Code?* block with the two `p9m-team/p9m` lines and `/p9m:init <address>`, so a user's agent that reads the page finds it too. The README says `p9m-team/p9m` is the official marketplace.
+- **[Claude Code and Purgatorium on one page](https://csakaszamok.github.io/p9m/latest/tutorials/claude-code-cheatsheet/):** what to install, the commands, what to say and how to go on in the sandbox, to print or hand out.
+
 ## [0.18.8] - 2026-11-01
 
 Upgrading from 0.18.7: `docker compose pull && docker compose up -d` (it starts the new `registry-cache-ghcr`); `claude plugin update p9m@p9m` gets the teleport script that uses it. Sandboxes made from now on reach the cache.
@@ -1000,7 +1011,8 @@ The first release.
 
 - The project used to be called Leander. Existing `leander-` sandboxes and `ldr_` tokens keep working; see "Upgrading from Leander" in the README.
 
-[Unreleased]: https://github.com/csakaszamok/p9m/compare/v0.18.8...HEAD
+[Unreleased]: https://github.com/csakaszamok/p9m/compare/v0.18.9...HEAD
+[0.18.9]: https://github.com/csakaszamok/p9m/releases/tag/v0.18.9
 [0.18.8]: https://github.com/csakaszamok/p9m/releases/tag/v0.18.8
 [0.18.7]: https://github.com/csakaszamok/p9m/releases/tag/v0.18.7
 [0.18.6]: https://github.com/csakaszamok/p9m/releases/tag/v0.18.6

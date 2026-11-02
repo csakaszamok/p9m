@@ -72,26 +72,30 @@ run cut off halfway leaves the work undone:
 "${CLAUDE_PLUGIN_ROOT}/scripts/teleport.sh" --run $ARGUMENTS --secret ".env" --secret "config/.env"
 ```
 
-The first time it starts the `claude` container in the sandbox (pulling its image can take a minute or two). Its last
-line is `resume ID FOLDER`. A `skipped-plugin NAME` line: that plugin could not be installed there (its marketplace is
-a folder on this machine). `exists …` (exit 3): the project is there and `--replace` was not given. `error MESSAGE`
-(exit 2): tell the user, and stop.
+The first time it starts the `claude` container in the sandbox (pulling its image can take a minute or two). It
+answers `resume ID FOLDER`, then last `continue COMMAND`: the one command that opens Claude Code in the sandbox, in
+that folder and this conversation. A `skipped-plugin NAME` line: that plugin could not be installed there (its
+marketplace is a folder on this machine). `exists …` (exit 3): the project is there and `--replace` was not given.
+`error MESSAGE` (exit 2): tell the user, and stop.
 
 ## 4. Continue there
 
-Tell the user, with the id and folder from the `resume` line:
+Tell the user, with the command from the `continue` line exactly as it is, and the folder from the `resume` line:
 
-> The project is in the sandbox **<short name>**. Open its panel in Purgatorium → the **claude** container's
-> terminal (or SSH into the sandbox and `docker exec -it claude bash`), then:
+> The project is in the sandbox **<short name>**. Continue there with one command, in a terminal on this machine
+> (on Windows in PowerShell or Windows Terminal; Git Bash would rewrite the folder):
 >
 > ```
-> claude            # the first time only: /login, then /exit
-> cd <FOLDER>
-> claude --resume <ID>
+> <COMMAND>
 > ```
 >
-> Then tell Claude once: *the project now lives in <FOLDER>*. Work there from now on: this folder keeps the moment
-> of the teleport. To bring work back, commit and push in the sandbox, pull here (the repository and your git name
-> and e-mail went along; pushing needs your git host's credentials there once, e.g. an SSH key or a token).
+> The first time Claude Code there asks you to sign in once. Then the conversation goes on in <FOLDER>: tell Claude
+> once *the project now lives in <FOLDER>*. Work there from now on: this folder keeps the moment of the teleport.
+> To bring work back, commit and push in the sandbox, pull here (the repository and your git name and e-mail went
+> along; pushing needs your git host's credentials there once, e.g. an SSH key or a token).
+
+Never send the user to the container's terminal in Purgatorium's web page: only admins have it. The command works
+for every user, with the docker context `/p9m:init` made (the same keys this teleport used). Do not run it
+yourself: it is interactive, it is for the user.
 
 List any `skipped-plugin` names (the user can install them there with `/plugin`).

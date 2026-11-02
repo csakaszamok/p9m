@@ -50,7 +50,7 @@ After the approval the page shows a second code. Paste it into Claude Code: only
 
 Then Claude Code unpacks the project's `.p9m` folder straight to disk: a new token for that sandbox only (in `.p9m/p9m.env`, 90 days) and the sandbox's Docker keys. The token never shows on the screen or in the chat. The folder keeps itself out of git; the token is named `Claude Code init <date>` (the admin sees and revokes it under **Access tokens**).
 
-Run `/p9m:init` with the sandbox's name again whenever the token has expired or was revoked. A project can be tied to one sandbox at a time; another project in another folder can be tied to another sandbox, or to another Purgatorium.
+In a folder tied already, `/p9m:init` keeps the connection: it checks that the sandbox's Docker answers (waking a sleeping sandbox) and stops, with no new code, token or keys. Only when the connection is broken (the token expired after 90 days or was revoked, the keys are gone) does it ask, then tie the folder to the same sandbox again. Asked for another sandbox, it asks before it replaces the connection. A project can be tied to one sandbox at a time; another project in another folder can be tied to another sandbox, or to another Purgatorium.
 
 ## The `.p9m` folder
 
@@ -77,7 +77,7 @@ The plugin does not bring the MCP server. Purgatorium still has one, for other M
 - **this conversation**, and your portable settings: global `CLAUDE.md`, your skills, the enabled plugins (installed again from their marketplaces), the `permissions`. Not your MCP servers, hooks or `env`: they point at things on your machine;
 - **not the Claude Code sign-in**: sign in once in the container (`claude`, then `/login`); it stays there.
 
-The files go straight to the sandbox's Docker with the project's keys (`.p9m/docker`): Purgatorium only wakes the sandbox. Then open the sandbox's panel → the **claude** container's terminal, `cd` into the folder it names and `claude --resume <id>`. It is one way: the local folder keeps the moment of the teleport; bring work back with git. `--ecc` starts the container from the image with [ECC](runtimes-templates.md) (only when the sandbox has no `claude` container yet). Teleporting the same project again asks before it replaces the sandbox's copy.
+The files go straight to the sandbox's Docker with the project's keys (`.p9m/docker`): Purgatorium only wakes the sandbox. At the end it gives you one command to run in a terminal on your computer, `docker --context p9m-<sandbox> exec -it -w /home/agent/workspace/<project> claude claude --resume <id>`: Claude Code opens in the sandbox, in the project's folder, with the conversation (the first time it asks you to sign in to Claude once). It goes through the docker context `/p9m:init` made, so it works for every user; the container terminal in the web UI is the admin's. On Windows run it in PowerShell or Windows Terminal (Git Bash rewrites the folder). It is one way: the local folder keeps the moment of the teleport; bring work back with git. `--ecc` starts the container from the image with [ECC](runtimes-templates.md) (only when the sandbox has no `claude` container yet). Teleporting the same project again asks before it replaces the sandbox's copy.
 
 ## Where it works
 

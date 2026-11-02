@@ -199,6 +199,16 @@ describe('pages', () => {
     expect(page).not.toContain('class="capacity')
   })
 
+  // A user's agent that fetches this page (it has no session) learns how to install the plugin, from the official
+  // marketplace, and the /p9m:init command with this server's address
+  it('the sign-in page tells Claude Code users the plugin and /p9m:init', async () => {
+    const page = await (await login(r('/login'))).text()
+    expect(page).toContain('claude plugin marketplace add p9m-team/p9m')
+    expect(page).toContain('claude plugin install p9m@p9m')
+    expect(page).toMatch(/\/p9m:init https?:\/\/[^<\s]+/)
+    expect(page).not.toContain('csakaszamok/p9m')
+  })
+
   it('the sign-in page has the ember background', async () => {
     const loginPage = await (await login(r('/login'))).text()
     expect(loginPage).toContain('<script src="/assets/embers.js" defer></script>')
