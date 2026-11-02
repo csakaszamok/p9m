@@ -4,7 +4,8 @@
 #
 #   teleport.sh --plan [--ecc]                                    what would move, as tab-separated lines:
 #       project NAME | files COUNT BYTES | secret PATH | session ID ISO-TIME | setting WHAT | exists yes|no | large yes|no
-#   teleport.sh --run [--ecc] [--replace] [--secret PATH]...      moves it; the last line: resume ID FOLDER
+#   teleport.sh --run [--ecc] [--replace] [--secret PATH]...      moves it; then `resume ID FOLDER` and last
+#       `continue COMMAND`: the command that opens Claude Code there, in that folder and conversation
 #
 # Exit 2 with `error<TAB>message` when it cannot; 3 when the project is in the sandbox already and --replace is not
 # given. Never prints the token or a secret: secrets go only when named with --secret.
@@ -123,7 +124,7 @@ if [ -z "$has_claude" ]; then
   cached=registry-cache:5001/${image#ghcr.io/}
   if dk pull -q "$cached" >/dev/null 2>&1; then dk tag "$cached" "$image" >/dev/null 2>&1 || true; fi
   out=$(TELEPORT_IMAGE=$image dk compose -p claude -f "$(hostpath "$here/teleport-compose.yaml")" up -d 2>&1) \
-    || err "the claude container did not start: $(printf '%s\n' "$out" | tail -n 1)"
+    || err "the claude container did not start: $(printf '%s\n' "$out" | tail -n 1 || true)"
   secrets_volume=yes
 fi
 
@@ -159,4 +160,12 @@ dk cp "$(hostpath "$st/stage.tgz")" "claude:$remote/stage.tgz"
 dk cp "$(hostpath "$here/teleport-in.sh")" "claude:$remote/teleport-in.sh"
 dk cp "$(hostpath "$here/teleport-lib.sh")" "claude:$remote/teleport-lib.sh"
 dk exec claude tar -xzf "$remote/stage.tgz" -C "$remote"
-dk exec -u agent claude bash "$remote/teleport-in.sh" "$remote/stage" "$project" $replace
+out=$(dk exec -u agent claude bash "$remote/teleport-in.sh" "$remote/stage" "$project" $replace) || { rc=$?; printf '%s\n' "$out"; exit $rc; }
+printf '%s\n' "$out"
+# The one command that continues there, from this machine: the docker context /p9m:init made reaches the sandbox for
+# every user (the web terminal of a container is the admins'), into the folder and this conversation
+resume=$(printf '%s\n' "$out" | grep "^resume$(printf '\t')" | tail -n 1 || true)
+id=$(printf '%s' "$resume" | cut -f2) folder=$(printf '%s' "$resume" | cut -f3)
+if [ -n "$folder" ]; then
+  printf 'continue\tdocker --context %s exec -it -w %s claude claude%s\n' "$ctx" "$folder" "${id:+ --resume $id}"
+fi

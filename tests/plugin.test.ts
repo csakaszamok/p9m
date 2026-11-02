@@ -56,11 +56,23 @@ describe('the Claude Code plugin', () => {
     expect(md).toContain('"${CLAUDE_PLUGIN_ROOT}/scripts/teleport.sh" --run')
     expect(md).toContain('--secret')
     expect(md).toContain('claude --resume')
+    // The way on is the script's one command over the docker context, for every user: the web terminal is the admins'
+    expect(md).toContain('`continue COMMAND`')
+    expect(md).not.toMatch(/terminal\?container=|container's terminal \(/)
     // The first run pulls an image: the Bash tool's 2-minute default would kill it halfway
     expect(md).toContain('600000')
     // A secret that is a symlink is never taken: the skill says so instead of asking
     expect(md).toContain('secret-link')
     expect(fs.existsSync(path.join(pluginDir, 'scripts/teleport.sh'))).toBe(true)
+  })
+
+  // A folder tied already: check the link (waking the sandbox), never a new code, token or keys while it works
+  it('init keeps a working link instead of tying the folder again', () => {
+    const md = fs.readFileSync(path.join(pluginDir, 'skills/init/SKILL.md'), 'utf8')
+    expect(md).toContain('Never start over by habit')
+    expect(md).toContain('docker --context <P9M_SANDBOX> compose ls')
+    expect(md).toContain('/sandboxes/$P9M_SANDBOX/start')
+    expect(md).not.toContain('the new folder replaces it, with a new token')
   })
 
   it('every skill has a name matching its folder and a description within the limit', () => {

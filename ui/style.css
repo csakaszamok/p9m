@@ -207,6 +207,9 @@ body.login form button { margin-top: 14px }
 body.login .actions { display: flex; flex-wrap: wrap; gap: 8px }
 body.login .approve-warn { margin: 14px 0 0; padding: 10px 12px; border: 1px solid rgba(249,115,22,.55); border-left-width: 4px; border-radius: 8px; background: rgba(249,115,22,.1); color: var(--accent-text); font-weight: 600; font-size: .92em }
 body.login .capacity { margin: 14px 0 }
+body.login .agents { margin-top: 16px; font-size: .9em }
+body.login .agents p { margin: 10px 0 6px }
+body.login .agents pre.code { white-space: pre-wrap; word-break: break-all; padding: 8px 10px }
 body.login .capacity p { margin: 0 0 6px; color: var(--muted); font-size: .9em }
 body.login .capacity .bar { height: 4px; border-radius: 2px; background: var(--track); overflow: hidden }
 body.login .capacity .bar span { display: block; height: 100%; background: var(--muted) }

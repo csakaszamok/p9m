@@ -69,6 +69,7 @@ nav:
   - Tutorials:
       - tutorials/index.md
       - With Claude Code: tutorials/claude-code.md
+      - Claude Code on one page: tutorials/claude-code-cheatsheet.md
       - With any agent: tutorials/other-agents.md
       - Share on the Hub: tutorials/hub.md
   - Using Purgatorium:
@@ -115,6 +116,7 @@ plugins:
         Tutorials:
           - tutorials/index.md
           - tutorials/claude-code.md
+          - tutorials/claude-code-cheatsheet.md
           - tutorials/other-agents.md
           - tutorials/hub.md
         Using Purgatorium:

@@ -49,7 +49,7 @@ What happened behind the scenes: Claude Code got a token for this one sandbox an
     - **You clicked Deny by mistake:** run `/p9m:init` again.
     - **A wrong code pasted:** Claude Code asks again; after 5 wrong ones, run `/p9m:init` again.
     - **The sandbox could not be created:** the page says why, often that you have as many sandboxes running as you may. Let one sleep (*let my other sandbox sleep*, in its project folder) and click **Create and approve** again.
-    - **The folder was connected to another sandbox already:** Claude Code asks before it replaces that connection.
+    - **The folder was connected already:** `/p9m:init` there only checks that the connection works (and wakes the sandbox if it sleeps); it makes a new one only when that one is broken, and asks first. For another sandbox it asks before it replaces the connection.
 
 ## 3. Deploy
 
