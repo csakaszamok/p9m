@@ -6,11 +6,11 @@ An app in one sandbox must not reach another sandbox's apps. Today:
 - inner containers' private addresses are only reachable inside their own sandbox;
 - Sablier's API is on its own network (`sablier-net`) shared only with Traefik;
 - a sandbox container is on its own network only, with its frps and socat, so no other sandbox reaches it or its ports directly. Everything into it goes through its frp tunnel: its web addresses, its TLS TCP addresses, SSH and Docker access (frpc connects out of the sandbox to its frps, which is on `traefik-net` under the sandbox's name);
-- a port an inner container *publishes* on all interfaces (`9000:9000`) gets a link (its tunnel) and a TLS TCP address; a port published on `127.0.0.1` (`127.0.0.1:9000:9000`) is private to the sandbox: no link, no TCP address. A link whose app does not answer is marked ⚠ in the panel — usually the app listens on 127.0.0.1 inside its container; make it listen on 0.0.0.0.
+- a port an inner container *publishes* on all interfaces (`9000:9000`) gets a link (its tunnel), and a TLS TCP address if its app is public or asks for one (`p9m.tcp: "true"`, below); a port published on `127.0.0.1` (`127.0.0.1:9000:9000`) is private to the sandbox: no link, no TCP address. A link whose app does not answer is marked ⚠ in the panel — usually the app listens on 127.0.0.1 inside its container; make it listen on 0.0.0.0.
 
 The Purgatorium API itself requires authentication (see [Web UI and sign-in](web-ui.md)). What a sandbox needs of Purgatorium's services it reaches through its own socat, under their usual names: the Docker Hub cache (`registry-cache:5000`, dockerd's mirror), the ghcr.io cache (`registry-cache:5001`: Purgatorium's own images, such as the claude container `/p9m:teleport` starts, pulled by that name), the registry and the UI (through Traefik). frps's own ports are high (65000 for frpc, 65080 for the web addresses, 65075 for its API, which has a per-sandbox password kept in `frps.toml`), because frps also listens on every port the sandbox publishes, and on 22 and 2376.
 
-Who may open an app's **web address** can be limited per app with `p9m.access` ([App access](app-access.md)); that applies to HTTP through Purgatorium only, not to the TCP addresses below.
+Who may open an app's **web address** can be limited per app with `p9m.access` ([App access](app-access.md)). A TCP address passes no sign-in, so an app that is not public has none, unless its container asks for one with `p9m.tcp: "true"` (below).
 
 ## App web addresses
 Each TCP port an inner container publishes on all interfaces gets a web address, `<sandbox>-<project>-<container>-port<host port>.<domain>` (`shop-inner-web-port8080.<domain>`). A label on the container gives it a short one instead:
@@ -43,7 +43,21 @@ By default the apps are under `HOST_DOMAIN`, beside the UI. A server whose sandb
 - **The Public Suffix List:** with the apps domain on the [Public Suffix List](https://publicsuffix.org/) (its private section; you request it), browsers and blocklists treat each app's address as a site of its own, so one bad app does not take the others with it. Purgatorium needs nothing for it: its app cookies are each app's own.
 
 ## TLS TCP addresses
-A port an inner container publishes on all interfaces (`"5432:5432"`) also gets a TCP address, its HTTP name plus `-tcp`, on port 443, TLS only: `shop-inner-db-port5432-tcp.<domain>:443`. Ports published on `127.0.0.1` stay private: no TCP address and no link.
+A port an inner container publishes on all interfaces (`"5432:5432"`) can also get a TCP address, its HTTP name plus `-tcp`, on port 443, TLS only: `shop-inner-db-port5432-tcp.<domain>:443`. Ports published on `127.0.0.1` stay private: no TCP address and no link.
+
+Raw TCP passes no sign-in: anyone who knows the address reaches the service, and only its own password protects it. So a container gets TCP addresses only when its app is `public` ([App access](app-access.md)), or when it asks with the label `p9m.tcp: "true"`: a database, Redis or an SSH server, each with a password of its own. A web app that is `owner` or `domain` (the default) has its protected web address only. (Before 0.18.11 every published port had one, and an `owner` app answered anyone at its TCP address.)
+
+```yaml
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    ports: ["5432:5432"]
+    labels:
+      p9m.subdomain: db
+      p9m.tcp: "true"
+```
 
 - Postgres: `psql "host=shop-inner-db-port5432-tcp.<domain> port=443 sslmode=require …"`
 - Any client that speaks TLS (Redis `--tls`, MQTTS): connect with that name as SNI.

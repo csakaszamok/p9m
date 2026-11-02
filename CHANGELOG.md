@@ -4,6 +4,16 @@ All notable changes are listed here. Versions follow [semantic versioning](https
 
 ## [Unreleased]
 
+### Security
+
+- **An app's TCP address no longer opens it past app access.** Every port published on all interfaces had a `…-tcp.<domain>:443` address too, raw TCP that passes no sign-in, so an `owner` or `domain` app answered anyone there. Now only a `public` app has TCP addresses, or a container that asks for them with the label `p9m.tcp: "true"` (a database, Redis or an SSH server with its own password). The `tcp-demo` template's Postgres, Redis and SSH have the label. In running sandboxes the addresses of non-public apps stop at once; a service you reach over TCP and that is not public needs the label (then `compose up -d` again).
+- **Sandbox image foxglove 0.12.0:** Alpine 3.22, with runc 1.3 (1.2.2 had CVE-2025-31133, CVE-2025-52565 and CVE-2025-52881: a container in a sandbox could break out into the sandbox; sysbox still kept it off the host), containerd 2.1 (CVE-2024-40635) and Docker 28 (27 gets no more fixes). Sandboxes made before move to it at the next start of Purgatorium: running ones restart (their apps with `restart: unless-stopped` come back), sleeping ones get it when they wake.
+- **A sandbox's container logs are rotated** (10 MB, 3 files per container): an app that logs without end no longer fills the sandbox's disk. Existing sandboxes get it with the new image.
+
+### Changed
+
+- **The sign-in page and the [cheatsheet](https://csakaszamok.github.io/p9m/latest/tutorials/claude-code-cheatsheet/):** start Claude Code again after installing the plugin, and what to do on `Unknown command: /p9m:init` (an old per-folder install, a disabled plugin, settings your organization manages).
+
 ## [0.18.10] - 2026-11-02
 
 Upgrading from 0.18.9: `docker compose pull && docker compose up -d`; `claude plugin marketplace update p9m` and `claude plugin update p9m@p9m` get the teleport skill's link (then restart Claude Code).
