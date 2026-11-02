@@ -3,7 +3,7 @@
 Purgatorium has a small web UI (`http://p9m.<HOST_DOMAIN>`, or `UI_HOST`) for creating and managing sandboxes without the API directly, alongside the REST API.
 
 !!! note "Only the admin"
-    Users have no web UI: they get and use their sandboxes from Claude Code ([`/p9m:init`](claude-plugin.md)). A user who signs in sees only how to install the plugin; the sign-in is for approving `/p9m:init` (and for apps open only to signed-in people, see [App access](app-access.md)). A user's sign-in reaches no API either: users work with tokens. What follows is the admin's UI.
+    Users have no web UI: they get and use their sandboxes from Claude Code ([`/p9m:init`](claude-plugin.md)). A user who signs in sees only how to install the plugin; the sign-in is for approving `/p9m:init`, for the browser terminal of their own sandboxes' containers (the link [`/p9m:teleport`](claude-plugin.md) gives, see [Shell and logs](shell-and-logs.md)), and for apps open only to signed-in people (see [App access](app-access.md)). A user's sign-in reaches no API either: users work with tokens. What follows is the admin's UI.
 
     The users have an address of their own, `sbx.<HOST_DOMAIN>` by default (`USER_HOST`, see [Configuration](configuration.md)): they sign in and approve `/p9m:init` there, and `UI_HOST` is the admin's only.
 

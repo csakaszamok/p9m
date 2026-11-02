@@ -115,6 +115,7 @@ mkdir -p "$tmp/unpacked" && tar -xzf "$FAKE"/copied/stage.tgz -C "$tmp/unpacked"
 [ "$(cat "$tmp/unpacked/stage/files/b c/ü.txt")" = u ] && pass "run: a path with a space and an accent" || fail "space/accent path"
 has "$listing" "stage/session.jsonl" "run: the conversation"
 has "$out" $'resume\tabc\t/home/agent/workspace/shop' "run: the resume line"
+has "$out" $'open\thttp://p9m.test/sandboxes/p9m-shop/terminal?container=claude&resume=abc&dir=/home/agent/workspace/shop' "run: the link to the claude container's terminal, continuing there"
 eq "run: last, the one command that continues there" "$(tail -n 1 <<<"$out")" $'continue\tdocker --context p9m-shop exec -it -w /home/agent/workspace/shop claude claude --resume abc'
 # teleport-in.sh refusing (the project is there): its answer and its exit code, no continue line
 reset; touch "$FAKE/in-exists"

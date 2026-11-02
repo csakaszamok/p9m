@@ -1,6 +1,11 @@
 // Browser terminal: xterm.js <-> websocket (/sandboxes/<name>/terminal) <-> docker exec in the sandbox (or in one of its containers)
 const name = document.body.dataset.sandbox
 const container = document.body.dataset.container
+// A teleported conversation to continue (the server checks both again)
+const { resume, dir } = document.body.dataset
+const query = new URLSearchParams()
+if (container) query.set('container', container)
+if (container && resume && dir) { query.set('resume', resume); query.set('dir', dir) }
 const status = document.querySelector('[data-term-status]')
 const again = document.querySelector('[data-term-reconnect]')
 const term = new Terminal({ cursorBlink: true, fontSize: 14, fontFamily: 'ui-monospace, SFMono-Regular, Consolas, monospace', theme: { background: '#000000' } })
@@ -13,7 +18,7 @@ let ws = null
 function connect() {
   again.hidden = true
   status.textContent = 'connecting…'
-  ws = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/sandboxes/${encodeURIComponent(name)}/terminal${container ? `?container=${encodeURIComponent(container)}` : ''}`)
+  ws = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/sandboxes/${encodeURIComponent(name)}/terminal${String(query) ? `?${query}` : ''}`)
   ws.onopen = () => sendResize()
   ws.onmessage = e => {
     const m = JSON.parse(e.data)

@@ -43,7 +43,15 @@ export default {
       // The way on is one command on this machine, for every user (the web terminal of a container is the admins')
       const command = answer.match(/docker --context \S+ exec -it -w \S+ claude claude --resume [0-9a-f-]{36}/)?.[0]
       if (!command) h.fail(`no "docker --context … exec -it … claude --resume" command in its answer: ${answer.slice(0, 300)}`)
-      return { id, folder, command }
+      const link = answer.match(/https?:\/\/[^\s<>*`()]+\/sandboxes\/[^\s/]+\/terminal\?container=claude&resume=[0-9a-f-]{36}&dir=[^\s<>*`()]+/)?.[0]
+      if (!link) h.fail(`no terminal link in its answer: ${answer.slice(0, 300)}`)
+      return { id, folder, command, link }
+    })
+    await h.step('its link opens Claude Code in the browser, for a user', async () => {
+      // The way on for every user: a Purgatorium sign-in (the test user is a user, not the admin), no Docker, no keys
+      const out = await h.browserTerminal(moved.link, 40)
+      if (!/Claude\s*Code|Syntax\s*theme|text\s*style|sign\s*in|log\s*in/i.test(out)) h.fail(`no Claude Code at ${moved.link}: ${out.slice(-400)}`)
+      h.note(`${moved.link}: Claude Code answers in the browser's terminal`, 'browser')
     })
     await h.step('its command opens Claude Code there', async () => {
       // Run as the user would, in a terminal: Claude Code starts in the sandbox (the first time with its set-up: the theme,

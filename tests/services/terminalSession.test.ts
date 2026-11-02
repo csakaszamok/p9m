@@ -57,9 +57,18 @@ describe('runTerminal', () => {
     const openShell = vi.fn(async () => s.shell)
     const openContainerShell = vi.fn(async () => s.shell)
     await runTerminal(ws, 'p9m-a1', { state: async () => ({ status: 'running' }), wake: async () => {}, openShell, openContainerShell, keepAlive: async () => {}, keepAliveMs: 60_000, wakeTimeoutMs: 1000, pollMs: 10 }, 'claude-dev')
-    expect(openContainerShell).toHaveBeenCalledWith('p9m-a1', 'claude-dev', 80, 24)
+    expect(openContainerShell).toHaveBeenCalledWith('p9m-a1', 'claude-dev', 80, 24, undefined)
     expect(openShell).not.toHaveBeenCalled()
     expect(ws.sent).toContainEqual({ type: 'status', text: 'connected' })
+    ws.close()
+  })
+
+  it('passes a conversation to continue on to the container shell', async () => {
+    const ws = fakeWs(); const s = fakeShell()
+    const openContainerShell = vi.fn(async () => s.shell)
+    const resume = { resume: '0f8e2a4c-1b3d-4e5f-8a9b-0c1d2e3f4a5b', dir: '/home/agent/workspace/shop' }
+    await runTerminal(ws, 'p9m-a1', { state: async () => ({ status: 'running' }), wake: async () => {}, openShell: vi.fn(), openContainerShell, keepAlive: async () => {}, keepAliveMs: 60_000, wakeTimeoutMs: 1000, pollMs: 10 }, 'claude', resume)
+    expect(openContainerShell).toHaveBeenCalledWith('p9m-a1', 'claude', 80, 24, resume)
     ws.close()
   })
 
