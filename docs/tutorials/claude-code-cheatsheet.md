@@ -24,8 +24,13 @@ claude plugin marketplace add p9m-team/p9m
 claude plugin install p9m@p9m
 ```
 
+Then **start Claude Code again**: one that was already running does not see the plugin.
+
 `p9m-team/p9m` is the official marketplace (it points at Purgatorium's own repository). The sign-in page of your
 Purgatorium shows these lines too, under **Using Claude Code?**
+
+Check (also good to do before a workshop): `claude plugin list` shows `p9m@p9m` with `Scope: user` and
+`Status: ✔ enabled`.
 
 ## Each project (once per folder)
 
@@ -66,6 +71,13 @@ Bring work back with git (commit and push there, pull here).
 
 - **`claude: command not found`:** Claude Code is not installed for the terminal (step 1). An *unknown option*:
   `claude update`.
+- **`Unknown command: /p9m:init`:** start Claude Code again after installing. Still unknown: `claude plugin list`.
+  `p9m@p9m` missing, `Scope: local` (an old install for another folder) or `disabled`: run
+  `claude plugin install p9m@p9m --scope user` (`claude plugin enable p9m@p9m --scope user` if it stays disabled), and
+  start Claude Code again. Not listed even then, and Claude Code says your organization manages its settings: ask your
+  administrator to allow the `p9m-team/p9m` marketplace.
+- **`marketplace update p9m-team/p9m` says *not found*:** updating takes the marketplace's name: `claude plugin
+  marketplace update p9m`, then `claude plugin update p9m@p9m`.
 - **The desktop app over SSH has no `/plugin`:** run the two `claude plugin …` lines in a terminal on that machine.
 - **Windows, `CRYPT_E_REVOCATION_OFFLINE`:** Claude Code adds `--ssl-no-revoke` to its `curl` and goes on.
 - **The code ran out** (10 minutes, once): run the same `/p9m:init` line again.
