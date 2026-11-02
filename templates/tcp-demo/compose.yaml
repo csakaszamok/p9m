@@ -1,5 +1,6 @@
-# Published on all interfaces, so each gets a link and a TLS TCP address (<name>-db-tcp.<domain>:443 …);
-# a port published on 127.0.0.1 would stay private to the sandbox. The password goes only
+# Published on all interfaces, so each gets a link; db, redis and ssh also a TLS TCP address (<name>-db-tcp.<domain>:443 …)
+# by asking with p9m.tcp: "true" (raw TCP passes no sign-in: each has its own password). A port published on
+# 127.0.0.1 would stay private to the sandbox. The password goes only
 # into *PASSWORD* variables, so Starter stack… masks it.
 services:
   db:
@@ -39,6 +40,7 @@ services:
     restart: unless-stopped
     labels:
       p9m.subdomain: db
+      p9m.tcp: "true"
       p9m.connect.user: postgres
 
   redis:
@@ -54,6 +56,7 @@ services:
     restart: unless-stopped
     labels:
       p9m.subdomain: redis
+      p9m.tcp: "true"
 
   ssh:
     image: lscr.io/linuxserver/openssh-server:latest
@@ -69,6 +72,7 @@ services:
     restart: unless-stopped
     labels:
       p9m.subdomain: ssh
+      p9m.tcp: "true"
       p9m.connect.user: demo
 
   pgweb:

@@ -129,10 +129,13 @@ function openSleepSession(name: string): void {
 /** The sandbox's dockerd settings: the Docker Hub cache as its mirror, the ghcr.io cache (pulled by name: dockerd
  * mirrors only Docker Hub) and the p9m registry as insecure registries (plain http, or reached through Traefik on the
  * internal network, whose public certificate the sandbox cannot verify). */
+/** The sandbox's containers' logs, rotated: an app that logs without end must not fill the sandbox's disk. */
+export const DOCKER_LOGS = { 'log-driver': 'json-file', 'log-opts': { 'max-size': '10m', 'max-file': '3' } }
+
 export function daemonJson(hostDomain: string, runtimeDaemonJson: Record<string, unknown> = {}): string {
   const cacheHost = process.env.REGISTRY_CACHE_HOST ?? 'registry-cache:5000'
   const ghcrCacheHost = process.env.REGISTRY_CACHE_GHCR_HOST ?? 'registry-cache:5001'
-  return JSON.stringify({ 'registry-mirrors': [`http://${cacheHost}`], 'insecure-registries': [cacheHost, ghcrCacheHost, `registry.${hostDomain}`], ...runtimeDaemonJson }, null, 2)
+  return JSON.stringify({ 'registry-mirrors': [`http://${cacheHost}`], 'insecure-registries': [cacheHost, ghcrCacheHost, `registry.${hostDomain}`], ...DOCKER_LOGS, ...runtimeDaemonJson }, null, 2)
 }
 
 

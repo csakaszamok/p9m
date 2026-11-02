@@ -10,7 +10,7 @@ const servicesOf = (name: string) => loadRuntime(name, DIR).docker_compose.servi
 
 function expectSshMounts(name: string) {
   const sb = (loadRuntime(name, DIR).docker_compose.services as Record<string, { image: string; volumes: string[] }>).sandbox
-  expect(sb.image).toBe(`ghcr.io/csakaszamok/foxglove:0.11.0-${name}`)
+  expect(sb.image).toBe(`ghcr.io/csakaszamok/foxglove:0.12.0-${name}`)
   expect(sb.volumes).toEqual(expect.arrayContaining(['${sandbox_dir}/authorized_keys:/etc/instance/authorized_keys:ro', '${sandbox_dir}/ssh-host-keys:/etc/ssh/host-keys']))
   expect(sb).toMatchObject({ cpus: '${cpus}', mem_limit: '${memory}', memswap_limit: '${memory}' })
 }
