@@ -702,6 +702,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../tutorials/claude-code-cheatsheet/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Claude Code on one page
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../tutorials/other-agents/" class="md-nav__link">
         
   
@@ -1782,7 +1810,7 @@ claude<span class="w"> </span>plugin<span class="w"> </span>install<span class="
 <p>Claude Code prints a link. Open it in your browser (sign in first if Purgatorium asks). The page shows a code and what Claude Code asks for (a new sandbox from a template, or access to the named one); check that the code is the one Claude Code printed and click <strong>Create and approve</strong> or <strong>Approve</strong> (or <strong>Deny</strong>). There is nothing to pick on the page: a new sandbox gets a generated name, and a name that is not one of yours is refused. Only the sandbox's owner (or the admin) can approve. A new sandbox counts against the same limits as any other, and gets Docker access at once.</p>
 <p>After the approval the page shows a second code. Paste it into Claude Code: only with it does Claude Code get the token, so a link someone else started gets them nothing unless you also send them that code. Both codes work once, for 10 minutes; 5 wrong pastes end the request.</p>
 <p>Then Claude Code unpacks the project's <code>.p9m</code> folder straight to disk: a new token for that sandbox only (in <code>.p9m/p9m.env</code>, 90 days) and the sandbox's Docker keys. The token never shows on the screen or in the chat. The folder keeps itself out of git; the token is named <code>Claude Code init &lt;date&gt;</code> (the admin sees and revokes it under <strong>Access tokens</strong>).</p>
-<p>Run <code>/p9m:init</code> with the sandbox's name again whenever the token has expired or was revoked. A project can be tied to one sandbox at a time; another project in another folder can be tied to another sandbox, or to another Purgatorium.</p>
+<p>In a folder tied already, <code>/p9m:init</code> keeps the connection: it checks that the sandbox's Docker answers (waking a sleeping sandbox) and stops, with no new code, token or keys. Only when the connection is broken (the token expired after 90 days or was revoked, the keys are gone) does it ask, then tie the folder to the same sandbox again. Asked for another sandbox, it asks before it replaces the connection. A project can be tied to one sandbox at a time; another project in another folder can be tied to another sandbox, or to another Purgatorium.</p>
 <h2 id="the-p9m-folder">The <code>.p9m</code> folder<a class="headerlink" href="#the-p9m-folder" title="Permanent link">&para;</a></h2>
 <p>The <code>.p9m</code> folder in the project's root folder says which Purgatorium and which sandbox the project belongs to: <code>p9m.env</code> (the address, the sandbox's name and its token) and the sandbox's Docker keys. <code>/p9m:init</code> writes it, or you unpack it from an export zip. It holds secrets, and it keeps itself out of git: its own <code>.gitignore</code> is a single <code>*</code>. Add <code>.p9m</code> to <code>.dockerignore</code> too, so that a build never copies it into an image; the agent does when it writes one.</p>
 <h2 id="use">Use<a class="headerlink" href="#use" title="Permanent link">&para;</a></h2>
@@ -1802,7 +1830,7 @@ claude<span class="w"> </span>plugin<span class="w"> </span>install<span class="
 <li><strong>this conversation</strong>, and your portable settings: global <code>CLAUDE.md</code>, your skills, the enabled plugins (installed again from their marketplaces), the <code>permissions</code>. Not your MCP servers, hooks or <code>env</code>: they point at things on your machine;</li>
 <li><strong>not the Claude Code sign-in</strong>: sign in once in the container (<code>claude</code>, then <code>/login</code>); it stays there.</li>
 </ul>
-<p>The files go straight to the sandbox's Docker with the project's keys (<code>.p9m/docker</code>): Purgatorium only wakes the sandbox. Then open the sandbox's panel → the <strong>claude</strong> container's terminal, <code>cd</code> into the folder it names and <code>claude --resume &lt;id&gt;</code>. It is one way: the local folder keeps the moment of the teleport; bring work back with git. <code>--ecc</code> starts the container from the image with <a href="../runtimes-templates/">ECC</a> (only when the sandbox has no <code>claude</code> container yet). Teleporting the same project again asks before it replaces the sandbox's copy.</p>
+<p>The files go straight to the sandbox's Docker with the project's keys (<code>.p9m/docker</code>): Purgatorium only wakes the sandbox. At the end it gives you one command to run in a terminal on your computer, <code>docker --context p9m-&lt;sandbox&gt; exec -it -w /home/agent/workspace/&lt;project&gt; claude claude --resume &lt;id&gt;</code>: Claude Code opens in the sandbox, in the project's folder, with the conversation (the first time it asks you to sign in to Claude once). It goes through the docker context <code>/p9m:init</code> made, so it works for every user; the container terminal in the web UI is the admin's. On Windows run it in PowerShell or Windows Terminal (Git Bash rewrites the folder). It is one way: the local folder keeps the moment of the teleport; bring work back with git. <code>--ecc</code> starts the container from the image with <a href="../runtimes-templates/">ECC</a> (only when the sandbox has no <code>claude</code> container yet). Teleporting the same project again asks before it replaces the sandbox's copy.</p>
 <h2 id="where-it-works">Where it works<a class="headerlink" href="#where-it-works" title="Permanent link">&para;</a></h2>
 <p>The plugin works fully in Claude Code: in the terminal, and in the Claude desktop app's <strong>Code</strong> tab; also in Claude Code inside a sandbox, deploying to another one (on a local <code>lvh.me</code> stack see <a href="../agents/#an-agent-inside-a-sandbox">An agent inside a sandbox</a>). Claude chat and Cowork can install it too (<strong>Customize → Plugins</strong>, add the marketplace <code>p9m-team/p9m</code>), but they cannot run commands on your computer, so there it does not do much. Without the plugin, any agent can deploy with an export (<strong>Let your agent deploy…</strong> on a sandbox) or a token: see <a href="../agents/">Let your agent deploy</a>.</p>
 

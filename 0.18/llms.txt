@@ -15,6 +15,7 @@ Purgatorium (p9m) gives each user of a team their own Docker daemon on demand: a
 
 - [Tutorials](https://csakaszamok.github.io/p9m/0.18/tutorials/index.md)
 - [With Claude Code](https://csakaszamok.github.io/p9m/0.18/tutorials/claude-code/index.md)
+- [Claude Code on one page](https://csakaszamok.github.io/p9m/0.18/tutorials/claude-code-cheatsheet/index.md)
 - [With any agent](https://csakaszamok.github.io/p9m/0.18/tutorials/other-agents/index.md)
 - [Share on the Hub](https://csakaszamok.github.io/p9m/0.18/tutorials/hub/index.md)
 

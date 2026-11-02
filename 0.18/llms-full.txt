@@ -196,6 +196,7 @@ With an `https://` `PUBLIC_URL`, Purgatorium **refuses to start** while `ADMIN_T
 Step by step, from nothing to an app with a link you can send to anyone. No server knowledge needed: your coding agent does the technical part.
 
 - **[Put your app online with Claude Code](https://csakaszamok.github.io/p9m/0.18/tutorials/claude-code/index.md)**: install the p9m plugin once, approve each project in the browser, then say *deploy this app*. The easiest way.
+- **[Claude Code and Purgatorium on one page](https://csakaszamok.github.io/p9m/0.18/tutorials/claude-code-cheatsheet/index.md)**: the same, short enough to print or hand out: what to install, the commands, what to say, and how to go on in the sandbox.
 - **[Put your app online with any agent](https://csakaszamok.github.io/p9m/0.18/tutorials/other-agents/index.md)**: Codex, Cursor, or Claude Code without the plugin, with the `.p9m` folder Claude Code makes once, or a zip from the admin.
 - **[Share your app with your team on the Hub](https://csakaszamok.github.io/p9m/0.18/tutorials/hub/index.md)**: list it where colleagues find, open and vote for it.
 
@@ -257,7 +258,7 @@ If something goes wrong
 - **You clicked Deny by mistake:** run `/p9m:init` again.
 - **A wrong code pasted:** Claude Code asks again; after 5 wrong ones, run `/p9m:init` again.
 - **The sandbox could not be created:** the page says why, often that you have as many sandboxes running as you may. Let one sleep (*let my other sandbox sleep*, in its project folder) and click **Create and approve** again.
-- **The folder was connected to another sandbox already:** Claude Code asks before it replaces that connection.
+- **The folder was connected already:** `/p9m:init` there only checks that the connection works (and wakes the sandbox if it sleeps); it makes a new one only when that one is broken, and asks first. For another sandbox it asks before it replaces the connection.
 
 ## 3. Deploy
 
@@ -305,6 +306,68 @@ claude plugin install p9m@p9m
 `--scope` is where you installed it (`claude plugin list` shows it: `user`, `project` or `local`); a `local` one only from its own folder. Then start Claude Code again.
 
 More details: [Claude Code plugin](https://csakaszamok.github.io/p9m/0.18/claude-plugin/index.md).
+
+# Claude Code and Purgatorium on one page
+
+Everything a user needs, from nothing to an app online and a conversation moved into the sandbox. Print it, or hand it out with your Purgatorium's address filled in. The longer walk-through: [Put your app online with Claude Code](https://csakaszamok.github.io/p9m/0.18/tutorials/claude-code/index.md).
+
+**Your Purgatorium:** `https://p9m.example.com` (write yours here)
+
+## Before you start (once)
+
+1. **Claude Code in a terminal:** see [Claude Code's setup](https://code.claude.com/docs/en/setup). Check in a terminal: `claude --version`. (The desktop app alone is not enough for the next step: it needs the `claude` command.)
+1. **Docker's command line:** [Docker Desktop](https://docs.docker.com/get-docker/), or only the CLI. Check: `docker --version`. Nothing runs on your computer: the command talks to your sandbox.
+1. **A Purgatorium sign-in:** open your Purgatorium's address once and sign in.
+
+## Install the plugin (once)
+
+In a terminal:
+
+```
+claude plugin marketplace add p9m-team/p9m
+claude plugin install p9m@p9m
+```
+
+`p9m-team/p9m` is the official marketplace (it points at Purgatorium's own repository). The sign-in page of your Purgatorium shows these lines too, under **Using Claude Code?**
+
+## Each project (once per folder)
+
+Start `claude` in your project's folder, then:
+
+```
+/p9m:init https://p9m.example.com
+```
+
+Open the link it prints, check the code, click **Create and approve**, and paste the new code back into Claude Code. The folder now has its own sandbox. Running `/p9m:init` there again only checks that it still works.
+
+## Then, in your own words
+
+| Say                           | What happens                                                               |
+| ----------------------------- | -------------------------------------------------------------------------- |
+| *Deploy this app.*            | builds it in your sandbox, starts it, gives you its address                |
+| *Update it.*                  | after a change: deploys again, same address                                |
+| *Why does my app not answer?* | reads its logs in the sandbox and fixes the usual causes                   |
+| *Let my sandbox sleep.*       | stops it; the next visit to the app wakes it                               |
+| `/p9m:teleport`               | moves this project and this conversation into your sandbox, to go on there |
+
+## Go on in the sandbox: `/p9m:teleport`
+
+It shows what would move and asks about secret files (`.env`) one by one. At the end it gives you **one command**; run it in a terminal on your computer (on Windows in PowerShell or Windows Terminal):
+
+```
+docker --context p9m-<sandbox> exec -it -w /home/agent/workspace/<project> claude claude --resume <id>
+```
+
+Claude Code opens in the sandbox, in the project's folder, with the conversation. The first time it asks you to sign in to Claude once. Bring work back with git (commit and push there, pull here).
+
+## If something is off
+
+- **`claude: command not found`:** Claude Code is not installed for the terminal (step 1). An *unknown option*: `claude update`.
+- **The desktop app over SSH has no `/plugin`:** run the two `claude plugin …` lines in a terminal on that machine.
+- **Windows, `CRYPT_E_REVOCATION_OFFLINE`:** Claude Code adds `--ssl-no-revoke` to its `curl` and goes on.
+- **The code ran out** (10 minutes, once): run the same `/p9m:init` line again.
+- **The sandbox could not be created:** the approval page says why, often that you have as many sandboxes running as you may. Let one sleep and approve again.
+- **Never approve a code you did not ask for yourself**, and never give anyone the code the page shows after approving.
 
 # Put your app online with any agent
 
@@ -915,7 +978,7 @@ After the approval the page shows a second code. Paste it into Claude Code: only
 
 Then Claude Code unpacks the project's `.p9m` folder straight to disk: a new token for that sandbox only (in `.p9m/p9m.env`, 90 days) and the sandbox's Docker keys. The token never shows on the screen or in the chat. The folder keeps itself out of git; the token is named `Claude Code init <date>` (the admin sees and revokes it under **Access tokens**).
 
-Run `/p9m:init` with the sandbox's name again whenever the token has expired or was revoked. A project can be tied to one sandbox at a time; another project in another folder can be tied to another sandbox, or to another Purgatorium.
+In a folder tied already, `/p9m:init` keeps the connection: it checks that the sandbox's Docker answers (waking a sleeping sandbox) and stops, with no new code, token or keys. Only when the connection is broken (the token expired after 90 days or was revoked, the keys are gone) does it ask, then tie the folder to the same sandbox again. Asked for another sandbox, it asks before it replaces the connection. A project can be tied to one sandbox at a time; another project in another folder can be tied to another sandbox, or to another Purgatorium.
 
 ## The `.p9m` folder
 
@@ -942,7 +1005,7 @@ The plugin does not bring the MCP server. Purgatorium still has one, for other M
 - **this conversation**, and your portable settings: global `CLAUDE.md`, your skills, the enabled plugins (installed again from their marketplaces), the `permissions`. Not your MCP servers, hooks or `env`: they point at things on your machine;
 - **not the Claude Code sign-in**: sign in once in the container (`claude`, then `/login`); it stays there.
 
-The files go straight to the sandbox's Docker with the project's keys (`.p9m/docker`): Purgatorium only wakes the sandbox. Then open the sandbox's panel → the **claude** container's terminal, `cd` into the folder it names and `claude --resume <id>`. It is one way: the local folder keeps the moment of the teleport; bring work back with git. `--ecc` starts the container from the image with [ECC](https://csakaszamok.github.io/p9m/0.18/runtimes-templates/index.md) (only when the sandbox has no `claude` container yet). Teleporting the same project again asks before it replaces the sandbox's copy.
+The files go straight to the sandbox's Docker with the project's keys (`.p9m/docker`): Purgatorium only wakes the sandbox. At the end it gives you one command to run in a terminal on your computer, `docker --context p9m-<sandbox> exec -it -w /home/agent/workspace/<project> claude claude --resume <id>`: Claude Code opens in the sandbox, in the project's folder, with the conversation (the first time it asks you to sign in to Claude once). It goes through the docker context `/p9m:init` made, so it works for every user; the container terminal in the web UI is the admin's. On Windows run it in PowerShell or Windows Terminal (Git Bash rewrites the folder). It is one way: the local folder keeps the moment of the teleport; bring work back with git. `--ecc` starts the container from the image with [ECC](https://csakaszamok.github.io/p9m/0.18/runtimes-templates/index.md) (only when the sandbox has no `claude` container yet). Teleporting the same project again asks before it replaces the sandbox's copy.
 
 ## Where it works
 
