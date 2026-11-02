@@ -17,6 +17,15 @@ export default {
     git('add', '.'); git('-c', 'user.name=Tester', '-c', 'user.email=tester@example.com', 'commit', '-q', '-m', 'README and changelog')
 
     await h.init()
+    await h.step('/p9m:init again keeps the link', async () => {
+      // A folder tied already: it checks the link and stops, with no new code, token, keys or docker context
+      const file = path.join(h.project, '.p9m', 'p9m.env')
+      const before = fs.readFileSync(file, 'utf8'), mtime = fs.statSync(file).mtimeMs
+      const answer = await h.claude(`/p9m:init ${h.config.p9mUrl}`)
+      if (/\/activate\?code=|[B-Z]{4}-[B-Z]{4}/.test(answer)) h.fail(`it asked for a new code: ${answer.slice(0, 300)}`)
+      if (fs.readFileSync(file, 'utf8') !== before || fs.statSync(file).mtimeMs !== mtime) h.fail('.p9m/p9m.env was written again')
+      h.note('no new code, .p9m untouched: it is tied already')
+    })
     await h.step('"write a skill"', async () => {
       await h.claude(`Create a small Claude Code skill in this project, ${SKILL}: when I ask for release notes, it writes ` +
         'them from the git log since the last tag, grouped into Added, Changed and Fixed. Keep it short.')
@@ -31,7 +40,17 @@ export default {
       const id = answer.match(/--resume\s+([0-9a-f-]{36})/)?.[1]
       const folder = answer.match(/\/home\/agent\/workspace\/[A-Za-z0-9._-]+/)?.[0]
       if (!id || !folder) h.fail(`no "claude --resume <id>" and folder in its answer: ${answer.slice(0, 300)}`)
-      return { id, folder }
+      // The way on is one command on this machine, for every user (the web terminal of a container is the admins')
+      const command = answer.match(/docker --context \S+ exec -it -w \S+ claude claude --resume [0-9a-f-]{36}/)?.[0]
+      if (!command) h.fail(`no "docker --context … exec -it … claude --resume" command in its answer: ${answer.slice(0, 300)}`)
+      return { id, folder, command }
+    })
+    await h.step('its command opens Claude Code there', async () => {
+      // Run as the user would, in a terminal: Claude Code starts in the sandbox (the first time with its set-up: the theme,
+      // then the sign-in). The cursor moves between words are left out with the escape codes: match without spaces too
+      const out = h.terminal(moved.command, 40)
+      if (!/Claude\s*Code|Syntax\s*theme|text\s*style|sign\s*in|log\s*in/i.test(out)) h.fail(`no Claude Code from "${moved.command}": ${out.slice(-400)}`)
+      h.note(`${moved.command}: Claude Code answers in the sandbox`)
     })
     await h.step('in the sandbox: the skill and the conversation', async () => {
       const exec = cmd => h.docker('exec', 'claude', 'sh', '-c', cmd)

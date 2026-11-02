@@ -41,17 +41,56 @@ answer.
   certificate revocation and fails when it cannot), and from then on add it to **every** curl, `command` in
   step 4 too (its `-sf` hides that error); in PowerShell call `curl.exe`, not `curl`.
 
-**A `.p9m/p9m.env` already there:** read only its address and sandbox, never the whole file:
+**A `.p9m/p9m.env` already there:** the project is tied already. **Never start over by habit**: no new code, no
+new token, no new keys, no new docker context while the one there works. Read only its address and sandbox, never
+the whole file:
 
 ```sh
-grep -E '^P9M_(URL|SANDBOX)=' .p9m/p9m.env
+grep -E '^P9M_(URL|SANDBOX|DOCKER_HOST)=' .p9m/p9m.env
 ```
 
 Compare by host name (`https://P9M.example.com/` and `p9m.example.com` are the same Purgatorium: ignore the
 scheme, the case and a trailing `/`) and by the sandbox's name without its `p9m-` (`p9m-shop` and `shop` are the
-same). The same Purgatorium and sandbox: go on (the new folder replaces it, with a new token). Another one, or a
-new sandbox asked for: tell the user which one it is tied to now and ask before replacing it (to tie it again to
-that one, run `/p9m:init <address> <that sandbox>`).
+same).
+
+- **The same Purgatorium, and no sandbox named or the same one** (no `--template`): this is the sandbox the user
+  means. Check that it works, with the context named as `P9M_SANDBOX`:
+
+  ```sh
+  docker --context <P9M_SANDBOX> compose ls
+  ```
+
+  - It answers: the keys work. Check the token too (it ends after 90 days; the keys do not), never printed:
+
+    ```sh
+    ( . ./.p9m/p9m.env && printf 'Authorization: Bearer %s\n' "$P9M_TOKEN" | curl -s -o /dev/null -w '%{http_code}\n' -H @- "$P9M_URL/sandboxes/$P9M_SANDBOX" )
+    ```
+
+    `200`: tell the user the project is tied to **<short name>** already and works; nothing changed. Add one line:
+    for another sandbox, `/p9m:init <address> <name>` (one they have) or ask you for a new one. **Stop.** `401`:
+    the token expired or was revoked: the link is broken (below).
+  - `context … does not exist` (another machine, or the context was removed): make it again from the files that are
+    there, nothing downloaded: `docker context create <P9M_SANDBOX> --docker "host=<P9M_DOCKER_HOST>,ca=<project
+    folder>/.p9m/docker/ca.pem,cert=<project folder>/.p9m/docker/cert.pem,key=<project folder>/.p9m/docker/key.pem"`,
+    then check again as above.
+  - It cannot connect: the sandbox may be asleep (its Docker does not wake it). Wake it with the project's token,
+    from the file, never printed:
+
+    ```sh
+    ( . ./.p9m/p9m.env && printf 'Authorization: Bearer %s\n' "$P9M_TOKEN" | curl -s -w '\n%{http_code}\n' -X POST -H @- "$P9M_URL/sandboxes/$P9M_SANDBOX/start" )
+    ```
+
+    It answers a line of JSON, then the status. `200`: waking; check with `compose ls` again every 10 seconds, up
+    to a minute, then go on as when it answers. `409`: it cannot wake now (the server is full): tell the user its
+    `error`, stop; the link is fine. `404`: the sandbox is gone (deleted): tell the user, and ask whether to make a
+    new one (step 2 with `{}`).
+  - Only when that fails too: `401` (the token expired: 90 days, or was revoked), a certificate error from docker,
+    the key files missing: the link is broken. Only then tie it again: ask the user (*the link to <short name> no
+    longer works: tie this project to it again?*), and on yes go on to step 2 for **that** sandbox
+    (`{"sandbox":"<short name>"}`). A certificate error from **curl** alone is this machine not trusting the server's
+    certificate, not a broken link: tell the user, do not tie again.
+- **Another Purgatorium, another sandbox named, or `--template`:** tell the user which one it is tied to now and ask
+  before replacing it. Yes: go on to step 2 with what they asked for. No: stop.
 
 ## 2. Ask for a code
 

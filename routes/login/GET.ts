@@ -3,7 +3,7 @@ import { oidcEnabled, providerName } from '../../services/oidc'
 import { capacityHtml, loginCapacity } from '../../services/loginCapacity'
 import { brandTitle, faviconTag, logoImg } from '../../services/ui/brand'
 import { adminLoginEnabled } from '../../services/loginGuard'
-import { isUserHost } from '../../services/userHost'
+import { isUserHost, userUrl } from '../../services/userHost'
 
 export default async (req: Request): Promise<Response> => {
   if (pageSession(req)) return redirect('/')
@@ -32,9 +32,23 @@ ${faviconTag()}</head>
     <label>Password<input name="password" type="password" autocomplete="current-password" required></label>
     <button class="primary wide">Sign in</button>
   </form></details>` : ''}
+  ${oidcEnabled() ? claudeCodeHint() : ''}
   ${!oidcEnabled() && !adminEnabled ? '<p class="error">No sign-in method is on: set up OIDC, or for the admin ADMIN_LOGIN=on.</p>' : ''}
 </div>
 <p class="about-foot"><a href="/about">About · AGPL-3.0</a></p>
 <script src="/assets/embers.js" defer></script>
 </body></html>`)
+}
+
+/** For users with Claude Code, and for their agent that reads this page: the plugin, from its official marketplace, and
+ *  the command that ties a project to a sandbox here (with this server's users' address) */
+function claudeCodeHint(): string {
+  return `<details class="agents"><summary>Using Claude Code?</summary>
+  <p>Install the Purgatorium plugin once, in a terminal:</p>
+  <pre class="code">claude plugin marketplace add p9m-team/p9m
+claude plugin install p9m@p9m</pre>
+  <p>Then in Claude Code, in your project's folder:</p>
+  <pre class="code">/p9m:init ${escapeHtml(userUrl())}</pre>
+  <p class="muted">It signs you in here and gets the project a sandbox.</p>
+  </details>`
 }

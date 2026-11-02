@@ -203,6 +203,15 @@ export async function runScenario(scenario, c) {
     docker(...args) {
       return execFileSync('docker', ['--context', sandbox, ...args], { encoding: 'utf8', env, stdio: ['ignore', 'pipe', 'pipe'] })
     },
+    /** A command as the user runs it in a terminal (a pseudo-terminal, as docker exec -it wants), for seconds at most:
+     *  what it printed, the escape codes left out */
+    terminal(command, seconds = 30) {
+      let out
+      try {
+        out = execFileSync('timeout', ['-s', 'INT', String(seconds), 'script', '-qec', command, '/dev/null'], { encoding: 'utf8', env, stdio: ['pipe', 'pipe', 'pipe'] })
+      } catch (err) { out = String(err.stdout ?? '') }
+      return out.replace(/\x1b\[[0-9;?<>=]*[A-Za-z~]|\x1b\][^\x07]*\x07|\x1b[()][A-Z0-9]|\r/g, '')
+    },
     /** A screenshot of a page for the demo (with a record folder only); the browser runs in Playwright's image */
     async screenshot(url, label) {
       if (!rec) return
