@@ -229,6 +229,9 @@ describe('pages', () => {
     expect(page).toContain('claude plugin marketplace add p9m-team/p9m')
     expect(page).toContain('claude plugin install p9m@p9m')
     expect(page).toMatch(/\/p9m:init https?:\/\/[^<\s]+/)
+    // The two places a new user gets stuck: Claude Code started before the install, and an old per-folder install
+    expect(page).toContain('start Claude Code again')
+    expect(page).toContain('claude plugin install p9m@p9m --scope user')
     expect(page).not.toContain('csakaszamok/p9m')
   })
 

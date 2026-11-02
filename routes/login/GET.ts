@@ -47,8 +47,10 @@ function claudeCodeHint(): string {
   <p>Install the Purgatorium plugin once, in a terminal:</p>
   <pre class="code">claude plugin marketplace add p9m-team/p9m
 claude plugin install p9m@p9m</pre>
-  <p>Then in Claude Code, in your project's folder:</p>
+  <p>Then start Claude Code again (one already running does not see the plugin), in your project's folder:</p>
   <pre class="code">/p9m:init ${escapeHtml(userUrl())}</pre>
   <p class="muted">It signs you in here and gets the project a sandbox.</p>
+  <p class="muted"><em>Unknown command: /p9m:init</em>? Run <code>claude plugin list</code>: <code>p9m@p9m</code> should be
+  <em>Scope: user</em> and <em>enabled</em>; if not, <code>claude plugin install p9m@p9m --scope user</code>.</p>
   </details>`
 }
