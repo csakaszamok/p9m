@@ -4,6 +4,15 @@ All notable changes are listed here. Versions follow [semantic versioning](https
 
 ## [Unreleased]
 
+## [0.18.10] - 2026-11-02
+
+Upgrading from 0.18.9: `docker compose pull && docker compose up -d`; `claude plugin marketplace update p9m` and `claude plugin update p9m@p9m` get the teleport skill's link (then restart Claude Code).
+
+### Changed
+
+- **`/p9m:teleport` ends with a link for every user:** it opens Claude Code in the browser, in the sandbox's `claude` container, in the project's folder, with the conversation. A Purgatorium sign-in is all it needs; signed out, it goes through sign-in and comes back, and a sleeping sandbox wakes up. The `docker --context … exec -it …` command stays as the way from a terminal.
+- **Users open their own sandboxes' terminals:** `/sandboxes/:name/terminal?container=…` on the users' address, for their own sandboxes only (every other page still shows users only the Claude Code steps). `&resume=<id>&dir=<folder>` runs `claude --resume` there, then leaves a shell. Only a UUID and a teleported project's folder are accepted, so a link someone sends can at most open a conversation in your own container, never run a command.
+
 ## [0.18.9] - 2026-11-02
 
 Upgrading from 0.18.8: `docker compose pull && docker compose up -d` (the sign-in page); `claude plugin update p9m@p9m` gets the skills' changes (then restart Claude Code).
@@ -1011,7 +1020,8 @@ The first release.
 
 - The project used to be called Leander. Existing `leander-` sandboxes and `ldr_` tokens keep working; see "Upgrading from Leander" in the README.
 
-[Unreleased]: https://github.com/csakaszamok/p9m/compare/v0.18.9...HEAD
+[Unreleased]: https://github.com/csakaszamok/p9m/compare/v0.18.10...HEAD
+[0.18.10]: https://github.com/csakaszamok/p9m/releases/tag/v0.18.10
 [0.18.9]: https://github.com/csakaszamok/p9m/releases/tag/v0.18.9
 [0.18.8]: https://github.com/csakaszamok/p9m/releases/tag/v0.18.8
 [0.18.7]: https://github.com/csakaszamok/p9m/releases/tag/v0.18.7

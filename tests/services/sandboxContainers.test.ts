@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { execFileSync } from 'node:child_process'
 import { containerRows, CONTAINER_NAME, CONTAINER_SHELL } from '../../services/sandboxContainers'
+import { resumeScript, terminalResume } from '../../services/terminalResume'
 
 describe('containerRows', () => {
   it('running ones first, then by compose project and name; a container without a name by its short id', () => {
@@ -29,5 +30,21 @@ describe('CONTAINER_SHELL', () => {
     const out = execFileSync('sh', ['-c', script]).toString().trim()
     expect(out).toMatch(/\w$/)
     expect(out).not.toMatch(/nologin|false/)
+  })
+})
+
+describe('a terminal that continues a teleported conversation', () => {
+  it('runs claude --resume in the folder, then leaves the login shell', () => {
+    const script = CONTAINER_SHELL('/dev/null', resumeScript({ resume: '0f8e2a4c-1b3d-4e5f-8a9b-0c1d2e3f4a5b', dir: '/home/agent/workspace/shop' }))
+    expect(script).toMatch(/cd \/home\/agent\/workspace\/shop 2>\/dev\/null \|\| cd; "\$s" -l -c 'claude --resume 0f8e2a4c-1b3d-4e5f-8a9b-0c1d2e3f4a5b'; exec "\$s" -l$/)
+    expect(CONTAINER_SHELL('/dev/null')).toMatch(/\nexec "\$s" -l$/)
+  })
+  it('takes only a UUID and a teleport folder, both, with a container', () => {
+    const q = (s: string) => terminalResume(new URLSearchParams(s))
+    expect(q('container=claude')).toBeNull()
+    expect(q('container=claude&resume=0f8e2a4c-1b3d-4e5f-8a9b-0c1d2e3f4a5b&dir=/home/agent/workspace/my.app_2')).toEqual({ resume: '0f8e2a4c-1b3d-4e5f-8a9b-0c1d2e3f4a5b', dir: '/home/agent/workspace/my.app_2' })
+    for (const bad of ['resume=0f8e2a4c-1b3d-4e5f-8a9b-0c1d2e3f4a5b&dir=/home/agent/workspace/a', 'container=c&dir=/home/agent/workspace/a',
+      "container=c&resume=0f8e2a4c-1b3d-4e5f-8a9b-0c1d2e3f4a5b'&dir=/home/agent/workspace/a", 'container=c&resume=0f8e2a4c-1b3d-4e5f-8a9b-0c1d2e3f4a5b&dir=/home/agent/workspace/.hidden/x',
+      'container=c&resume=0F8E2A4C-1B3D-4E5F-8A9B-0C1D2E3F4A5B&dir=/home/agent/workspace/a']) expect(q(bad), bad).toBe('bad')
   })
 })

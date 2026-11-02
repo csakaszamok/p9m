@@ -56,6 +56,16 @@ describe('/auth/app/start', () => {
     expect(nextAfterSignIn(next(signNext('//evil.example.com/activate?')))).toBeNull()
     expect(nextAfterSignIn(next(encodeURIComponent('/activate?code=BCDF-GHJK')))).toBeNull()
   })
+  it("after sign-in: also back to a sandbox's terminal (/p9m:teleport's link), and nowhere near it", async () => {
+    const next = (v: string) => new Request('https://p9m.example.com/', { headers: { cookie: `p9m_next=${v}` } })
+    const link = '/sandboxes/p9m-shop/terminal?container=claude&resume=0f8e2a4c-1b3d-4e5f-8a9b-0c1d2e3f4a5b&dir=/home/agent/workspace/shop'
+    expect(nextAfterSignIn(next(signNext(link)))).toBe(link)
+    expect(nextAfterSignIn(next(signNext('/sandboxes/p9m-shop/terminal')))).toBe('/sandboxes/p9m-shop/terminal')
+    expect(nextAfterSignIn(next(signNext('/sandboxes/p9m-shop/terminalx')))).toBeNull()
+    expect(nextAfterSignIn(next(signNext('/sandboxes/a/b/terminal?')))).toBeNull()
+    expect(nextAfterSignIn(next(signNext('//evil.example.com/sandboxes/x/terminal?')))).toBeNull()
+    expect(nextAfterSignIn(next(encodeURIComponent(link)))).toBeNull()
+  })
   it('a public app: straight back to it, no ticket (the app itself would receive it)', async () => {
     const r = await startResponse(at('https://shop-pub.example.com/a'), deps({ sub: 'bob@example.com', role: 'user' }))
     expect(r.status).toBe(302)

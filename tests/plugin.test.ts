@@ -56,9 +56,11 @@ describe('the Claude Code plugin', () => {
     expect(md).toContain('"${CLAUDE_PLUGIN_ROOT}/scripts/teleport.sh" --run')
     expect(md).toContain('--secret')
     expect(md).toContain('claude --resume')
-    // The way on is the script's one command over the docker context, for every user: the web terminal is the admins'
+    // The ways on are the script's: the terminal link (every user, a Purgatorium sign-in) and the command over the
+    // docker context; never an address the model builds
+    expect(md).toContain('`open URL`')
     expect(md).toContain('`continue COMMAND`')
-    expect(md).not.toMatch(/terminal\?container=|container's terminal \(/)
+    expect(md).not.toMatch(/terminal\?container=/)
     // The first run pulls an image: the Bash tool's 2-minute default would kill it halfway
     expect(md).toContain('600000')
     // A secret that is a symlink is never taken: the skill says so instead of asking
