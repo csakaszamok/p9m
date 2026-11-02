@@ -1716,7 +1716,7 @@
 <p>Purgatorium has a small web UI (<code>http://p9m.&lt;HOST_DOMAIN&gt;</code>, or <code>UI_HOST</code>) for creating and managing sandboxes without the API directly, alongside the REST API.</p>
 <div class="admonition note">
 <p class="admonition-title">Only the admin</p>
-<p>Users have no web UI: they get and use their sandboxes from Claude Code (<a href="../claude-plugin/"><code>/p9m:init</code></a>). A user who signs in sees only how to install the plugin; the sign-in is for approving <code>/p9m:init</code> (and for apps open only to signed-in people, see <a href="../app-access/">App access</a>). A user's sign-in reaches no API either: users work with tokens. What follows is the admin's UI.</p>
+<p>Users have no web UI: they get and use their sandboxes from Claude Code (<a href="../claude-plugin/"><code>/p9m:init</code></a>). A user who signs in sees only how to install the plugin; the sign-in is for approving <code>/p9m:init</code>, for the browser terminal of their own sandboxes' containers (the link <a href="../claude-plugin/"><code>/p9m:teleport</code></a> gives, see <a href="../shell-and-logs/">Shell and logs</a>), and for apps open only to signed-in people (see <a href="../app-access/">App access</a>). A user's sign-in reaches no API either: users work with tokens. What follows is the admin's UI.</p>
 <p>The users have an address of their own, <code>sbx.&lt;HOST_DOMAIN&gt;</code> by default (<code>USER_HOST</code>, see <a href="../configuration/">Configuration</a>): they sign in and approve <code>/p9m:init</code> there, and <code>UI_HOST</code> is the admin's only.</p>
 </div>
 <p>Two ways to sign in:</p>

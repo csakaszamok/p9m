@@ -43,13 +43,15 @@ Open the link it prints, check the code, click **Create and approve**, and paste
 
 ## Go on in the sandbox: `/p9m:teleport`
 
-It shows what would move and asks about secret files (`.env`) one by one. At the end it gives you **one command**; run it in a terminal on your computer (on Windows in PowerShell or Windows Terminal):
+It shows what would move and asks about secret files (`.env`) one by one. At the end it gives you **a link**: open it, and Claude Code goes on in your browser, in the sandbox, in the project's folder, with the conversation (sign in to Purgatorium if it asks). The first time it asks you to sign in to Claude once.
+
+From a terminal instead, the command it gives too (on Windows in PowerShell or Windows Terminal):
 
 ```
 docker --context p9m-<sandbox> exec -it -w /home/agent/workspace/<project> claude claude --resume <id>
 ```
 
-Claude Code opens in the sandbox, in the project's folder, with the conversation. The first time it asks you to sign in to Claude once. Bring work back with git (commit and push there, pull here).
+Bring work back with git (commit and push there, pull here).
 
 ## If something is off
 

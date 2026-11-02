@@ -1837,12 +1837,13 @@ The folder now has its own sandbox. Running <code>/p9m:init</code> there again o
 </tbody>
 </table>
 <h2 id="go-on-in-the-sandbox-p9mteleport">Go on in the sandbox: <code>/p9m:teleport</code><a class="headerlink" href="#go-on-in-the-sandbox-p9mteleport" title="Permanent link">&para;</a></h2>
-<p>It shows what would move and asks about secret files (<code>.env</code>) one by one. At the end it gives you <strong>one command</strong>;
-run it in a terminal on your computer (on Windows in PowerShell or Windows Terminal):</p>
+<p>It shows what would move and asks about secret files (<code>.env</code>) one by one. At the end it gives you <strong>a link</strong>: open
+it, and Claude Code goes on in your browser, in the sandbox, in the project's folder, with the conversation (sign in
+to Purgatorium if it asks). The first time it asks you to sign in to Claude once.</p>
+<p>From a terminal instead, the command it gives too (on Windows in PowerShell or Windows Terminal):</p>
 <div class="highlight"><pre><span></span><code>docker --context p9m-&lt;sandbox&gt; exec -it -w /home/agent/workspace/&lt;project&gt; claude claude --resume &lt;id&gt;
 </code></pre></div>
-<p>Claude Code opens in the sandbox, in the project's folder, with the conversation. The first time it asks you to
-sign in to Claude once. Bring work back with git (commit and push there, pull here).</p>
+<p>Bring work back with git (commit and push there, pull here).</p>
 <h2 id="if-something-is-off">If something is off<a class="headerlink" href="#if-something-is-off" title="Permanent link">&para;</a></h2>
 <ul>
 <li><strong><code>claude: command not found</code>:</strong> Claude Code is not installed for the terminal (step 1). An <em>unknown option</em>:
