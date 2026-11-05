@@ -141,6 +141,10 @@ services:
 - Publish ports **on all interfaces** (`8080:8080`, not `127.0.0.1:8080:8080`): that is what gives the app an
   address. The app must listen on `0.0.0.0` inside its container.
 - `restart: unless-stopped` on every service, or it does not start again when the sandbox wakes.
+- A short address: the label `p9m.subdomain: <name>` on the service makes it `https://<sandbox>-<name>.<domain>`
+  instead of the long `<sandbox>-<project>-<container>-port<port>` one. Set it when the user names the address or
+  asks for a shorter one (*call it runner*). Lowercase letters, digits and `-`, different for each app of the
+  sandbox, never `shell` (the sandbox's SSH). Changing it changes the address: the old one stops working.
 - Who may open it: `p9m.access: owner` (*only for me*; the server's default unless set otherwise), `domain` (*for my
   colleagues*: anyone who can sign in to their Purgatorium) or `public` (anyone: a public site, a webhook receiver).
   Without a label only the user opens it: set `public` or `domain` before the first deploy when the user wants that. Your own `curl` to a non-public app gets a sign-in redirect: rely on `answers`.
