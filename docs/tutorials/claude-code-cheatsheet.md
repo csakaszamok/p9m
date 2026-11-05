@@ -49,6 +49,7 @@ The folder now has its own sandbox. Running `/p9m:init` there again only checks 
 |---|---|
 | *Deploy this app.* | builds it in your sandbox, starts it, gives you its address |
 | *Update it.* | after a change: deploys again, same address |
+| *Give it the address runner.* | a short address: `https://<sandbox>-runner.<domain>` instead of the long one |
 | *Why does my app not answer?* | reads its logs in the sandbox and fixes the usual causes |
 | *Let my sandbox sleep.* | stops it; the next visit to the app wakes it |
 | `/p9m:teleport` | moves this project and this conversation into your sandbox, to go on there |
