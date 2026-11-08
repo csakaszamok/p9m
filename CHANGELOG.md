@@ -16,7 +16,7 @@ Upgrading from 0.18.x: **first upgrade sysbox on the host to 0.7.0 or newer** (`
 
 ## [0.18.12] - 2026-11-08
 
-Upgrading from 0.18.11: `docker compose pull && docker compose up -d` where `.env` has `P9M_VERSION=0.18`; otherwise first download the new `docker-compose.yml` from `https://github.com/csakaszamok/p9m/releases/latest/download/docker-compose.yml`, which names this version.
+Upgrading from 0.18.11: `docker compose pull && docker compose up -d` where `.env` has `P9M_VERSION=0.18`; otherwise first download the new `docker-compose.yml` from `https://github.com/csakaszamok/p9m/releases/download/v0.18.12/docker-compose.yml`, which names this version.
 
 ### Fixed
 

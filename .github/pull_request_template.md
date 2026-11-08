@@ -1,5 +1,5 @@
 <!-- Thanks! Before you open it: the base branch is not `main`.
-     New features → the newest `release/*` branch (now `release/0.12`).
+     New features → the newest `release/*` branch (now `release/0.19`).
      A fix for a released series → that series' branch (e.g. `release/0.6`).
      See CONTRIBUTING.md, "Branches and releases". -->
 
