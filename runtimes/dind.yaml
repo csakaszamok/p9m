@@ -5,7 +5,7 @@ description: "Docker-in-Docker, privileged: for development only (Docker Desktop
 docker_compose:
   services:
     sandbox:
-      image: ghcr.io/csakaszamok/foxglove:0.11.0-dind
+      image: ghcr.io/csakaszamok/foxglove:0.12.0-dind
       container_name: ${name}
       privileged: true
       environment:

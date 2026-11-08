@@ -2,6 +2,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 let installed = ['runc']
 vi.mock('../../services/docker', () => ({ dockerRuntimes: vi.fn(async () => installed) }))
+let sysbox: number[] | null = [0, 7, 1]
+vi.mock('../../services/sysboxVersion', async importActual => ({ ...await importActual<typeof import('../../services/sysboxVersion')>(), sysboxVersion: vi.fn(async () => sysbox) }))
 const { defaultRuntime, runtimeMissing, runtimeAllowed, allowedRuntimes, _resetDefaultRuntime } = await import('../../services/defaultRuntime')
 
 beforeEach(() => { _resetDefaultRuntime(); installed = ['runc'] })
@@ -21,6 +23,16 @@ describe('defaultRuntime', () => {
 })
 
 describe('runtimeMissing', () => {
+  it('sysbox too old for the sandbox image: says so; a version it cannot tell does not refuse', async () => {
+    _resetDefaultRuntime(); installed = ['runc', 'sysbox-runc']
+    sysbox = [0, 6, 7]
+    expect(await runtimeMissing('sysbox')).toMatch(/sysbox 0\.6\.7 on this host is too old.*0\.7\.0/)
+    expect(await runtimeMissing('dind')).toBeNull()
+    sysbox = null
+    expect(await runtimeMissing('sysbox')).toBeNull()
+    sysbox = [0, 7, 1]
+    expect(await runtimeMissing('sysbox')).toBeNull()
+  })
   it('sysbox without sysbox-runc on the host says so; dind always runs', async () => {
     expect(await runtimeMissing('sysbox')).toMatch(/sysbox is not installed on this host/)
     expect(await runtimeMissing('dind')).toBeNull()

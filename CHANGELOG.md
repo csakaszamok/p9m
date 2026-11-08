@@ -4,6 +4,16 @@ All notable changes are listed here. Versions follow [semantic versioning](https
 
 ## [Unreleased]
 
+## [0.19.0] - 2026-11-08
+
+Upgrading from 0.18.x: **first upgrade sysbox on the host to 0.7.0 or newer** (`sysbox-runc --version`; `bash check-host.sh` says so too): this release's sandbox image starts no container inside a sandbox on an older one. Then download the new `docker-compose.yml` from `https://github.com/csakaszamok/p9m/releases/latest/download/docker-compose.yml` (a `P9M_VERSION` in `.env` must say `0.19`) and `docker compose pull && docker compose up -d`. The sandboxes move to the new image at that start; running ones restart.
+
+### Security
+
+- **Sandbox image foxglove 0.12.0:** Alpine 3.22, with runc 1.3 (1.2.2 had CVE-2025-31133, CVE-2025-52565 and CVE-2025-52881: a container in a sandbox could break out into the sandbox; sysbox still kept it off the host), containerd 2.1 (CVE-2024-40635) and Docker 28 (27 gets no more fixes); the `-dind` image (development only) is rebuilt on `docker:dind`. Sandboxes made before move to it at the next start of Purgatorium: running ones restart (their apps with `restart: unless-stopped` come back), sleeping ones get it when they wake.
+- **On a sysbox older than 0.7.0** the image's runc starts no container inside a sandbox, so a create is refused with the reason, and the sandboxes made before stay on their image until sysbox is upgraded and Purgatorium started again.
+- **Existing sandboxes' container logs are rotated too**, for the containers created after the sandbox is next recreated (`compose up -d --force-recreate` brings the running ones under it).
+
 ## [0.18.12] - 2026-11-08
 
 Upgrading from 0.18.11: `docker compose pull && docker compose up -d` where `.env` has `P9M_VERSION=0.18`; otherwise first download the new `docker-compose.yml` from `https://github.com/csakaszamok/p9m/releases/latest/download/docker-compose.yml`, which names this version.
@@ -1041,7 +1051,8 @@ The first release.
 
 - The project used to be called Leander. Existing `leander-` sandboxes and `ldr_` tokens keep working; see "Upgrading from Leander" in the README.
 
-[Unreleased]: https://github.com/csakaszamok/p9m/compare/v0.18.12...HEAD
+[Unreleased]: https://github.com/csakaszamok/p9m/compare/v0.19.0...HEAD
+[0.19.0]: https://github.com/csakaszamok/p9m/releases/tag/v0.19.0
 [0.18.12]: https://github.com/csakaszamok/p9m/releases/tag/v0.18.12
 [0.18.11]: https://github.com/csakaszamok/p9m/releases/tag/v0.18.11
 [0.18.10]: https://github.com/csakaszamok/p9m/releases/tag/v0.18.10

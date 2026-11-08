@@ -16,7 +16,7 @@ less check-host.sh
 bash check-host.sh dev.example.com
 ```
 
-Then, on a Linux host with Docker Engine, the compose plugin (Compose 2.17 or newer) and [sysbox](https://github.com/nestybox/sysbox) (without it no sandbox can be created: the privileged `dind` runtime is for development only):
+Then, on a Linux host with Docker Engine, the compose plugin (Compose 2.17 or newer) and [sysbox](https://github.com/nestybox/sysbox) 0.7.0 or newer (without it no sandbox can be created: the privileged `dind` runtime is for development only):
 
 ```bash
 mkdir p9m && cd p9m
