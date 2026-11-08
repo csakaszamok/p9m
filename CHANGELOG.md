@@ -4,6 +4,14 @@ All notable changes are listed here. Versions follow [semantic versioning](https
 
 ## [Unreleased]
 
+**Before upgrading: sysbox 0.7.0 or newer on the host** (`sysbox-runc --version`; `bash check-host.sh` says so too). Upgrade sysbox first, then Purgatorium: the next start moves the sandboxes.
+
+### Security
+
+- **Sandbox image foxglove 0.12.0:** Alpine 3.22, with runc 1.3 (1.2.2 had CVE-2025-31133, CVE-2025-52565 and CVE-2025-52881: a container in a sandbox could break out into the sandbox; sysbox still kept it off the host), containerd 2.1 (CVE-2024-40635) and Docker 28 (27 gets no more fixes); the `-dind` image (development only) is rebuilt on `docker:dind`. Sandboxes made before move to it at the next start of Purgatorium: running ones restart (their apps with `restart: unless-stopped` come back), sleeping ones get it when they wake.
+- **On a sysbox older than 0.7.0** the image's runc starts no container inside a sandbox, so a create is refused with the reason, and the sandboxes made before stay on their image until sysbox is upgraded and Purgatorium started again.
+- **Existing sandboxes' container logs are rotated too**, for the containers created after the sandbox is next recreated (`compose up -d --force-recreate` brings the running ones under it).
+
 ## [0.18.11] - 2026-11-08
 
 Upgrading from 0.18.10: `docker compose pull && docker compose up -d`; `claude plugin marketplace update p9m` and `claude plugin update p9m@p9m` get the deploy skill's changes (then restart Claude Code). **An app that is not `public` loses its TCP address:** a database, Redis or SSH server that must keep one needs the label `p9m.tcp: "true"`.

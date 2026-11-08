@@ -11,7 +11,7 @@ on:
 
 env:
   HAS_DOCKERHUB: ${{ secrets.DOCKERHUB_TOKEN != '' }}
-  SYSBOX_VERSION: 0.6.7
+  SYSBOX_VERSION: 0.7.1
   P9M_TOKEN: abc123
 
 jobs:
@@ -56,6 +56,11 @@ jobs:
           EOF
           docker compose build
           docker compose up -d --wait
+
+      # Without the version -sysbox sandboxes would silently stay on their old image
+      - name: Purgatorium reads the host's sysbox version
+        run: |
+          docker compose exec -T p9m node_modules/.bin/tsx -e "import('./services/sysboxVersion').then(async m => { const v = await m.sysboxVersion(); console.log('sysbox', v); process.exit(v && m.sysboxNewEnough(v) ? 0 : 1) })"
 
       - name: A sandbox runs on sysbox-runc, not privileged
         run: |

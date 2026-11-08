@@ -1,4 +1,5 @@
 import { dockerRuntimes } from './docker'
+import { MIN_SYSBOX, sysboxNewEnough, sysboxVersion, versionText } from './sysboxVersion'
 
 /** sysbox needs this OCI runtime on the host (Linux only; not in Docker Desktop) */
 const SYSBOX_RUNC = 'sysbox-runc'
@@ -19,9 +20,13 @@ export async function defaultRuntime(env: NodeJS.ProcessEnv = process.env): Prom
   return (await hostRuntimes()).includes(SYSBOX_RUNC) || !runtimeAllowed('dind', env) ? 'sysbox' : 'dind'
 }
 
-/** Why this runtime cannot run on this host, or null: sysbox without sysbox-runc. */
+/** Why this runtime cannot run on this host, or null: sysbox without sysbox-runc, or too old for the sandbox image. */
 export async function runtimeMissing(name: string): Promise<string | null> {
-  if (name !== 'sysbox' || (await hostRuntimes()).includes(SYSBOX_RUNC)) return null
+  if (name !== 'sysbox') return null
+  if ((await hostRuntimes()).includes(SYSBOX_RUNC)) {
+    const version = await sysboxVersion()
+    return version && !sysboxNewEnough(version) ? `sysbox ${versionText(version)} on this host is too old: the sandbox image needs ${versionText(MIN_SYSBOX)} or newer, upgrade sysbox` : null
+  }
   return 'sysbox is not installed on this host (no sysbox-runc runtime in Docker): install sysbox (the privileged dind runtime is for development only: ALLOWED_RUNTIMES=sysbox,dind)'
 }
 
