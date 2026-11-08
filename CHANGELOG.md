@@ -4,7 +4,9 @@ All notable changes are listed here. Versions follow [semantic versioning](https
 
 ## [Unreleased]
 
-**Before upgrading: sysbox 0.7.0 or newer on the host** (`sysbox-runc --version`; `bash check-host.sh` says so too). Upgrade sysbox first, then Purgatorium: the next start moves the sandboxes.
+## [0.19.0] - 2026-11-08
+
+Upgrading from 0.18.x: **first upgrade sysbox on the host to 0.7.0 or newer** (`sysbox-runc --version`; `bash check-host.sh` says so too): this release's sandbox image starts no container inside a sandbox on an older one. Then download the new `docker-compose.yml` from `https://github.com/csakaszamok/p9m/releases/latest/download/docker-compose.yml` (a `P9M_VERSION` in `.env` must say `0.19`) and `docker compose pull && docker compose up -d`. The sandboxes move to the new image at that start; running ones restart.
 
 ### Security
 
@@ -1049,7 +1051,8 @@ The first release.
 
 - The project used to be called Leander. Existing `leander-` sandboxes and `ldr_` tokens keep working; see "Upgrading from Leander" in the README.
 
-[Unreleased]: https://github.com/csakaszamok/p9m/compare/v0.18.12...HEAD
+[Unreleased]: https://github.com/csakaszamok/p9m/compare/v0.19.0...HEAD
+[0.19.0]: https://github.com/csakaszamok/p9m/releases/tag/v0.19.0
 [0.18.12]: https://github.com/csakaszamok/p9m/releases/tag/v0.18.12
 [0.18.11]: https://github.com/csakaszamok/p9m/releases/tag/v0.18.11
 [0.18.10]: https://github.com/csakaszamok/p9m/releases/tag/v0.18.10
