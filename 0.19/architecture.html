@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Purgatorium architecture</title>
+<style>
+  :root {
+    --bg: #fbfbfa; --fg: #1d1d1f; --muted: #6b6b70; --line: #c9c9ce;
+    --box: #ffffff; --group: #f1f1ef; --accent: #b4540a; --accent-bg: #fdf1e7;
+    --ok: #1f7a4d; --warn: #9a6b00;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #141416; --fg: #e8e8ea; --muted: #9a9aa0; --line: #45454b;
+      --box: #1d1d20; --group: #19191c; --accent: #f0a060; --accent-bg: #2a1d12;
+      --ok: #5cc98f; --warn: #e0b84a;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #141416; --fg: #e8e8ea; --muted: #9a9aa0; --line: #45454b;
+    --box: #1d1d20; --group: #19191c; --accent: #f0a060; --accent-bg: #2a1d12;
+    --ok: #5cc98f; --warn: #e0b84a;
+  }
+  * { box-sizing: border-box }
+  body {
+    margin: 0; background: var(--bg); color: var(--fg);
+    font: 15px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  }
+  main { max-width: 1180px; margin: 0 auto; padding: 32px 16px 64px }
+  h1 { font-size: 26px; margin: 0 0 4px }
+  h2 { font-size: 19px; margin: 48px 0 8px }
+  .lead { color: var(--muted); margin: 0 0 8px; max-width: 800px }
+  figure { margin: 16px 0 0 }
+  svg { width: 100%; height: auto; display: block; color: var(--fg) }
+  figcaption { color: var(--muted); font-size: 14px; margin-top: 10px; max-width: 900px }
+  ul.notes { max-width: 900px; padding-left: 20px }
+  ul.notes li { margin: 4px 0 }
+  code { font: 13px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace }
+
+  /* SVG vocabulary */
+  .b    { fill: var(--box); stroke: var(--line); stroke-width: 1.2 }
+  .g    { fill: var(--group); stroke: var(--line); stroke-width: 1.2; stroke-dasharray: 5 4 }
+  .acc  { fill: var(--accent-bg); stroke: var(--accent); stroke-width: 1.5 }
+  .t    { fill: currentColor; font-size: 13px }
+  .tb   { fill: currentColor; font-size: 13.5px; font-weight: 600 }
+  .ts   { fill: var(--muted); font-size: 11.5px }
+  .ta   { fill: var(--accent); font-size: 11.5px; font-weight: 600 }
+  .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace }
+  .e    { stroke: currentColor; stroke-width: 1.3; fill: none }
+  .ea   { stroke: var(--accent); stroke-width: 1.8; fill: none }
+  .ed   { stroke: currentColor; stroke-width: 1.3; fill: none; stroke-dasharray: 5 4 }
+  .ok   { fill: var(--ok); font-size: 11.5px; font-weight: 600 }
+  .warn { fill: var(--warn); font-size: 11.5px; font-weight: 600 }
+</style>
+</head>
+<body>
+<main>
+  <h1>Purgatorium architecture</h1>
+  <p class="lead">Traefik v3.6 routes requests; Sablier measures idle time and puts a sandbox to sleep. Purgatorium creates sandboxes, <strong>wakes every sleeping one</strong> (within the owner's limits), takes long-asleep ones into deep sleep, and archives them on an explicit delete. A running sandbox's web traffic does not go through Purgatorium. Nothing is ever deleted automatically.</p>
+
+  <!-- ───────────── 1. Components ───────────── -->
+  <h2>1. Components and the path of a request</h2>
+  <figure>
+    <svg viewBox="0 0 1140 800" role="img" aria-label="A web request to a running sandbox passes Traefik's sandbox router and the Sablier middleware, then socat (by name), frps and the FRP tunnel to the app in the DinD sandbox. A request for a sleeping sandbox finds no sandbox router and falls to Purgatorium's catch-all /wake, which checks the owner's limits and starts it. TLS TCP addresses and Docker access go through Purgatorium's TCP gateway. The registry asks Purgatorium for tokens and tells it about pushes, which Purgatorium scans for secrets.">
+      <defs>
+        <marker id="a1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="currentColor"/></marker>
+        <marker id="a1acc" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#d07a2e"/></marker>
+      </defs>
+
+      <!-- Clients -->
+      <rect class="b" x="20" y="70" width="150" height="56" rx="8"/>
+      <text class="tb" x="95" y="94" text-anchor="middle">User</text>
+      <text class="ts" x="95" y="112" text-anchor="middle">app in a browser</text>
+
+      <rect class="b" x="20" y="300" width="150" height="72" rx="8"/>
+      <text class="tb" x="95" y="324" text-anchor="middle">Coding agent</text>
+      <text class="ts" x="95" y="342" text-anchor="middle">psql, ssh, docker CLI</text>
+      <text class="ts" x="95" y="358" text-anchor="middle">(TLS, port 443)</text>
+
+      <rect class="b" x="20" y="470" width="150" height="74" rx="8"/>
+      <text class="tb" x="95" y="494" text-anchor="middle">Browser (UI) / API</text>
+      <text class="ts" x="95" y="512" text-anchor="middle">OIDC or admin sign-in,</text>
+      <text class="ts" x="95" y="529" text-anchor="middle">p9m_ tokens</text>
+
+      <!-- Traefik -->
+      <rect class="b" x="230" y="30" width="210" height="380" rx="10"/>
+      <text class="tb" x="335" y="54" text-anchor="middle">Traefik v3.6  :80 / :443</text>
+      <rect class="acc" x="246" y="70" width="178" height="84" rx="6"/>
+      <text class="t mono" x="335" y="92" text-anchor="middle">frps-&lt;name&gt;</text>
+      <text class="ts" x="335" y="110" text-anchor="middle">&lt;raw&gt;-*.&lt;domain&gt;</text>
+      <text class="ta" x="335" y="128" text-anchor="middle">+ Sablier middleware</text>
+      <text class="ts" x="335" y="145" text-anchor="middle">only while it runs</text>
+      <rect class="b" x="246" y="170" width="178" height="48" rx="6"/>
+      <text class="t mono" x="335" y="192" text-anchor="middle">p9m-wake</text>
+      <text class="ts" x="335" y="209" text-anchor="middle">catch-all, prio 1 → /wake</text>
+      <rect class="b" x="246" y="234" width="178" height="62" rx="6"/>
+      <text class="t mono" x="335" y="256" text-anchor="middle">p9m-tcp (TCP)</text>
+      <text class="ts" x="335" y="273" text-anchor="middle">SNI *-tcp, *-docker</text>
+      <text class="ts" x="335" y="288" text-anchor="middle">TLS passthrough</text>
+      <rect class="b" x="246" y="312" width="178" height="40" rx="6"/>
+      <text class="t mono" x="335" y="337" text-anchor="middle">p9m.&lt;domain&gt;</text>
+      <rect class="b" x="246" y="362" width="178" height="40" rx="6"/>
+      <text class="t mono" x="335" y="387" text-anchor="middle">registry.&lt;domain&gt;</text>
+
+      <line class="e" x1="170" y1="98" x2="244" y2="104" marker-end="url(#a1)"/>
+      <text class="ts" x="207" y="92" text-anchor="middle">HTTPS</text>
+      <line class="e" x1="170" y1="330" x2="244" y2="268" marker-end="url(#a1)"/>
+      <path class="e" d="M170,498 C200,498 210,340 244,334" marker-end="url(#a1)"/>
+
+      <!-- Sablier -->
+      <rect class="acc" x="500" y="20" width="200" height="60" rx="8"/>
+      <text class="tb" x="600" y="45" text-anchor="middle">Sablier  :10000</text>
+      <text class="ts" x="600" y="64" text-anchor="middle">idle time per group · state.json</text>
+      <path class="ea" d="M424,84 C460,84 470,56 498,52" marker-end="url(#a1acc)"/>
+      <text class="ta" x="452" y="62" text-anchor="middle">renew</text>
+
+      <!-- Sandbox group -->
+      <rect class="g" x="490" y="110" width="630" height="260" rx="12"/>
+      <text class="ts" x="660" y="130">sandbox stack  (compose project = Sablier group)</text>
+
+      <rect class="b" x="506" y="150" width="130" height="74" rx="6"/>
+      <text class="tb" x="571" y="174" text-anchor="middle">socat</text>
+      <text class="ts" x="571" y="192" text-anchor="middle">carries the router;</text>
+      <text class="ts" x="571" y="206" text-anchor="middle">healthy = tunnel up</text>
+
+      <rect class="b" x="676" y="150" width="130" height="64" rx="6"/>
+      <text class="tb" x="741" y="175" text-anchor="middle">frps</text>
+      <text class="ts" x="741" y="193" text-anchor="middle">vhost :8080</text>
+      <text class="ts" x="741" y="207" text-anchor="middle">API :7500</text>
+
+      <line class="e" x1="424" y1="116" x2="504" y2="170" marker-end="url(#a1)"/>
+      <text class="ts" x="446" y="128">&lt;name&gt;-socat:8080</text>
+      <line class="e" x1="636" y1="182" x2="674" y2="182" marker-end="url(#a1)"/>
+
+      <!-- DinD sandbox -->
+      <rect class="b" x="846" y="140" width="258" height="214" rx="8"/>
+      <text class="tb" x="975" y="162" text-anchor="middle">sandbox (DinD / sysbox)</text>
+      <text class="ts" x="975" y="178" text-anchor="middle">own dockerd :2376 (TLS, own CA)</text>
+      <rect class="b" x="862" y="192" width="104" height="40" rx="5"/>
+      <text class="t" x="914" y="216" text-anchor="middle">frpc</text>
+      <rect class="b" x="984" y="192" width="104" height="40" rx="5"/>
+      <text class="t" x="1036" y="216" text-anchor="middle">docker-gen</text>
+      <line class="e" x1="982" y1="212" x2="968" y2="212" marker-end="url(#a1)"/>
+      <text class="ts" x="975" y="248" text-anchor="middle">frpc config from published ports</text>
+      <rect class="g" x="862" y="262" width="226" height="78" rx="6"/>
+      <text class="ts" x="975" y="280" text-anchor="middle">inner stack (back via restart policy)</text>
+      <text class="t" x="920" y="306" text-anchor="middle">portainer</text>
+      <text class="t" x="1032" y="306" text-anchor="middle">app, db…</text>
+      <text class="ts" x="975" y="326" text-anchor="middle">sshd :22 (SSH sandboxes)</text>
+      <line class="e" x1="914" y1="232" x2="914" y2="290" marker-end="url(#a1)"/>
+
+      <path class="ed" d="M862,206 C830,206 830,200 808,196" marker-end="url(#a1)"/>
+      <text class="ts" x="826" y="232" text-anchor="middle">tunnel</text>
+      <text class="ts" x="826" y="246" text-anchor="middle">:7000</text>
+
+      <!-- Purgatorium -->
+      <rect class="acc" x="500" y="420" width="300" height="300" rx="10"/>
+      <text class="tb" x="650" y="446" text-anchor="middle">Purgatorium  :3000 (host :8081)</text>
+      <text class="t" x="516" y="474">/wake: wakes asleep and deep-sleeping</text>
+      <text class="t" x="516" y="492">   sandboxes within the owner's limits</text>
+      <text class="t" x="516" y="516">create (quota), archive, deep sleep</text>
+      <text class="t" x="516" y="540">TCP gateway :4443 (-tcp, -docker)</text>
+      <text class="t" x="516" y="564">/v2/auth tokens, push scans</text>
+      <text class="t" x="516" y="588">UI, Overview, terminal, logs</text>
+      <text class="t" x="516" y="612">usage and disk sampling</text>
+      <text class="t" x="516" y="636">Sablier /metrics: time left</text>
+      <text class="ts" x="516" y="664">quota: running sandboxes per user</text>
+      <text class="ts" x="516" y="680">server limit: running + asleep</text>
+      <text class="ts" x="516" y="700">data/: tokens, keys, scans, disk</text>
+
+      <path class="e" d="M424,194 C470,194 470,440 498,452" marker-end="url(#a1)"/>
+      <text class="ts" x="430" y="186">/wake</text>
+      <path class="e" d="M424,264 C460,264 460,540 498,540" marker-end="url(#a1)"/>
+      <path class="e" d="M424,332 C450,332 452,580 498,580" marker-end="url(#a1)"/>
+
+      <!-- TCP gateway to the sandbox -->
+      <path class="ed" d="M800,540 C960,540 1000,420 1010,356" marker-end="url(#a1)"/>
+      <text class="ts" x="812" y="530">TLS TCP / dockerd (frps)</text>
+
+      <!-- Registry -->
+      <rect class="b" x="246" y="620" width="178" height="62" rx="8"/>
+      <text class="tb" x="335" y="644" text-anchor="middle">registry:2</text>
+      <text class="ts" x="335" y="662" text-anchor="middle">token auth, notifications</text>
+      <line class="e" x1="335" y1="402" x2="335" y2="618" marker-end="url(#a1)"/>
+      <line class="ed" x1="424" y1="640" x2="498" y2="610" marker-end="url(#a1)"/>
+      <text class="ts" x="460" y="660" text-anchor="middle">token, push</text>
+
+      <!-- Docker engine -->
+      <rect class="b" x="846" y="580" width="258" height="60" rx="8"/>
+      <text class="tb" x="975" y="605" text-anchor="middle">Docker engine (host)</text>
+      <text class="ts" x="975" y="624" text-anchor="middle">/var/run/docker.sock</text>
+      <line class="e" x1="800" y1="610" x2="844" y2="610" marker-end="url(#a1)"/>
+      <text class="ts" x="822" y="600" text-anchor="middle">compose</text>
+      <path class="ea" d="M700,40 C1000,40 1125,120 1125,320 C1125,520 1110,560 1090,578" marker-end="url(#a1acc)"/>
+      <text class="ta" x="1000" y="62" text-anchor="middle">stop the idle group</text>
+
+      <!-- Files -->
+      <rect class="b" x="846" y="660" width="258" height="60" rx="8"/>
+      <text class="tb mono" x="975" y="684" text-anchor="middle">opt/sandboxes · opt/archive</text>
+      <text class="ts" x="975" y="702" text-anchor="middle">compose, certs · volumes on delete</text>
+      <path class="e" d="M800,690 C820,690 830,690 844,690" marker-end="url(#a1)"/>
+    </svg>
+    <figcaption>A web request to a <strong>running</strong> sandbox goes through its <code>frps-&lt;name&gt;</code> router to <code>&lt;name&gt;-socat:8080</code> (by name, not by container address) → frps → tunnel → frpc → the app; Purgatorium is not on that path, so running apps keep working while it is down. The router lives on the socat container without <code>allownonrunning</code>: while the sandbox sleeps there is no router, and the request falls to the <code>p9m-wake</code> catch-all, where Purgatorium decides whether it may wake. The Sablier middleware on the router only renews the idle session; Sablier stops the group once it has had no traffic for <code>idle_timeout</code>. TLS TCP addresses (<code>*-tcp</code>) and Docker access (<code>*-docker</code>, TLS passed through to the sandbox's own dockerd) go through Purgatorium's TCP gateway, which also wakes the sandbox. The registry asks Purgatorium for tokens and tells it about every push, which Purgatorium scans for secrets.</figcaption>
+  </figure>
+
+  <!-- ───────────── 2. Lifecycle ───────────── -->
+  <h2>2. The lifecycle of a sandbox</h2>
+  <figure>
+    <svg viewBox="0 0 1000 460" role="img" aria-label="The four states of a sandbox: running, asleep, deep sleep and archived. Without traffic Sablier puts it to sleep. Any wake, from asleep or deep sleep, goes through Purgatorium, which checks the owner's running limit. After a long sleep Purgatorium takes it into deep sleep. Only an explicit DELETE archives it.">
+      <defs>
+        <marker id="a2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="currentColor"/></marker>
+        <marker id="a2acc" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#d07a2e"/></marker>
+      </defs>
+
+      <circle cx="260" cy="30" r="6" fill="currentColor"/>
+      <line class="e" x1="260" y1="36" x2="260" y2="108" marker-end="url(#a2)"/>
+      <text class="ts" x="270" y="66">POST /sandboxes</text>
+      <text class="ts" x="270" y="82">(a running place free)</text>
+
+      <rect class="b" x="160" y="110" width="200" height="70" rx="35"/>
+      <text class="tb" x="260" y="140" text-anchor="middle">Running</text>
+      <text class="ts" x="260" y="160" text-anchor="middle">counts against the quota</text>
+
+      <rect class="acc" x="640" y="110" width="240" height="70" rx="35"/>
+      <text class="tb" x="760" y="140" text-anchor="middle">Asleep</text>
+      <text class="ts" x="760" y="160" text-anchor="middle">containers stopped, network kept</text>
+
+      <rect class="b" x="640" y="300" width="240" height="70" rx="35"/>
+      <text class="tb" x="760" y="330" text-anchor="middle">Deep sleep</text>
+      <text class="ts" x="760" y="350" text-anchor="middle">no containers or network, data kept</text>
+
+      <rect class="b" x="160" y="360" width="200" height="70" rx="35"/>
+      <text class="tb" x="260" y="390" text-anchor="middle">Archived</text>
+      <text class="ts" x="260" y="410" text-anchor="middle">opt/archive, the name is free</text>
+
+      <path class="ea" d="M360,130 C460,85 540,85 638,130" marker-end="url(#a2acc)"/>
+      <text class="ta" x="500" y="84" text-anchor="middle">idle_timeout without traffic (Sablier), or Sleep</text>
+      <path class="e" d="M638,162 C540,207 460,207 360,162" marker-end="url(#a2)"/>
+      <text class="ts" x="500" y="222" text-anchor="middle">a request, Wake, TCP or Docker: Purgatorium starts it, a few seconds</text>
+      <text class="warn" x="500" y="238" text-anchor="middle">refused at the running limit (the owner may swap)</text>
+
+      <line class="e" x1="760" y1="180" x2="760" y2="298" marker-end="url(#a2)"/>
+      <text class="ts" x="772" y="232">deep_sleep_after</text>
+      <text class="ts" x="772" y="248">(Purgatorium, compose down)</text>
+
+      <path class="e" d="M640,328 C520,328 400,300 330,184" marker-end="url(#a2)"/>
+      <text class="ts" x="470" y="350" text-anchor="middle">first request: Purgatorium, compose up, ~20–60 s</text>
+      <text class="warn" x="470" y="366" text-anchor="middle">refused at the running or server limit</text>
+
+      <line class="ed" x1="260" y1="180" x2="260" y2="358" marker-end="url(#a2)"/>
+      <text class="ts" x="250" y="280" text-anchor="end">DELETE</text>
+      <path class="ed" d="M640,355 C560,390 450,398 362,396" marker-end="url(#a2)"/>
+      <text class="ts" x="520" y="408" text-anchor="middle">DELETE</text>
+    </svg>
+    <figcaption>Sablier makes the orange transition (to sleep), Purgatorium every other one. Only <strong>running</strong> sandboxes count against a user's quota (<code>SANDBOX_QUOTA</code>, default 3): letting one sleep frees its place. Asleep ones still hold a Docker network, so the server-wide <code>SANDBOX_MAX_TOTAL</code> (default 200) counts running and asleep ones. At the running limit nothing is put to sleep automatically: the wake is refused, and the owner can choose a running sandbox to put to sleep instead. Only an explicit DELETE archives a sandbox, from any state.</figcaption>
+  </figure>
+
+  <!-- ───────────── 3. Routing decision ───────────── -->
+  <h2>3. What happens to an incoming request?</h2>
+  <figure>
+    <svg viewBox="0 0 1100 340" role="img" aria-label="If the sandbox runs, its router exists and the request goes to the app through Sablier's middleware. Otherwise the catch-all leads to Purgatorium's /wake: no such sandbox gives 404; a sandbox that just started gets a waiting page; one at its owner's limit gets the Running limit reached page; otherwise Purgatorium starts it and shows a waiting page.">
+      <defs>
+        <marker id="a3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="currentColor"/></marker>
+      </defs>
+
+      <rect class="b" x="20" y="140" width="150" height="56" rx="8"/>
+      <text class="tb" x="95" y="164" text-anchor="middle">Request</text>
+      <text class="ts mono" x="95" y="182" text-anchor="middle">&lt;raw&gt;-….&lt;domain&gt;</text>
+
+      <rect class="b" x="220" y="132" width="200" height="72" rx="8"/>
+      <text class="t" x="320" y="160" text-anchor="middle">Sandbox router exists?</text>
+      <text class="ts" x="320" y="180" text-anchor="middle">(only while it runs and</text>
+      <text class="ts" x="320" y="194" text-anchor="middle">socat is healthy)</text>
+      <line class="e" x1="170" y1="168" x2="218" y2="168" marker-end="url(#a3)"/>
+
+      <rect class="acc" x="490" y="30" width="200" height="56" rx="8"/>
+      <text class="t" x="590" y="54" text-anchor="middle">Sablier renews the session</text>
+      <text class="ts" x="590" y="72" text-anchor="middle">idle countdown starts over</text>
+      <path class="e" d="M420,150 C450,150 460,58 488,58" marker-end="url(#a3)"/>
+      <text class="ok" x="440" y="96" text-anchor="end">yes</text>
+
+      <rect class="b" x="770" y="38" width="310" height="40" rx="8"/>
+      <text class="t" x="925" y="63" text-anchor="middle">the app answers (socat → frps → frpc)</text>
+      <line class="e" x1="690" y1="58" x2="768" y2="58" marker-end="url(#a3)"/>
+
+      <rect class="b" x="490" y="200" width="200" height="64" rx="8"/>
+      <text class="t" x="590" y="226" text-anchor="middle">Purgatorium /wake (catch-all)</text>
+      <text class="ts" x="590" y="244" text-anchor="middle">which sandbox, in what state,</text>
+      <text class="ts" x="590" y="258" text-anchor="middle">within the owner's limits?</text>
+      <path class="e" d="M420,186 C450,186 460,232 488,232" marker-end="url(#a3)"/>
+      <text class="warn" x="440" y="222" text-anchor="end">no</text>
+
+      <rect class="b" x="770" y="110" width="310" height="40" rx="8"/>
+      <text class="t" x="925" y="135" text-anchor="middle">waiting page; Purgatorium starts it (asleep / deep)</text>
+      <line class="e" x1="690" y1="214" x2="768" y2="130" marker-end="url(#a3)"/>
+      <text class="ok" x="712" y="166">may wake</text>
+
+      <rect class="b" x="770" y="166" width="310" height="40" rx="8"/>
+      <text class="t" x="925" y="191" text-anchor="middle">waiting page: just started, router not loaded yet</text>
+      <line class="e" x1="690" y1="224" x2="768" y2="186" marker-end="url(#a3)"/>
+
+      <rect class="acc" x="770" y="222" width="310" height="40" rx="8"/>
+      <text class="t" x="925" y="247" text-anchor="middle">409 Running limit reached · retries every 30 s</text>
+      <line class="e" x1="690" y1="236" x2="768" y2="242" marker-end="url(#a3)"/>
+      <text class="warn" x="764" y="236" text-anchor="end">at the limit</text>
+
+      <rect class="b" x="770" y="278" width="310" height="40" rx="8"/>
+      <text class="t" x="925" y="303" text-anchor="middle">404 → Purgatorium's 404 page (never existed / archived)</text>
+      <line class="e" x1="690" y1="252" x2="768" y2="298" marker-end="url(#a3)"/>
+      <text class="warn" x="764" y="290" text-anchor="end">no sandbox</text>
+    </svg>
+    <figcaption>A sandbox router exists only while the sandbox runs and its socat is healthy (the tunnel is up). Otherwise every request reaches Purgatorium: it starts an asleep sandbox (<code>compose start</code>) or a deep-sleeping one (<code>compose up</code>) when the owner has a running place free, shows a waiting page until the router is back, and at the limit answers <em>Running limit reached</em> with a link where the owner can choose what sleeps (the page does not name the owner's other sandboxes). A sandbox Purgatorium has just started also gets the waiting page until Traefik picks up its router.</figcaption>
+  </figure>
+
+  <h2>Known weak spots</h2>
+  <ul class="notes">
+    <li><strong>Waking needs Purgatorium:</strong> while Purgatorium is down, running sandboxes keep serving web traffic, but no sandbox can be woken, and TLS TCP addresses and Docker access (through its TCP gateway) do not work.</li>
+    <li><strong>Restart policy:</strong> after a wake, only inner containers with <code>restart: unless-stopped</code> or <code>always</code> start again (an accepted, documented trade-off).</li>
+    <li><strong>Activity:</strong> web requests and open Docker connections keep a sandbox awake; a TLS TCP connection alone (e.g. a database client) does not, and drops when the sandbox sleeps.</li>
+    <li><strong>Isolation:</strong> the default <code>dind</code> runtime is privileged; root inside a sandbox can reach the host. <code>sysbox</code> runs without it and is used in production; both share the host's kernel, and a Kata runtime (a VM per sandbox) is on the roadmap.</li>
+    <li><strong>Archive size:</strong> the archive of a fresh sandbox is about 200 MB, and archives are never pruned automatically. DELETE is synchronous and can take minutes with a large volume.</li>
+    <li><strong>Network limit:</strong> every running or asleep sandbox holds a Docker network; <code>SANDBOX_MAX_TOTAL</code> (default 200) keeps users within the daemon's address pools. Widen <code>default-address-pools</code> for more.</li>
+  </ul>
+</main>
+</body>
+</html>

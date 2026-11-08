@@ -1,0 +1,1948 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Self-hosted sandboxes for your team and their AI agents">
+      
+      
+      
+        <link rel="canonical" href="https://csakaszamok.github.io/p9m/0.19/configuration/">
+      
+      
+        <link rel="prev" href="../first-sandbox/">
+      
+      
+        <link rel="next" href="../https/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../media/logo.svg">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>Configuration - Purgatorium (p9m)</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../media/extra.css">
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="slate" data-md-color-primary="black" data-md-color-accent="deep-orange">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#configuration" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+      </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="Purgatorium (p9m)" class="md-header__button md-logo" aria-label="Purgatorium (p9m)" data-md-component="logo">
+      
+  <img src="../media/logo.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Purgatorium (p9m)
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Configuration
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="black" data-md-color-accent="deep-orange"  aria-label="Light mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Light mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="black" data-md-color-accent="deep-orange"  aria-label="Dark mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Dark mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/csakaszamok/p9m" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    csakaszamok/p9m
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href=".." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../install/" class="md-tabs__link">
+          
+  
+  
+  Getting started
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../tutorials/" class="md-tabs__link">
+          
+  
+  
+  Tutorials
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../web-ui/" class="md-tabs__link">
+          
+  
+  
+  Using Purgatorium
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../agents/" class="md-tabs__link">
+          
+  
+  
+  Agents
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../api/" class="md-tabs__link">
+          
+  
+  
+  Reference
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="Purgatorium (p9m)" class="md-nav__button md-logo" aria-label="Purgatorium (p9m)" data-md-component="logo">
+      
+  <img src="../media/logo.svg" alt="logo">
+
+    </a>
+    Purgatorium (p9m)
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/csakaszamok/p9m" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    csakaszamok/p9m
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting started
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Getting started
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../install/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Install
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../first-sandbox/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    First sandbox
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Configuration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../https/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    HTTPS
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tutorials
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Tutorials
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tutorials/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tutorials
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tutorials/claude-code/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    With Claude Code
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tutorials/claude-code-cheatsheet/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Claude Code on one page
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tutorials/other-agents/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    With any agent
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tutorials/hub/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Share on the Hub
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Using Purgatorium
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Using Purgatorium
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../web-ui/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Web UI and sign-in
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../runtimes-templates/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Runtimes and templates
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../sleep-wake/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sleep and wake
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../resources/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CPU, memory and disk
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../deep-sleep/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deep sleep
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../archive/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Delete = archive
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../networking/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Isolation and TCP addresses
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../shell-and-logs/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SSH, terminal and logs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../files/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Files
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../hub/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Hub
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../app-access/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    App access
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Agents
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Agents
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../agents/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Let your agent deploy
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../mcp/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    MCP
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../claude-plugin/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Claude Code plugin
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../agent-guide/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Agent guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Reference
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../security/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Security
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../upgrading/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Upgrading
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../comparison/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Comparison
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../roadmap/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmap
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../architecture.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="configuration">Configuration<a class="headerlink" href="#configuration" title="Permanent link">&para;</a></h1>
+<p>Main settings in <code>.env</code>:</p>
+<table>
+<thead>
+<tr>
+<th>Variable</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>ADMIN_TOKEN</code></td>
+<td>— (required; <code>setup.sh</code> generates one)</td>
+<td>Bearer token with admin rights on the API. <code>docker compose</code> refuses to start without it</td>
+</tr>
+<tr>
+<td><code>ADMIN_USER</code>, <code>ADMIN_PASSWORD</code></td>
+<td><code>admin</code>, —</td>
+<td>The local admin account of the UI; it can sign in only with <code>ADMIN_LOGIN=on</code></td>
+</tr>
+<tr>
+<td><code>SESSION_IDLE_TIMEOUT</code></td>
+<td><code>30m</code></td>
+<td>Signed out of the web UI after this long without doing anything: a click, a key (also in a browser terminal), a scroll, or opening a page starts the time again; the list's own refreshes do not. Two minutes before, a bar offers <strong>Stay signed in</strong>; afterwards the sign-in page, and after signing in back to the same page. A session ends after 7 days in any case. <code>off</code>: only the 7 days. Tokens are not affected</td>
+</tr>
+<tr>
+<td><code>ADMIN_LOGIN</code></td>
+<td><code>off</code></td>
+<td><code>on</code>: the sign-in page has the <strong>Administrator sign-in</strong> form (also the Hub's). Off, the form is not shown and the password is not even checked: it is an emergency door, not the everyday way in (that is OIDC with <code>OIDC_ADMIN_EMAILS</code>). Turn it on in <code>.env</code>, <code>docker compose up -d</code> (a <code>restart</code> does not read <code>.env</code>), sign in, then turn it off again. While on, Purgatorium warns at startup</td>
+</tr>
+<tr>
+<td><code>SESSION_SECRET</code></td>
+<td>—</td>
+<td>Signs the session cookie; a long random string</td>
+</tr>
+<tr>
+<td><code>HOST_DOMAIN</code></td>
+<td><code>lvh.me</code></td>
+<td>Every address is under it: the UI, the registry, the sandbox apps (needs a wildcard DNS record)</td>
+</tr>
+<tr>
+<td><code>APPS_DOMAIN</code></td>
+<td><code>&lt;HOST_DOMAIN&gt;</code></td>
+<td>The sandboxes' app, TCP, SSH and Docker addresses under a domain of their own, e.g. <code>example.app</code> beside <code>HOST_DOMAIN=example.dev</code>: the UI, the registry and the Hub stay under <code>HOST_DOMAIN</code>. Needs its own wildcard DNS record and certificate. See <a href="../networking/#a-separate-domain-for-the-apps">A separate domain for the apps</a></td>
+</tr>
+<tr>
+<td><code>HOST_ADDRESS</code></td>
+<td><code>localhost</code></td>
+<td>The host's address, put into the sandbox TLS certificates and used for the registry token URL when <code>PUBLIC_URL</code> is not set</td>
+</tr>
+<tr>
+<td><code>UI_HOST</code></td>
+<td><code>p9m.&lt;HOST_DOMAIN&gt;</code></td>
+<td>The UI's own address, e.g. <code>console.example.com</code> with <code>HOST_DOMAIN=example.com</code>: the sandbox apps stay <code>&lt;sandbox&gt;-&lt;subdomain&gt;.example.com</code>. Under <code>HOST_DOMAIN</code>, the wildcard DNS record and certificate cover it. Set <code>PUBLIC_URL</code> to it too, and register its <code>/auth/callback</code> with the OIDC provider. A sandbox whose apps' addresses would include it (a sandbox <code>console</code> with <code>console-admin.example.com</code>) cannot be created</td>
+</tr>
+<tr>
+<td><code>PUBLIC_URL</code></td>
+<td><code>http://&lt;UI_HOST&gt;</code></td>
+<td>The address of the UI as users see it; <code>https://…</code> turns on the HTTPS checks (see <a href="../https/">HTTPS</a>)</td>
+</tr>
+<tr>
+<td><code>USER_HOST</code></td>
+<td><code>sbx.&lt;HOST_DOMAIN&gt;</code></td>
+<td>The users' own address, e.g. <code>sbx.example.com</code> beside <code>UI_HOST=console.example.com</code>: signing in, approving <code>/p9m:init</code> (<code>/activate</code>), the API and <code>/mcp</code> for their Claude Code, and signing in to the sandbox apps. <code>UI_HOST</code> is then the admin's: a user who signs in there is sent on to <code>USER_HOST</code> (signed in again by the provider, usually without a click), and the admin's pages on <code>USER_HOST</code> go to <code>UI_HOST</code>. The API answers on both, so a project's <code>.p9m</code> from before keeps working; new ones, the <code>/activate</code> links and the users' page name <code>USER_HOST</code>. Under <code>HOST_DOMAIN</code> the wildcard DNS record and certificate cover it; register its <code>/auth/callback</code> with the OIDC provider too. Sandboxes created before reach it by its public address; new ones through Traefik, as the UI. <code>off</code>, or the same as <code>UI_HOST</code>: off, everyone uses <code>UI_HOST</code></td>
+</tr>
+<tr>
+<td><code>OIDC_ISSUER</code>, <code>OIDC_CLIENT_ID</code>, <code>OIDC_CLIENT_SECRET</code>, <code>OIDC_PROVIDER_NAME</code></td>
+<td>—</td>
+<td>Sign-in for everyone but the admin (see <a href="../web-ui/">Web UI and sign-in</a>)</td>
+</tr>
+<tr>
+<td><code>OIDC_ALLOWED_DOMAINS</code>, <code>OIDC_ALLOWED_EMAILS</code></td>
+<td>— (anyone)</td>
+<td>Who may sign in with OIDC, as comma lists: domains (<code>example.com,partner.org</code>, the exact domain, not its subdomains) and single addresses (<code>guest@gmail.com</code>). With OIDC on, one of them is required: with both empty Purgatorium refuses to start, unless <code>OIDC_ALLOW_ANYONE=true</code>. Checked at sign-in and on every request: someone taken off the list (after a restart) is signed out and their tokens stop working at once. The admin is never limited</td>
+</tr>
+<tr>
+<td><code>OIDC_ALLOW_ANYONE</code></td>
+<td><code>false</code></td>
+<td><code>true</code>: OIDC without <code>OIDC_ALLOWED_DOMAINS</code> / <code>OIDC_ALLOWED_EMAILS</code> lets anyone with an account at the provider sign in and create sandboxes (with Google, any Google account); Purgatorium starts so, with a warning in its log. Otherwise it refuses to start</td>
+</tr>
+<tr>
+<td><code>OIDC_ADMIN_EMAILS</code></td>
+<td>— (none)</td>
+<td>Addresses (comma list) that are the admin when they sign in with OIDC in the browser, as the local admin is: all sandboxes, the Overview, users, no limits, host folders. They may sign in even if <code>OIDC_ALLOWED_*</code> leaves them out. Their tokens stay a user's. Taken off the list (after a restart), their session is a user's again at once. The local admin (<code>ADMIN_USER</code>) stays</td>
+</tr>
+<tr>
+<td><code>APPS_ACCESS_DEFAULT</code></td>
+<td><code>owner</code></td>
+<td>Who opens a sandbox app without a <code>p9m.access</code> label: <code>owner</code> (its sandbox's owner and the admin), <code>domain</code> (anyone who can sign in to Purgatorium) or <code>public</code> (anyone; the default before 0.12.12) (see <a href="../app-access/">App access</a>)</td>
+</tr>
+<tr>
+<td><code>APP_ACCESS_SECRET</code></td>
+<td>generated into <code>data/app-access.key</code></td>
+<td>Signs the app access cookies and sign-in tickets</td>
+</tr>
+<tr>
+<td><code>HUB_ENABLED</code></td>
+<td><code>false</code></td>
+<td>The <a href="../hub/">Hub</a>, the team's published apps at their own address: off unless <code>true</code>.</td>
+</tr>
+<tr>
+<td><code>HUB_HOST</code></td>
+<td><code>hub.&lt;HOST_DOMAIN&gt;</code></td>
+<td>The Hub's address.</td>
+</tr>
+<tr>
+<td><code>HUB_ALLOWED_DOMAINS</code>, <code>HUB_ALLOWED_EMAILS</code></td>
+<td>(empty)</td>
+<td>Who may look at the Hub besides the builders (<code>OIDC_ALLOWED_*</code>): viewers, who cannot sign in to Purgatorium itself. Empty: only builders.</td>
+</tr>
+<tr>
+<td><code>HUB_TITLE</code></td>
+<td><code>Hub</code></td>
+<td>Shown in the Hub's header.</td>
+</tr>
+<tr>
+<td><code>SANDBOX_QUOTA</code></td>
+<td><code>3</code></td>
+<td>Sandboxes a user may have running at once; asleep and deep-sleeping ones are not counted; <code>0</code> = unlimited</td>
+</tr>
+<tr>
+<td><code>SANDBOX_QUOTA_MAX</code></td>
+<td>(empty)</td>
+<td>How many a user may have running while the server has room, above the guaranteed <code>SANDBOX_QUOTA</code> (e.g. <code>10</code>). Above the guarantee a new sandbox, or one woken, needs room to spare: every other owner must still be able to reach their guarantee (their running sandboxes hold their places already), and so must one newcomer. Waking from plain sleep takes no new place, so only this maximum counts. Nobody is ever put to sleep to make room. Empty: nothing above <code>SANDBOX_QUOTA</code>; <code>0</code>: no maximum</td>
+</tr>
+<tr>
+<td><code>FILES_MAX_UPLOAD</code></td>
+<td><code>100m</code></td>
+<td>The largest file the <strong>Files</strong> tab (and <code>PUT /sandboxes/:name/files/content</code>) takes, like <code>512m</code> or <code>1g</code>. Every request body is read into memory first, so this (plus 1 MB) is also the cap on any request: a larger one gets 413</td>
+</tr>
+<tr>
+<td><code>SANDBOX_MAX_TOTAL</code></td>
+<td><code>200</code> (<code>setup.sh</code>: the suggested number for the host)</td>
+<td>Running sandboxes on the whole server, the admin's included. The suggested number: twice as many as can all use their full <code>SANDBOX_CPUS</code> and <code>SANDBOX_MEMORY</code> at once (2 GB of memory kept for the rest), since most idle or sleep at any moment and a full server asks people to put theirs to sleep; at most as many as the disk holds at <code>SANDBOX_DISK</code> each. <code>setup.sh</code> writes it into a new <code>.env</code> in place of the example's 200, <code>check-host.sh</code> prints it, and the admin's Overview shows it under Host resources, with a warning when the limit set is well above it; asleep, deep-sleeping and archived ones take no place, so letting a sandbox sleep frees it for everyone. When it is reached nobody but the admin can create one or wake one: the admin is never refused, but its running sandboxes take places too; <code>0</code> = no limit. Each sandbox, asleep too, keeps a Docker network until it goes into deep sleep: the host's Docker address pools must have room for them (see <code>check-host.sh</code>)</td>
+</tr>
+<tr>
+<td><code>DEFAULT_RUNTIME</code></td>
+<td><code>auto</code></td>
+<td>Runtime for new sandboxes when a request names none: <code>auto</code> picks <code>sysbox</code> where the host has sysbox installed (no privileged container) and <code>dind</code> otherwise; or name one (see <a href="../runtimes-templates/">Runtimes and templates</a>)</td>
+</tr>
+<tr>
+<td><code>ALLOWED_RUNTIMES</code></td>
+<td><code>sysbox</code></td>
+<td>Runtimes new sandboxes may use, as a comma list, or <code>all</code>. The privileged <code>dind</code> is for development only (Docker Desktop, a laptop): <code>sysbox,dind</code> there; the development compose file (<code>docker-compose.dev.yml</code>) allows <code>all</code>. Others are left out of <code>GET /runtimes</code> and the <strong>New sandbox</strong> form, and a create asking for one is a 400 (so is one without a runtime when the default is not allowed). Existing sandboxes keep running, sleeping and waking</td>
+</tr>
+<tr>
+<td><code>SANDBOX_CPUS</code>, <code>SANDBOX_MEMORY</code></td>
+<td><code>2</code>, <code>4g</code></td>
+<td>CPU and memory limit of every new sandbox (see <a href="../resources/#cpu-and-memory">CPU and memory</a>)</td>
+</tr>
+<tr>
+<td><code>SANDBOX_MAX_CPUS</code>, <code>SANDBOX_MAX_MEMORY</code></td>
+<td><code>4</code>, <code>8g</code></td>
+<td>How far a user can raise their sandbox's limits; the admin can go up to the host</td>
+</tr>
+<tr>
+<td><code>SANDBOX_MAX_IDLE_TIMEOUT</code>, <code>SANDBOX_MAX_DEEP_SLEEP_AFTER</code></td>
+<td>— (no limit)</td>
+<td>How long a user's sandbox may stay awake without traffic, and asleep before deep sleep, at most (e.g. <code>2h</code>, <code>1d</code>); with a limit, <em>never</em> (<code>off</code>) is not allowed either. A template's longer default is cut to it; a sandbox that already has a longer value keeps it until it is changed. The admin is not limited</td>
+</tr>
+<tr>
+<td><code>SANDBOX_DISK</code></td>
+<td><code>20g</code></td>
+<td>Disk use above which a sandbox is flagged; a warning only, see <a href="../resources/#disk">Disk</a></td>
+</tr>
+<tr>
+<td><code>HOST_MOUNT_ROOTS</code></td>
+<td>(empty: off)</td>
+<td>Host folders the admin may mount into a sandbox, as a comma list of absolute paths (e.g. <code>/srv/shared,/data/projects</code>): a mount's host path must be one of them or under one (<code>/srv/shared2</code> is not under <code>/srv/shared</code>). Entries that are not absolute or have <code>..</code> are ignored, with a warning at startup; <code>/</code> (the whole host) is allowed, with a warning. <strong>A mount gives whoever owns the sandbox that host folder, as root</strong> (read-only if mounted so), and to every app in it. Empty: nobody can add a mount; ones already there stay until the admin removes them. See <a href="../web-ui/#host-folders">Host folders</a></td>
+</tr>
+<tr>
+<td><code>LOGIN_CAPACITY</code></td>
+<td><code>on</code></td>
+<td>The sign-in page shows the sandbox places on the server: taken and free of <code>SANDBOX_MAX_TOTAL</code>, with a bar (orange from 90%, red when full). The page is public, so <code>off</code> hides it; nothing is shown without a server limit. Counted at most every 30 seconds</td>
+</tr>
+<tr>
+<td><code>GITHUB_STATS</code></td>
+<td><code>on</code></td>
+<td>The topbar links to the GitHub repo and shows Purgatorium's version, stars and forks; the admin also sees when a newer release is out (one of the running series, else a later series). The server fetches the counts and the releases at most once an hour (users' browsers never contact GitHub, and nothing about the installation is sent); <code>off</code> never asks GitHub, and the link and the version stay</td>
+</tr>
+<tr>
+<td><code>USER_VIEW_SWITCH</code></td>
+<td><code>false</code></td>
+<td>No effect since 0.13.0: users have no web UI. The admin can always switch (see <a href="../web-ui/#simple-and-advanced">Simple and Advanced</a>)</td>
+</tr>
+<tr>
+<td><code>GITHUB_LINK</code></td>
+<td><code>on</code></td>
+<td><code>off</code> takes the GitHub card out of the topbar (and GitHub is never asked for the counts)</td>
+</tr>
+<tr>
+<td><code>UI_TITLE</code></td>
+<td><code>Purgatorium Agentium</code></td>
+<td>The name at the top left, on the sign-in page and in the browser tab titles; <code>none</code> shows no name</td>
+</tr>
+<tr>
+<td><code>UI_LOGO</code></td>
+<td>Purgatorium's logo</td>
+<td>The logo next to the name and the browser tab icon, on the Hub too: an <code>https://</code> address, or an image file in the container (<code>.svg</code>, <code>.png</code>, <code>.jpg</code>, <code>.webp</code>, <code>.gif</code>, <code>.ico</code>), e.g. <code>/app/data/logo.png</code> for <code>./data/logo.png</code>, served as <code>/assets/custom-logo</code>; <code>none</code> shows no logo. Its height is fixed, its width follows the image</td>
+</tr>
+<tr>
+<td><code>DEFAULT_TEMPLATE</code></td>
+<td><code>starter</code></td>
+<td>Template for new sandboxes when a request names none. An old value such as <code>dind-standard</code> makes every create without a template fail with <code>Unknown template</code></td>
+</tr>
+<tr>
+<td><code>DEEP_SLEEP_CHECK_INTERVAL</code></td>
+<td><code>1m</code></td>
+<td>How often Purgatorium looks for sandboxes to take into deep sleep</td>
+</tr>
+<tr>
+<td><code>HOST_SANDBOXES_DIR</code></td>
+<td>auto-detected</td>
+<td>Host path of <code>opt/sandboxes</code> (every sandbox's compose file mounts from it). Set it only if auto-detection fails</td>
+</tr>
+<tr>
+<td><code>P9M_API_BIND</code></td>
+<td><code>127.0.0.1</code></td>
+<td>Interface of the direct plain-HTTP API port <code>8081</code>: by default on the host only. <code>0.0.0.0</code> opens it to every network without TLS (tokens cross it readable): only on a trusted network. With <code>PUBLIC_URL</code> empty, docker clients on other machines get registry tokens from <code>http://&lt;HOST_ADDRESS&gt;:8081</code>, which needs it</td>
+</tr>
+<tr>
+<td><code>P9M_VERSION</code></td>
+<td>the release the <code>docker-compose.yml</code> came from</td>
+<td>The image version to run. Pin it only to stay on a version: an upgrade with a new <code>docker-compose.yml</code> then needs it changed too</td>
+</tr>
+<tr>
+<td><code>REGISTRY_PUBLIC_PULL</code></td>
+<td><code>true</code></td>
+<td>Images whose versions all passed the secret scan can be pulled without a login; <code>false</code>: tokens only</td>
+</tr>
+<tr>
+<td><code>REGISTRY_CACHE_TTL</code></td>
+<td><code>720h</code> (30 days)</td>
+<td>How long the sandboxes' Docker Hub cache (<code>registry-cache</code>) and ghcr.io cache (<code>registry-cache-ghcr</code>) keep an image, counted from its <strong>first</strong> download: pulling it again does not extend it, so an image is downloaded again once its time is up, even in the middle of a workshop. In hours (<code>168h</code> = 7 days); <code>0</code> keeps everything for ever (the cache only grows: watch the disk). Not in hours (e.g. <code>7d</code>): the cache does not start, and the sandboxes pull from Docker Hub directly</td>
+</tr>
+</tbody>
+</table>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+      
+      <nav class="md-footer__inner md-grid" aria-label="Footer" >
+        
+          
+          <a href="../first-sandbox/" class="md-footer__link md-footer__link--prev" aria-label="Previous: First sandbox">
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+            </div>
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Previous
+              </span>
+              <div class="md-ellipsis">
+                First sandbox
+              </div>
+            </div>
+          </a>
+        
+        
+          
+          <a href="../https/" class="md-footer__link md-footer__link--next" aria-label="Next: HTTPS">
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              <div class="md-ellipsis">
+                HTTPS
+              </div>
+            </div>
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11z"/></svg>
+            </div>
+          </a>
+        
+      </nav>
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+    <div class="md-copyright__highlight">
+      AGPL-3.0 · Based on Purgatorium (p9m)
+    </div>
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.tabs", "navigation.sections", "navigation.top", "navigation.footer", "search.suggest", "search.highlight", "content.code.copy", "toc.follow"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "latest", "provider": "mike"}}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+    
+  </body>
+</html>
