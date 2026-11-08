@@ -141,9 +141,16 @@ services:
 - Publish ports **on all interfaces** (`8080:8080`, not `127.0.0.1:8080:8080`): that is what gives the app an
   address. The app must listen on `0.0.0.0` inside its container.
 - `restart: unless-stopped` on every service, or it does not start again when the sandbox wakes.
+- A short address: the label `p9m.subdomain: <name>` on the service makes it `https://<sandbox>-<name>.<domain>`
+  instead of the long `<sandbox>-<project>-<container>-port<port>` one. Set it when the user names the address or
+  asks for a shorter one (*call it runner*). Lowercase letters, digits and `-`, different for each app of the
+  sandbox, never `shell` (the sandbox's SSH). Changing it changes the address: the old one stops working.
 - Who may open it: `p9m.access: owner` (*only for me*; the server's default unless set otherwise), `domain` (*for my
   colleagues*: anyone who can sign in to their Purgatorium) or `public` (anyone: a public site, a webhook receiver).
   Without a label only the user opens it: set `public` or `domain` before the first deploy when the user wants that. Your own `curl` to a non-public app gets a sign-in redirect: rely on `answers`.
+- A database or other non-HTTP service the user wants to reach from outside (psql, redis-cli): the label
+  `p9m.tcp: "true"` gives it a TLS address (`tcp_urls`), which passes no sign-in, so it must have a password. Without
+  the label only a `public` app has one. A database only the app uses needs neither: leave its port unpublished.
 - Secrets go in `environment:` / `env_file:` at run time, never into the image. Add `.p9m` to a
   `.dockerignore` so the keys never reach a build.
 
@@ -156,7 +163,7 @@ The build runs in the sandbox; it is the same command for an update.
 ## 5. Check and hand over
 
 `GET /sandboxes/:name` again: `apps` lists each app with its `url` and `answers`. A new app shows there a few seconds
-after `compose up` (first only in `tcp_urls`): ask every 3 s for up to about 30 s, until it is listed with
+after `compose up`: ask every 3 s for up to about 30 s, until it is listed with
 `answers: true`. Rely on `answers`, not on your own `curl` (on Windows the built-in curl fails with
 `CRYPT_E_REVOCATION_OFFLINE` unless given `--ssl-no-revoke`).
 
