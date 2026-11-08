@@ -12,6 +12,14 @@ All notable changes are listed here. Versions follow [semantic versioning](https
 - **On a sysbox older than 0.7.0** the image's runc starts no container inside a sandbox, so a create is refused with the reason, and the sandboxes made before stay on their image until sysbox is upgraded and Purgatorium started again.
 - **Existing sandboxes' container logs are rotated too**, for the containers created after the sandbox is next recreated (`compose up -d --force-recreate` brings the running ones under it).
 
+## [0.18.12] - 2026-11-08
+
+Upgrading from 0.18.11: `docker compose pull && docker compose up -d` where `.env` has `P9M_VERSION=0.18`; otherwise first download the new `docker-compose.yml` from `https://github.com/csakaszamok/p9m/releases/latest/download/docker-compose.yml`, which names this version.
+
+### Fixed
+
+- **Sign-in on a slow network:** on a connection slower than 250 ms, Node gave up on every outbound request (*Sign-in provider unavailable*). Each address now gets 2 seconds, and the log says why a sign-in provider could not be reached (`fetch failed (ETIMEDOUT)`). The `NODE_OPTIONS` workaround is no longer needed.
+
 ## [0.18.11] - 2026-11-08
 
 Upgrading from 0.18.10: `docker compose pull && docker compose up -d`; `claude plugin marketplace update p9m` and `claude plugin update p9m@p9m` get the deploy skill's changes (then restart Claude Code). **An app that is not `public` loses its TCP address:** a database, Redis or SSH server that must keep one needs the label `p9m.tcp: "true"`.
@@ -1041,7 +1049,8 @@ The first release.
 
 - The project used to be called Leander. Existing `leander-` sandboxes and `ldr_` tokens keep working; see "Upgrading from Leander" in the README.
 
-[Unreleased]: https://github.com/csakaszamok/p9m/compare/v0.18.11...HEAD
+[Unreleased]: https://github.com/csakaszamok/p9m/compare/v0.18.12...HEAD
+[0.18.12]: https://github.com/csakaszamok/p9m/releases/tag/v0.18.12
 [0.18.11]: https://github.com/csakaszamok/p9m/releases/tag/v0.18.11
 [0.18.10]: https://github.com/csakaszamok/p9m/releases/tag/v0.18.10
 [0.18.9]: https://github.com/csakaszamok/p9m/releases/tag/v0.18.9

@@ -1,6 +1,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { hubEnabled, hubTitle, hubUrl } from './config'
+import { errorDetail } from '../outboundNet'
 import { hubViewer, createHubSession, hubCookieHeader, HUB_COOKIE, HUB_OIDC_COOKIE } from './session'
 import { hubEntries, type HubEntry } from './list'
 import { voteCounts, votedBy, addVote, removeVote } from './votes'
@@ -75,7 +76,7 @@ export async function handleHub(req: Request, deps: Deps = {}): Promise<Response
       const { url: to, flow } = await beginLogin(`${hubUrl()}/auth/callback`)
       return new Response(null, { status: 302, headers: { location: to, 'set-cookie': hubCookieHeader(HUB_OIDC_COOKIE, flow, 600) } })
     } catch (err) {
-      console.error('[hub] oidc discovery failed:', err instanceof Error ? err.message : err)
+      console.error('[hub] oidc discovery failed:', errorDetail(err))
       return redirect(`/login?error=${encodeURIComponent('Sign-in provider unavailable')}`)
     }
   }

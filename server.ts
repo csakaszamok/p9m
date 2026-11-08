@@ -14,6 +14,7 @@ import { migrateAppsDomain } from "./services/appsDomainMigration";
 import { migrateReadOnlyMounts } from "./services/mountMigration";
 import { migrateSandboxImage } from "./services/imageMigration";
 import { migrateIsolatedNetwork } from "./services/networkMigration";
+import { raiseConnectTimeout } from "./services/outboundNet";
 import { startTcpGateway } from "./services/tcpGateway";
 import { resolveTcpHost, resolveDockerHost } from "./services/tcpRoutes";
 import { findSandboxDirByHost, primeSablierSession } from "./services/wake";
@@ -354,6 +355,7 @@ void defaultRuntime().then(rt => {
 startRegistryGc();
 // Scans interrupted by a restart run again (their repos stay private meanwhile)
 void resumeScans().catch(err => console.error("[registry] resuming scans:", err));
+raiseConnectTimeout();
 for (const w of resourceDefaults().warnings) console.warn(`[resources] ${w}`);
 // Sandboxes whose install directory was moved or renamed: point their mounts at the current directory; then those
 // made under another apps domain (APPS_DOMAIN set or changed): their apps under the current one
