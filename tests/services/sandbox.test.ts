@@ -942,6 +942,9 @@ describe("the sandbox's dockerd settings", () => {
     expect(d['registry-mirrors']).toEqual(['http://registry-cache:5000'])
     expect(d['insecure-registries']).toEqual(['registry-cache:5000', 'registry-cache:5001', 'registry.lvh.me'])
   })
+  it("rotates the logs of the sandbox's containers", () => {
+    expect(JSON.parse(daemonJson('lvh.me'))).toMatchObject({ 'log-driver': 'json-file', 'log-opts': { 'max-size': '10m', 'max-file': '3' } })
+  })
   it("keeps the runtime's own settings", () => {
     expect(JSON.parse(daemonJson('lvh.me', { tlsverify: true })).tlsverify).toBe(true)
   })

@@ -13,7 +13,6 @@ import { migrateHostPaths } from "./services/pathMigration";
 import { migrateAppsDomain } from "./services/appsDomainMigration";
 import { migrateReadOnlyMounts } from "./services/mountMigration";
 import { migrateIsolatedNetwork } from "./services/networkMigration";
-import { migrateSandboxImage } from "./services/imageMigration";
 import { startTcpGateway } from "./services/tcpGateway";
 import { resolveTcpHost, resolveDockerHost } from "./services/tcpRoutes";
 import { findSandboxDirByHost, primeSablierSession } from "./services/wake";
@@ -360,8 +359,7 @@ for (const w of resourceDefaults().warnings) console.warn(`[resources] ${w}`);
 migrateHostPaths().catch(err => console.error("[paths] migration failed:", err))
   .then(() => migrateAppsDomain()).catch(err => console.error("[apps-domain] migration failed:", err))
   .then(() => migrateReadOnlyMounts()).catch(err => console.error("[mounts] migration failed:", err))
-  .then(() => migrateIsolatedNetwork()).catch(err => console.error("[network] migration failed:", err))
-  .then(() => migrateSandboxImage()).catch(err => console.error("[image] migration failed:", err));
+  .then(() => migrateIsolatedNetwork()).catch(err => console.error("[network] migration failed:", err));
 for (const warning of [...insecureConfigWarnings(process.env), ...hostMountWarnings(process.env)]) console.warn(warning);
 
 

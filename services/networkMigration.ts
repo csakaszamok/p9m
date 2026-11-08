@@ -8,7 +8,7 @@ import { uiHost } from './uiHost'
 import { listRuntimes } from './runtimeLoader'
 
 /** Each runtime's sandbox image by its kind (the tag's suffix): { dind: 'ghcr.io/…:0.11.0-dind', sysbox: … } */
-export function runtimeImages(): Record<string, string> {
+function runtimeImages(): Record<string, string> {
   const images: Record<string, string> = {}
   for (const r of listRuntimes()) {
     const image = (r.docker_compose.services as Record<string, { image?: string }> | undefined)?.sandbox?.image
