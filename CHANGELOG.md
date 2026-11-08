@@ -4,6 +4,10 @@ All notable changes are listed here. Versions follow [semantic versioning](https
 
 ## [Unreleased]
 
+### Fixed
+
+- **Sign-in on a slow network:** on a connection slower than 250 ms, Node gave up on every outbound request (*Sign-in provider unavailable*). Each address now gets 2 seconds, and the log says why a sign-in provider could not be reached (`fetch failed (ETIMEDOUT)`). The `NODE_OPTIONS` workaround is no longer needed.
+
 ## [0.18.11] - 2026-11-08
 
 Upgrading from 0.18.10: `docker compose pull && docker compose up -d`; `claude plugin marketplace update p9m` and `claude plugin update p9m@p9m` get the deploy skill's changes (then restart Claude Code). **An app that is not `public` loses its TCP address:** a database, Redis or SSH server that must keep one needs the label `p9m.tcp: "true"`.
