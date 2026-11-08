@@ -90,6 +90,9 @@ jobs:
         # The archive under opt/ is written by root (Purgatorium runs in a container)
         run: sudo -E bash tests/archive.sh
 
+      - name: tests/image-migration.sh (a running sandbox moves to the runtime's image)
+        run: bash tests/image-migration.sh
+
       - name: Logs
         if: failure()
         run: |
