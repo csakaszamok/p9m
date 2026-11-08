@@ -19,6 +19,7 @@ vi.mock('../../../services/sandbox', () => ({
 vi.mock('../../../services/tokens', () => ({ resolveToken: vi.fn((t: string) => t === 'p9m_user' ? { owner: 'u@example.com', sandbox: null } : null) }))
 // A Docker Desktop-like host by default: no sysbox, so DEFAULT_RUNTIME=auto gives dind
 let hostRuntimes = ['runc']
+vi.mock('../../../services/sysboxVersion', async importActual => ({ ...await importActual<typeof import('../../../services/sysboxVersion')>(), sysboxVersion: vi.fn(async () => [0, 7, 1]) }))
 vi.mock('../../../services/docker', () => ({ hostResources: vi.fn(async () => ({ cpus: 20, memory: 32 * 1024 ** 3 })), dockerRuntimes: vi.fn(async () => hostRuntimes) }))
 vi.mock('../../../services/templateLoader', () => {
   const all = [

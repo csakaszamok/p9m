@@ -105,8 +105,12 @@ if $docker_ok; then
     if has systemctl; then
       for s in sysbox-mgr sysbox-fs; do systemctl is-active --quiet "$s" || inactive="$inactive $s"; done
     fi
+    # The sandbox image's runc starts no container inside a sandbox on an older sysbox
+    sysbox_version=$(sysbox-runc --version 2>/dev/null | awk '/version:/ {print $2; exit}')
     if [ -n "$inactive" ]; then
       fail "sysbox is registered with Docker, but not running:$inactive" "systemctl start sysbox (and check: systemctl status sysbox)"
+    elif [ -n "$sysbox_version" ] && [ "$(printf '%s\n0.7.0\n' "$sysbox_version" | sort -V | head -1)" != 0.7.0 ]; then
+      fail "sysbox $sysbox_version is too old: new sandboxes cannot be created" "upgrade sysbox to 0.7.0 or newer: https://github.com/nestybox/sysbox/releases"
     elif out=$(timeout 120 docker run --rm --runtime=sysbox-runc alpine true 2>&1); then
       ok "sysbox works (new sandboxes use it: no privileged containers)"
       if $dind_allowed; then insecure "ALLOWED_RUNTIMES=$allowed also allows the privileged dind runtime" "dind is for development only: empty ALLOWED_RUNTIMES (sysbox only)"; fi
