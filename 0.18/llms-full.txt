@@ -328,7 +328,11 @@ claude plugin marketplace add p9m-team/p9m
 claude plugin install p9m@p9m
 ```
 
+Then **start Claude Code again**: one that was already running does not see the plugin.
+
 `p9m-team/p9m` is the official marketplace (it points at Purgatorium's own repository). The sign-in page of your Purgatorium shows these lines too, under **Using Claude Code?**
+
+Check (also good to do before a workshop): `claude plugin list` shows `p9m@p9m` with `Scope: user` and `Status: ✔ enabled`.
 
 ## Each project (once per folder)
 
@@ -342,13 +346,14 @@ Open the link it prints, check the code, click **Create and approve**, and paste
 
 ## Then, in your own words
 
-| Say                           | What happens                                                               |
-| ----------------------------- | -------------------------------------------------------------------------- |
-| *Deploy this app.*            | builds it in your sandbox, starts it, gives you its address                |
-| *Update it.*                  | after a change: deploys again, same address                                |
-| *Why does my app not answer?* | reads its logs in the sandbox and fixes the usual causes                   |
-| *Let my sandbox sleep.*       | stops it; the next visit to the app wakes it                               |
-| `/p9m:teleport`               | moves this project and this conversation into your sandbox, to go on there |
+| Say                           | What happens                                                                 |
+| ----------------------------- | ---------------------------------------------------------------------------- |
+| *Deploy this app.*            | builds it in your sandbox, starts it, gives you its address                  |
+| *Update it.*                  | after a change: deploys again, same address                                  |
+| *Give it the address runner.* | a short address: `https://<sandbox>-runner.<domain>` instead of the long one |
+| *Why does my app not answer?* | reads its logs in the sandbox and fixes the usual causes                     |
+| *Let my sandbox sleep.*       | stops it; the next visit to the app wakes it                                 |
+| `/p9m:teleport`               | moves this project and this conversation into your sandbox, to go on there   |
 
 ## Go on in the sandbox: `/p9m:teleport`
 
@@ -365,6 +370,8 @@ Bring work back with git (commit and push there, pull here).
 ## If something is off
 
 - **`claude: command not found`:** Claude Code is not installed for the terminal (step 1). An *unknown option*: `claude update`.
+- **`Unknown command: /p9m:init`:** start Claude Code again after installing. Still unknown: `claude plugin list`. `p9m@p9m` missing, `Scope: local` (an old install for another folder) or `disabled`: run `claude plugin install p9m@p9m --scope user` (`claude plugin enable p9m@p9m --scope user` if it stays disabled), and start Claude Code again. Not listed even then, and Claude Code says your organization manages its settings: ask your administrator to allow the `p9m-team/p9m` marketplace.
+- **`marketplace update p9m-team/p9m` says *not found*:** updating takes the marketplace's name: `claude plugin marketplace update p9m`, then `claude plugin update p9m@p9m`.
 - **The desktop app over SSH has no `/plugin`:** run the two `claude plugin …` lines in a terminal on that machine.
 - **Windows, `CRYPT_E_REVOCATION_OFFLINE`:** Claude Code adds `--ssl-no-revoke` to its `curl` and goes on.
 - **The code ran out** (10 minutes, once): run the same `/p9m:init` line again.
@@ -517,7 +524,7 @@ Both runtimes have the same wiring (FRP tunnel, Traefik route, Sablier sleep/wak
 - `compose.yaml` (required): the stack deployed into the sandbox's own Docker on creation, a plain compose file.
 - `template.yaml` (optional, every field optional): `description` (default: the directory name), `before_script` (JavaScript run on create; what it returns becomes `${variables}` for both compose files and the sandbox's `extras`, e.g. a generated password), `idle_timeout` (Go duration, default `30m`: how long a sandbox may go without HTTP traffic before it sleeps; a create request can override it), `deep_sleep_after` (default `7d`), `inner_project_name` (default `inner`).
 
-A new template is a new directory; it shows up in `GET /templates` and the form without a restart. In both files Purgatorium fills in `${name}`, `${raw_name}`, `${host_domain}` (the domain of the sandbox's addresses: `APPS_DOMAIN`, or `HOST_DOMAIN` without it), `${template_name}`, `${runtime_name}` and whatever `before_script` returned; any other `${…}` is left for docker compose (write `$$` for a literal `$`). Publish a port on all interfaces (`"5432:5432"`) to give it a link and a [TLS TCP address](https://csakaszamok.github.io/p9m/0.18/networking/#tls-tcp-addresses); a port on `127.0.0.1` stays private to the sandbox; a `p9m.connect.user` label puts its login into the **Connect…** commands. Pass passwords through variables whose name contains `PASSWORD` (or `TOKEN`, `SECRET`, `KEY`): **Starter stack…** masks those.
+A new template is a new directory; it shows up in `GET /templates` and the form without a restart. In both files Purgatorium fills in `${name}`, `${raw_name}`, `${host_domain}` (the domain of the sandbox's addresses: `APPS_DOMAIN`, or `HOST_DOMAIN` without it), `${template_name}`, `${runtime_name}` and whatever `before_script` returned; any other `${…}` is left for docker compose (write `$$` for a literal `$`). Publish a port on all interfaces (`"5432:5432"`) to give it a link, and add `p9m.tcp: "true"` for a [TLS TCP address](https://csakaszamok.github.io/p9m/0.18/networking/#tls-tcp-addresses) (a public app has one anyway); a port on `127.0.0.1` stays private to the sandbox; a `p9m.connect.user` label puts its login into the **Connect…** commands. Pass passwords through variables whose name contains `PASSWORD` (or `TOKEN`, `SECRET`, `KEY`): **Starter stack…** masks those.
 
 **A template is only the start.** The **New sandbox** dialog shows the chosen template's starter stack, read-only: a sandbox starts with it as it is, and it cannot be changed, neither at the create (the API refuses a `compose` text) nor later. Your own apps, Claude Code added to a sandbox made from `starter`, anything else, go in afterwards like every app: through the sandbox's Docker, with `docker`, SSH or an agent ([Purgatorium for agents](https://csakaszamok.github.io/p9m/0.18/agent-guide/index.md)). Sandboxes created from an edited compose text before 0.17 keep it and still show "(edited)". `docker compose` runs in the sandbox itself, on the sandbox's own Docker, with the file at `/inner/docker-compose.yml`: whatever the file makes it read, build or run (`build`, `env_file`, `include`, `secrets` from a `file`…) is the sandbox's, never the Purgatorium server's. `build` contexts and other relative paths are under `/inner`. The CLI gets an empty environment, so an unknown `${VAR}` is empty.
 
@@ -605,11 +612,11 @@ An app in one sandbox must not reach another sandbox's apps. Today:
 - inner containers' private addresses are only reachable inside their own sandbox;
 - Sablier's API is on its own network (`sablier-net`) shared only with Traefik;
 - a sandbox container is on its own network only, with its frps and socat, so no other sandbox reaches it or its ports directly. Everything into it goes through its frp tunnel: its web addresses, its TLS TCP addresses, SSH and Docker access (frpc connects out of the sandbox to its frps, which is on `traefik-net` under the sandbox's name);
-- a port an inner container *publishes* on all interfaces (`9000:9000`) gets a link (its tunnel) and a TLS TCP address; a port published on `127.0.0.1` (`127.0.0.1:9000:9000`) is private to the sandbox: no link, no TCP address. A link whose app does not answer is marked ⚠ in the panel — usually the app listens on 127.0.0.1 inside its container; make it listen on 0.0.0.0.
+- a port an inner container *publishes* on all interfaces (`9000:9000`) gets a link (its tunnel), and a TLS TCP address if its app is public or asks for one (`p9m.tcp: "true"`, below); a port published on `127.0.0.1` (`127.0.0.1:9000:9000`) is private to the sandbox: no link, no TCP address. A link whose app does not answer is marked ⚠ in the panel — usually the app listens on 127.0.0.1 inside its container; make it listen on 0.0.0.0.
 
 The Purgatorium API itself requires authentication (see [Web UI and sign-in](https://csakaszamok.github.io/p9m/0.18/web-ui/index.md)). What a sandbox needs of Purgatorium's services it reaches through its own socat, under their usual names: the Docker Hub cache (`registry-cache:5000`, dockerd's mirror), the ghcr.io cache (`registry-cache:5001`: Purgatorium's own images, such as the claude container `/p9m:teleport` starts, pulled by that name), the registry and the UI (through Traefik). frps's own ports are high (65000 for frpc, 65080 for the web addresses, 65075 for its API, which has a per-sandbox password kept in `frps.toml`), because frps also listens on every port the sandbox publishes, and on 22 and 2376.
 
-Who may open an app's **web address** can be limited per app with `p9m.access` ([App access](https://csakaszamok.github.io/p9m/0.18/app-access/index.md)); that applies to HTTP through Purgatorium only, not to the TCP addresses below.
+Who may open an app's **web address** can be limited per app with `p9m.access` ([App access](https://csakaszamok.github.io/p9m/0.18/app-access/index.md)). A TCP address passes no sign-in, so an app that is not public has none, unless its container asks for one with `p9m.tcp: "true"` (below).
 
 ## App web addresses
 
@@ -645,7 +652,21 @@ By default the apps are under `HOST_DOMAIN`, beside the UI. A server whose sandb
 
 ## TLS TCP addresses
 
-A port an inner container publishes on all interfaces (`"5432:5432"`) also gets a TCP address, its HTTP name plus `-tcp`, on port 443, TLS only: `shop-inner-db-port5432-tcp.<domain>:443`. Ports published on `127.0.0.1` stay private: no TCP address and no link.
+A port an inner container publishes on all interfaces (`"5432:5432"`) can also get a TCP address, its HTTP name plus `-tcp`, on port 443, TLS only: `shop-inner-db-port5432-tcp.<domain>:443`. Ports published on `127.0.0.1` stay private: no TCP address and no link.
+
+Raw TCP passes no sign-in: anyone who knows the address reaches the service, and only its own password protects it. So a container gets TCP addresses only when its app is `public` ([App access](https://csakaszamok.github.io/p9m/0.18/app-access/index.md)), or when it asks with the label `p9m.tcp: "true"`: a database, Redis or an SSH server, each with a password of its own. A web app that is `owner` or `domain` (the default) has its protected web address only. (Before 0.18.11 every published port had one, and an `owner` app answered anyone at its TCP address.)
+
+```
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    ports: ["5432:5432"]
+    labels:
+      p9m.subdomain: db
+      p9m.tcp: "true"
+```
 
 - Postgres: `psql "host=shop-inner-db-port5432-tcp.<domain> port=443 sslmode=require …"`
 - Any client that speaks TLS (Redis `--tls`, MQTTS): connect with that name as SNI.
@@ -842,7 +863,7 @@ Behind `domain` and `owner`, every request to the app carries `X-P9m-User: <thei
 
 ## Not covered
 
-- **The TCP addresses** (databases, SSH, Docker) are not HTTP: this does not apply to them. They are protected by their own TLS certificates and passwords, as before; see [Isolation and TCP addresses](https://csakaszamok.github.io/p9m/0.18/networking/index.md).
+- **The TCP addresses** (databases, SSH, Docker) are not HTTP, so no sign-in stands in front of them. That is why an app that is not `public` has no TCP address (since 0.18.11): only a container that asks for one with `p9m.tcp: "true"`, protected by its own password; SSH and Docker by their keys. See [Isolation and TCP addresses](https://csakaszamok.github.io/p9m/0.18/networking/#tls-tcp-addresses).
 - **Other sandboxes do not get a way around it** since 0.12.23: a sandbox is on its own network, so another sandbox reaches its apps only through their addresses, like anyone ([Isolation and TCP addresses](https://csakaszamok.github.io/p9m/0.18/networking/index.md)).
 - **Webhooks and API clients without a browser** cannot make the sign-in hop. Keep an app that receives webhooks, or that a script or a mobile app calls, `public` for now.
 - **A coding agent's own `curl`** to an app that is not public gets the sign-in redirect. The agent checks whether an app answers from inside (`GET /sandboxes/:name` → `apps[].answers`), which is not affected.
@@ -1122,7 +1143,7 @@ Every published TCP port gets an HTTP address. With the sandbox `p9m-shop` on `e
 
 The app is reachable a few seconds after the container starts. `GET /sandboxes/p9m-shop` lists the addresses in `tunnel_urls`.
 
-A database or other TCP service published the same way also gets a TLS address on port 443: see [Isolation and TCP addresses](https://csakaszamok.github.io/p9m/0.18/networking/#tls-tcp-addresses).
+A database or other TCP service published the same way gets a TLS address on port 443 when its container has the label `p9m.tcp: "true"` (raw TCP passes no sign-in: give it a password); an app that is not public has none otherwise. See [Isolation and TCP addresses](https://csakaszamok.github.io/p9m/0.18/networking/#tls-tcp-addresses).
 
 ## 4. Update the app
 

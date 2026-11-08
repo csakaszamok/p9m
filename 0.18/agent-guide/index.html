@@ -2083,7 +2083,7 @@
 <li>without the label: <code>https://shop-&lt;project&gt;-&lt;container&gt;-port&lt;host port&gt;.example.com</code>. The container name is <code>&lt;project&gt;-&lt;service&gt;-1</code> unless <code>container_name</code> is set.</li>
 </ul>
 <p>The app is reachable a few seconds after the container starts. <code>GET /sandboxes/p9m-shop</code> lists the addresses in <code>tunnel_urls</code>.</p>
-<p>A database or other TCP service published the same way also gets a TLS address on port 443: see <a href="../networking/#tls-tcp-addresses">Isolation and TCP addresses</a>.</p>
+<p>A database or other TCP service published the same way gets a TLS address on port 443 when its container has the label <code>p9m.tcp: "true"</code> (raw TCP passes no sign-in: give it a password); an app that is not public has none otherwise. See <a href="../networking/#tls-tcp-addresses">Isolation and TCP addresses</a>.</p>
 <h2 id="4-update-the-app">4. Update the app<a class="headerlink" href="#4-update-the-app" title="Permanent link">&para;</a></h2>
 <p>Change the code or the image tag and run the same <code>docker --context p9m-shop compose -p shop up -d --build</code> again: compose recreates the changed containers and keeps the volumes. Use a fixed tag for every release (<code>:1.4.2</code>, <code>:1.4.3</code>, …) so you can roll back by deploying the previous one.</p>
 <h3 id="push-to-the-registry">Push to the registry<a class="headerlink" href="#push-to-the-registry" title="Permanent link">&para;</a></h3>

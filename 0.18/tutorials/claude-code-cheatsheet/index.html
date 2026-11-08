@@ -1797,8 +1797,11 @@ Code</a>.</p>
 <div class="highlight"><pre><span></span><code>claude plugin marketplace add p9m-team/p9m
 claude plugin install p9m@p9m
 </code></pre></div>
+<p>Then <strong>start Claude Code again</strong>: one that was already running does not see the plugin.</p>
 <p><code>p9m-team/p9m</code> is the official marketplace (it points at Purgatorium's own repository). The sign-in page of your
 Purgatorium shows these lines too, under <strong>Using Claude Code?</strong></p>
+<p>Check (also good to do before a workshop): <code>claude plugin list</code> shows <code>p9m@p9m</code> with <code>Scope: user</code> and
+<code>Status: ✔ enabled</code>.</p>
 <h2 id="each-project-once-per-folder">Each project (once per folder)<a class="headerlink" href="#each-project-once-per-folder" title="Permanent link">&para;</a></h2>
 <p>Start <code>claude</code> in your project's folder, then:</p>
 <div class="highlight"><pre><span></span><code>/p9m:init https://p9m.example.com
@@ -1821,6 +1824,10 @@ The folder now has its own sandbox. Running <code>/p9m:init</code> there again o
 <tr>
 <td><em>Update it.</em></td>
 <td>after a change: deploys again, same address</td>
+</tr>
+<tr>
+<td><em>Give it the address runner.</em></td>
+<td>a short address: <code>https://&lt;sandbox&gt;-runner.&lt;domain&gt;</code> instead of the long one</td>
 </tr>
 <tr>
 <td><em>Why does my app not answer?</em></td>
@@ -1848,6 +1855,13 @@ to Purgatorium if it asks). The first time it asks you to sign in to Claude once
 <ul>
 <li><strong><code>claude: command not found</code>:</strong> Claude Code is not installed for the terminal (step 1). An <em>unknown option</em>:
   <code>claude update</code>.</li>
+<li><strong><code>Unknown command: /p9m:init</code>:</strong> start Claude Code again after installing. Still unknown: <code>claude plugin list</code>.
+  <code>p9m@p9m</code> missing, <code>Scope: local</code> (an old install for another folder) or <code>disabled</code>: run
+  <code>claude plugin install p9m@p9m --scope user</code> (<code>claude plugin enable p9m@p9m --scope user</code> if it stays disabled), and
+  start Claude Code again. Not listed even then, and Claude Code says your organization manages its settings: ask your
+  administrator to allow the <code>p9m-team/p9m</code> marketplace.</li>
+<li><strong><code>marketplace update p9m-team/p9m</code> says <em>not found</em>:</strong> updating takes the marketplace's name: <code>claude plugin
+  marketplace update p9m</code>, then <code>claude plugin update p9m@p9m</code>.</li>
 <li><strong>The desktop app over SSH has no <code>/plugin</code>:</strong> run the two <code>claude plugin …</code> lines in a terminal on that machine.</li>
 <li><strong>Windows, <code>CRYPT_E_REVOCATION_OFFLINE</code>:</strong> Claude Code adds <code>--ssl-no-revoke</code> to its <code>curl</code> and goes on.</li>
 <li><strong>The code ran out</strong> (10 minutes, once): run the same <code>/p9m:init</code> line again.</li>

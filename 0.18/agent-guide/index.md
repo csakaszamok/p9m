@@ -105,7 +105,7 @@ Every published TCP port gets an HTTP address. With the sandbox `p9m-shop` on `e
 
 The app is reachable a few seconds after the container starts. `GET /sandboxes/p9m-shop` lists the addresses in `tunnel_urls`.
 
-A database or other TCP service published the same way also gets a TLS address on port 443: see [Isolation and TCP addresses](https://csakaszamok.github.io/p9m/0.18/networking/#tls-tcp-addresses).
+A database or other TCP service published the same way gets a TLS address on port 443 when its container has the label `p9m.tcp: "true"` (raw TCP passes no sign-in: give it a password); an app that is not public has none otherwise. See [Isolation and TCP addresses](https://csakaszamok.github.io/p9m/0.18/networking/#tls-tcp-addresses).
 
 ## 4. Update the app
 
