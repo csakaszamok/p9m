@@ -4,6 +4,7 @@ import { innerDocker } from './innerDocker'
 import { sandboxParent } from './sandboxPaths'
 import { rememberLastSeen, lastSeen } from './lastSeen'
 import { subdomainOf } from './subdomain'
+import { accessOfLabel } from './appAccess/level'
 
 export interface InnerContainer {
   Names: string[]
@@ -27,15 +28,25 @@ export function frpcName(instance: string, labels: Record<string, string>, conta
 
 export const ALL_INTERFACES = new Set(['', '0.0.0.0', '::'])
 
+/** A raw TCP address passes nobody's sign-in: only a public app has one, or a container that asks for it with
+ * `p9m.tcp: "true"` (a database or an SSH server with its own password). An `owner` or `domain` app's port opened
+ * at its -tcp address answered anyone, past app access. */
+export function tcpAllowed(labels: Record<string, string>, env: NodeJS.ProcessEnv = process.env): boolean {
+  if ((labels['p9m.tcp'] ?? '').trim().toLowerCase() === 'true') return true
+  return accessOfLabel(labels['p9m.access'], env).access === 'public'
+}
+
 /**
- * The -tcp names of the TCP ports published on all interfaces (127.0.0.1-published ports stay private).
+ * The -tcp names of the TCP ports published on all interfaces (127.0.0.1-published ports stay private), of the
+ * containers that may have them (tcpAllowed).
  * A p9m.subdomain container has one HTTP name for all its ports; when it publishes several, each
  * gets `-port<N>` too, so a name never lands on another port than the one it says.
  */
-export function tcpPortsOf(instance: string, containers: InnerContainer[], domain: string): TcpPort[] {
+export function tcpPortsOf(instance: string, containers: InnerContainer[], domain: string, env: NodeJS.ProcessEnv = process.env): TcpPort[] {
   const out: TcpPort[] = []
   const seen = new Set<string>()
   for (const ct of containers) {
+    if (!tcpAllowed(ct.Labels ?? {}, env)) continue
     const published = ct.Ports.filter(p => p.Type === 'tcp' && p.PublicPort && ALL_INTERFACES.has(p.IP ?? ''))
     const ports = [...new Set(published.map(p => p.PublicPort!))].sort((a, b) => a - b)
     const user = ct.Labels['p9m.connect.user']

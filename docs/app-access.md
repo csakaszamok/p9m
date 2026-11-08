@@ -34,7 +34,7 @@ Behind `domain` and `owner`, every request to the app carries `X-P9m-User: <thei
 
 ## Not covered
 
-- **The TCP addresses** (databases, SSH, Docker) are not HTTP: this does not apply to them. They are protected by their own TLS certificates and passwords, as before; see [Isolation and TCP addresses](networking.md).
+- **The TCP addresses** (databases, SSH, Docker) are not HTTP, so no sign-in stands in front of them. That is why an app that is not `public` has no TCP address (since 0.18.11): only a container that asks for one with `p9m.tcp: "true"`, protected by its own password; SSH and Docker by their keys. See [Isolation and TCP addresses](networking.md#tls-tcp-addresses).
 - **Other sandboxes do not get a way around it** since 0.12.23: a sandbox is on its own network, so another sandbox reaches its apps only through their addresses, like anyone ([Isolation and TCP addresses](networking.md)).
 - **Webhooks and API clients without a browser** cannot make the sign-in hop. Keep an app that receives webhooks, or that a script or a mobile app calls, `public` for now.
 - **A coding agent's own `curl`** to an app that is not public gets the sign-in redirect. The agent checks whether an app answers from inside (`GET /sandboxes/:name` → `apps[].answers`), which is not affected.
