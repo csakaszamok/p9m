@@ -4,6 +4,10 @@ All notable changes are listed here. Versions follow [semantic versioning](https
 
 ## [Unreleased]
 
+## [0.18.11] - 2026-11-08
+
+Upgrading from 0.18.10: `docker compose pull && docker compose up -d`; `claude plugin marketplace update p9m` and `claude plugin update p9m@p9m` get the deploy skill's changes (then restart Claude Code). **An app that is not `public` loses its TCP address:** a database, Redis or SSH server that must keep one needs the label `p9m.tcp: "true"`.
+
 ### Security
 
 - **An app's TCP address no longer opens it past app access.** Every port published on all interfaces had a `…-tcp.<domain>:443` address too, raw TCP that passes no sign-in, so an `owner` or `domain` app answered anyone there. Now only a `public` app has TCP addresses, or a container that asks for them with the label `p9m.tcp: "true"` (a database, Redis or an SSH server with its own password). The `tcp-demo` template's Postgres, Redis and SSH have the label. In running sandboxes the addresses of non-public apps stop at once; a service you reach over TCP and that is not public needs the label (then `compose up -d` again).
@@ -1029,7 +1033,8 @@ The first release.
 
 - The project used to be called Leander. Existing `leander-` sandboxes and `ldr_` tokens keep working; see "Upgrading from Leander" in the README.
 
-[Unreleased]: https://github.com/csakaszamok/p9m/compare/v0.18.10...HEAD
+[Unreleased]: https://github.com/csakaszamok/p9m/compare/v0.18.11...HEAD
+[0.18.11]: https://github.com/csakaszamok/p9m/releases/tag/v0.18.11
 [0.18.10]: https://github.com/csakaszamok/p9m/releases/tag/v0.18.10
 [0.18.9]: https://github.com/csakaszamok/p9m/releases/tag/v0.18.9
 [0.18.8]: https://github.com/csakaszamok/p9m/releases/tag/v0.18.8
