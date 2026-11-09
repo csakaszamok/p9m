@@ -6,6 +6,7 @@ All notable changes are listed here. Versions follow [semantic versioning](https
 
 ### Added
 
+- **An app can be exported to run without Purgatorium**, on a plain Docker, with `scripts/export-app.mjs` ([docs](https://csakaszamok.github.io/p9m/latest/export-app/)): a compose file made from what its containers run, its settings, images and data, and a `restore.sh`. It needs the same permission from the owner as a copy.
 - **A sandbox can be copied**, to a new sandbox on the same server or on another one, with `scripts/clone-sandbox.mjs` ([docs](https://csakaszamok.github.io/p9m/latest/copy-sandbox/)). The copy gets its own name, addresses and keys, and is left stopped so its apps' settings can be checked first. A user's sandbox needs its owner's permission, given once on a page of its own; every copy is recorded.
 
 ### Changed

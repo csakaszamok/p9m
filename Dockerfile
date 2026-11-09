@@ -21,6 +21,7 @@ COPY traefik ./assets/traefik
 COPY scripts/install-assets.sh ./assets/install-assets.sh
 # Run on the server: docker compose exec p9m node /app/scripts/clone-sandbox.mjs
 COPY scripts/clone-sandbox.mjs ./scripts/clone-sandbox.mjs
+COPY scripts/export-app.mjs scripts/export-compose.mjs scripts/export-restore.sh ./scripts/
 COPY ui ./ui
 # Purgatorium's own package.json (its version for the topbar); /app/package.json is the base image's
 COPY package.json ./p9m/package.json

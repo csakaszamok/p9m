@@ -25,10 +25,10 @@ export function copyConsentPage(name: string, note = ''): Response {
   const button = (decision: string, label: string) => `<form method="post"><button name="decision" value="${decision}">${label}</button></form>`
   const decision = consent
     ? `<p>You have allowed one copy, until ${escapeHtml(consent.expires)}.</p>${button('withdraw', 'Withdraw permission')}`
-    : `<p>The administrator wants to copy <code>${short}</code> to another sandbox, on this server or another one.</p>
+    : `<p>The administrator wants to copy <code>${short}</code>, or one of its apps: to another sandbox, or to run on a Docker outside Purgatorium.</p>
   <p class="muted">A copy holds everything in the sandbox: its apps, their data and settings (passwords in them too), and its files. The sandbox stops for the time of the copy, then starts again. Allowing it holds for one copy, for ${CONSENT_HOURS} hours.</p>
   ${button('allow', 'Allow one copy')}`
-  const history = last ? `<p class="muted">Last copied ${escapeHtml(last.at)} by ${escapeHtml(last.by)}${last.reason ? `: ${escapeHtml(last.reason)}` : ''}.</p>` : ''
+  const history = last ? `<p class="muted">Last ${escapeHtml(last.what ?? 'copy')}: ${escapeHtml(last.at)}, by ${escapeHtml(last.by)}${last.reason ? `: ${escapeHtml(last.reason)}` : ''}.</p>` : ''
   return activatePage(`${note ? `<p>${escapeHtml(note)}</p>` : ''}${decision}${history}`, 200, HEADING)
 }
 

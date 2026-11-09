@@ -80,6 +80,7 @@ nav:
       - Deep sleep: deep-sleep.md
       - Delete = archive: archive.md
       - Copy a sandbox: copy-sandbox.md
+      - Export an app: export-app.md
       - Isolation and TCP addresses: networking.md
       - SSH, terminal and logs: shell-and-logs.md
       - Files: files.md
