@@ -47,3 +47,5 @@ docker compose exec p9m node /app/scripts/clone-sandbox.mjs pack p9m-shop --no-c
 - An address written into an app's own settings, and a template's generated passwords in the panel (Portainer, say): the panel shows the new sandbox's, the data has the source's.
 
 During the copy, opening the sandbox's address wakes it. The copy notices that and is thrown away: run it again.
+
+To move one app to a machine without Purgatorium instead, see [Export an app](export-app.md).

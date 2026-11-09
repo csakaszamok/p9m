@@ -25,16 +25,17 @@ export default async (req: Request): Promise<Response> => {
   const name = new URL(req.url).pathname.split('/')[2]
   let sandbox
   try { sandbox = await getOwnedSandbox(p, name) } catch { return Response.json({ error: `Sandbox not found: ${name}` }, { status: 404 }) }
-  const body = await req.json().catch(() => ({})) as { no_consent?: unknown; reason?: unknown }
+  const body = await req.json().catch(() => ({})) as { no_consent?: unknown; reason?: unknown; what?: unknown }
+  const what = typeof body.what === 'string' && body.what.trim() ? { what: body.what.trim().slice(0, 100) } : {}
   const reason = typeof body.reason === 'string' ? body.reason.trim() : ''
   let record: CopyRecord
   if (body.no_consent === true) {
     if (!reason) return Response.json({ error: 'no_consent needs a reason' }, { status: 400 })
-    record = { at: new Date().toISOString(), by: p.sub, via: 'no_consent', reason }
+    record = { at: new Date().toISOString(), by: p.sub, via: 'no_consent', reason, ...what }
   } else if (isAdminOwner(sandbox.owner)) {
-    record = { at: new Date().toISOString(), by: p.sub, via: 'own' }
+    record = { at: new Date().toISOString(), by: p.sub, via: 'own', ...what }
   } else if (takeCopyConsent(name)) {
-    record = { at: new Date().toISOString(), by: p.sub, via: 'consent' }
+    record = { at: new Date().toISOString(), by: p.sub, via: 'consent', ...what }
   } else {
     return Response.json({ error: 'consent_required', url: `${userUrl()}/sandboxes/${encodeURIComponent(name)}/copy-consent` }, { status: 403 })
   }

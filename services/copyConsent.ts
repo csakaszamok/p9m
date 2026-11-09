@@ -12,7 +12,7 @@ const CONSENT = 'copy-consent.json', LOG = 'copy-log.jsonl'
 export const CONSENT_HOURS = 24
 
 export interface CopyConsent { by: string; at: string; expires: string }
-export interface CopyRecord { at: string; by: string; via: 'consent' | 'own' | 'no_consent'; reason?: string }
+export interface CopyRecord { at: string; by: string; via: 'consent' | 'own' | 'no_consent'; reason?: string; what?: string }
 
 function dirOf(name: string): string {
   const dir = sandboxDir(name)
@@ -52,7 +52,7 @@ export function recordCopy(name: string, record: CopyRecord): void {
   const dir = dirOf(name)
   const before = readSandboxFileIfAny(dir, LOG, 1024 * 1024) ?? ''
   writeSandboxFile(dir, LOG, `${before}${JSON.stringify(record)}\n`, 0o600)
-  console.log(`[copy] ${name}: copied by ${record.by} (${record.via}${record.reason ? `: ${record.reason}` : ''})`)
+  console.log(`[copy] ${name}: ${record.what ?? 'copied'} by ${record.by} (${record.via}${record.reason ? `: ${record.reason}` : ''})`)
 }
 
 /** The copies made, the newest first. */
