@@ -325,3 +325,22 @@ describe('POST /sandboxes', () => {
   })
 })
 
+describe('POST /sandboxes with an owner', () => {
+  const req = (body: unknown, auth: string) => new Request('http://localhost/sandboxes', { method: 'POST', headers: { authorization: auth, 'content-type': 'application/json' }, body: JSON.stringify(body) })
+  const ownerOfLastCreate = () => vi.mocked(sandboxService.createSandbox).mock.lastCall?.[4]
+
+  it('the admin can make a sandbox for someone who can sign in', async () => {
+    vi.stubEnv('OIDC_ALLOWED_EMAILS', 'alice@example.com')
+    expect((await handler(req({ name: 'copy1', owner: 'alice@example.com' }, 'Bearer admin-secret'))).status).toBe(201)
+    expect(ownerOfLastCreate()).toBe('alice@example.com')
+    vi.unstubAllEnvs(); vi.stubEnv('ADMIN_TOKEN', 'admin-secret'); vi.stubEnv('ALLOWED_RUNTIMES', 'all')
+  })
+  it('but not for someone who cannot', async () => {
+    vi.stubEnv('OIDC_ALLOWED_EMAILS', 'alice@example.com')
+    expect((await handler(req({ name: 'copy2', owner: 'mallory@example.com' }, 'Bearer admin-secret'))).status).toBe(400)
+    vi.unstubAllEnvs(); vi.stubEnv('ADMIN_TOKEN', 'admin-secret'); vi.stubEnv('ALLOWED_RUNTIMES', 'all')
+  })
+  it('a user cannot name another owner', async () => {
+    expect((await handler(req({ name: 'copy3', owner: 'alice@example.com' }, 'Bearer p9m_user'))).status).toBe(403)
+  })
+})

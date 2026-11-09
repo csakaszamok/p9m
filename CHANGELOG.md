@@ -4,6 +4,10 @@ All notable changes are listed here. Versions follow [semantic versioning](https
 
 ## [Unreleased]
 
+### Added
+
+- **A sandbox can be copied**, to a new sandbox on the same server or on another one, with `scripts/clone-sandbox.mjs` ([docs](https://csakaszamok.github.io/p9m/latest/copy-sandbox/)). The copy gets its own name, addresses and keys, and is left stopped so its apps' settings can be checked first. A user's sandbox needs its owner's permission, given once on a page of its own; every copy is recorded.
+
 ### Changed
 
 - **The waiting page counts the seconds** it has waited for a sandbox to wake, and shows how long it took once the address opens.
