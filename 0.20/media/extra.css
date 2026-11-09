@@ -1,0 +1,8 @@
+/* Purgatorium's orange (the UI's primary button) for links and accents */
+:root, [data-md-color-scheme="slate"] {
+  --md-accent-fg-color: #ea580c;
+  --md-typeset-a-color: #f97316;
+}
+[data-md-color-scheme="slate"] {
+  --md-default-bg-color: #0f0f0f;
+}

@@ -1,0 +1,49 @@
+# Purgatorium (p9m)
+
+> Self-hosted sandboxes for your team and their AI agents
+
+Purgatorium (p9m) gives each user of a team their own Docker daemon on demand: a sandbox with Portainer, a public URL for every app, sleep when idle and wake on the next request, archive on delete. A REST API and an MCP server (at /mcp) let coding agents create, wake and deploy to sandboxes.
+
+## Getting started
+
+- [Install](https://csakaszamok.github.io/p9m/0.20/install/index.md)
+- [First sandbox](https://csakaszamok.github.io/p9m/0.20/first-sandbox/index.md)
+- [Configuration](https://csakaszamok.github.io/p9m/0.20/configuration/index.md)
+- [HTTPS](https://csakaszamok.github.io/p9m/0.20/https/index.md)
+
+## Tutorials
+
+- [Tutorials](https://csakaszamok.github.io/p9m/0.20/tutorials/index.md)
+- [With Claude Code](https://csakaszamok.github.io/p9m/0.20/tutorials/claude-code/index.md)
+- [Claude Code on one page](https://csakaszamok.github.io/p9m/0.20/tutorials/claude-code-cheatsheet/index.md)
+- [With any agent](https://csakaszamok.github.io/p9m/0.20/tutorials/other-agents/index.md)
+- [Share on the Hub](https://csakaszamok.github.io/p9m/0.20/tutorials/hub/index.md)
+
+## Using Purgatorium
+
+- [Web UI and sign-in](https://csakaszamok.github.io/p9m/0.20/web-ui/index.md)
+- [Runtimes and templates](https://csakaszamok.github.io/p9m/0.20/runtimes-templates/index.md)
+- [Sleep and wake](https://csakaszamok.github.io/p9m/0.20/sleep-wake/index.md)
+- [CPU, memory and disk](https://csakaszamok.github.io/p9m/0.20/resources/index.md)
+- [Deep sleep](https://csakaszamok.github.io/p9m/0.20/deep-sleep/index.md)
+- [Delete = archive](https://csakaszamok.github.io/p9m/0.20/archive/index.md)
+- [Isolation and TCP addresses](https://csakaszamok.github.io/p9m/0.20/networking/index.md)
+- [SSH, terminal and logs](https://csakaszamok.github.io/p9m/0.20/shell-and-logs/index.md)
+- [Files](https://csakaszamok.github.io/p9m/0.20/files/index.md)
+- [Hub](https://csakaszamok.github.io/p9m/0.20/hub/index.md)
+- [App access](https://csakaszamok.github.io/p9m/0.20/app-access/index.md)
+
+## Agents
+
+- [Let your agent deploy](https://csakaszamok.github.io/p9m/0.20/agents/index.md)
+- [MCP](https://csakaszamok.github.io/p9m/0.20/mcp/index.md)
+- [Claude Code plugin](https://csakaszamok.github.io/p9m/0.20/claude-plugin/index.md)
+- [Agent guide](https://csakaszamok.github.io/p9m/0.20/agent-guide/index.md)
+
+## Reference
+
+- [API](https://csakaszamok.github.io/p9m/0.20/api/index.md)
+- [Security](https://csakaszamok.github.io/p9m/0.20/security/index.md)
+- [Upgrading](https://csakaszamok.github.io/p9m/0.20/upgrading/index.md)
+- [Comparison](https://csakaszamok.github.io/p9m/0.20/comparison/index.md)
+

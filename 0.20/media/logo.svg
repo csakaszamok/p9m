@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Purgatorium">
+  <defs>
+    <linearGradient id="p9m-flame" x1="0" y1="1" x2="0" y2="0">
+      <stop offset="0" stop-color="#ff5a00"/><stop offset=".6" stop-color="#ff9a2e"/><stop offset="1" stop-color="#ffe0a0"/>
+    </linearGradient>
+    <radialGradient id="p9m-coal" cx="50%" cy="60%" r="60%">
+      <stop offset="0" stop-color="#ffe3a8"/><stop offset=".3" stop-color="#ff9a3c"/><stop offset=".75" stop-color="#c2410c"/><stop offset="1" stop-color="#5a1604"/>
+    </radialGradient>
+  </defs>
+  <path fill="url(#p9m-flame)" d="M32 4c5 13 18 19 18 36a18 18 0 0 1-36 0c0-11 7-15 9-24 4 5 6 10 5 16 6-7 8-15 4-28Z"/>
+  <circle cx="32" cy="44" r="8" fill="url(#p9m-coal)"/>
+</svg>
