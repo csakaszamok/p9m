@@ -11,7 +11,17 @@
   // Purgatorium's /wake/ready: the sandbox's router comes up with its first tunnel, but the app asked for may not
   // answer yet (frps shows 404 meanwhile), so this is asked before opening it; for at most 5 minutes
   const readyUrl = root.getAttribute('data-ready')
-  const until = Date.now() + 5 * 60 * 1000
+  const started = Date.now()
+  const until = started + 5 * 60 * 1000
+
+  // How long this page has waited (nobody can say how long a wake will take): it shows the page is alive.
+  // The poller replaces only the container list and the status, so it keeps counting
+  const seconds = () => Math.floor((Date.now() - started) / 1000)
+  const elapsed = document.createElement('div')
+  elapsed.className = 'elapsed'
+  elapsed.textContent = 'Waiting: 0 s'
+  root.insertBefore(elapsed, root.querySelector('.hint'))
+  const ticker = setInterval(() => { elapsed.textContent = `Waiting: ${seconds()} s` }, 1000)
 
   async function appStarting() {
     if (!readyUrl || Date.now() > until) return false
@@ -40,6 +50,8 @@
       // The app answers: everything is ready. Let the ember become a flame for a moment, then open it
       if (!next) {
         if (await appStarting()) return void setTimeout(poll, every)
+        clearInterval(ticker)
+        elapsed.textContent = `Ready in ${seconds()} s`
         for (const el of document.querySelectorAll('[data-state]')) {
           el.setAttribute('data-state', 'ready'); el.className = ''; el.innerHTML = '<span class="dot ready"></span>ready'
         }

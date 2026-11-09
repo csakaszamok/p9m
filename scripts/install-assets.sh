@@ -1,11 +1,11 @@
 #!/bin/sh
-# p9m-init: puts this release's files where the other services read them (Sablier themes, registry config,
+# p9m-init: puts this release's files where the other services read them (Sablier themes, Traefik's Sablier plugin, registry config,
 # Traefik's error-page middleware). Runs on every `docker compose up`, so they always
 # match the image; a file dropped from a release is removed.
 set -eu
 SRC=${ASSETS_SRC:-/app/assets}
 OUT=${ASSETS_OUT:-/out}
-DIRS="sablier-themes registry"
+DIRS="sablier-themes sablier-plugin registry"
 
 # Everything there first: a failing run must leave what the services read as it is
 for d in $DIRS; do
@@ -19,7 +19,8 @@ done
 # missing or half written. Then whatever this release no longer has goes.
 for d in $DIRS; do
   mkdir -p "$OUT/$d"
-  for f in "$SRC/$d"/*; do
+  # Dot files too: Traefik needs the plugin's .traefik.yml
+  for f in "$SRC/$d"/* "$SRC/$d"/.[!.]*; do
     [ -f "$f" ] || continue
     name=${f##*/}
     cp "$f" "$OUT/$d/.$name.tmp"
