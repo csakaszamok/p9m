@@ -15,6 +15,7 @@ COPY runtimes ./runtimes
 COPY error-pages ./error-pages
 # Files other services read: p9m-init (assets/install-assets.sh) copies them into their volumes on every up
 COPY sablier-themes ./assets/sablier-themes
+COPY sablier-plugin ./assets/sablier-plugin
 COPY registry ./assets/registry
 COPY traefik ./assets/traefik
 COPY scripts/install-assets.sh ./assets/install-assets.sh
