@@ -9,10 +9,20 @@ import { parsePublicKey } from './sshKeys'
 import { checkLimits, resourceDefaults, clampToHost } from './resources'
 import { hostResources } from './docker'
 import { recordSandboxCreated } from './userStats'
+import { isAdminOwner, signInAllowed } from './allowlist'
 
 /** POST /sandboxes for this principal and body; /activate creates a new sandbox for Claude Code through it too */
 export async function createSandboxRequest(p: Principal, body: Record<string, unknown>): Promise<Response> {
   const { name, runtime, template, ssh_keys, cpus, memory, create_inner_stack, idle_timeout, deep_sleep_after } = body as { name?: string; runtime?: unknown; template?: unknown; ssh_keys?: unknown; cpus?: unknown; memory?: unknown; create_inner_stack?: boolean; idle_timeout?: unknown; deep_sleep_after?: unknown }
+
+  // The admin can make one for someone else (a copy of their sandbox, scripts/clone-sandbox.mjs); it counts as the admin's create
+  const requestedOwner = body.owner
+  if (requestedOwner !== undefined) {
+    if (p.role !== 'admin' || p.sandbox !== undefined) return Response.json({ error: 'Only the admin can name an owner' }, { status: 403 })
+    if (typeof requestedOwner !== 'string' || !requestedOwner.trim()) return Response.json({ error: 'owner must be a non-empty string' }, { status: 400 })
+    if (!isAdminOwner(requestedOwner) && !signInAllowed(requestedOwner)) return Response.json({ error: `${requestedOwner} cannot sign in to this server` }, { status: 400 })
+  }
+  const owner = typeof requestedOwner === 'string' ? requestedOwner.trim() : p.sub
 
   // No name (omitted or null): one is generated right before the create
   const given = name === undefined || name === null ? undefined : name
@@ -107,8 +117,8 @@ export async function createSandboxRequest(p: Principal, body: Record<string, un
       const chosen = trimmed ?? await sandboxService.suggestName()
       if (!chosen) return Response.json({ error: 'No free sandbox name was found: give one' }, { status: 503 })
       try {
-        const result = await sandboxService.createSandbox(chosen, innerStack, idle, deep, p.sub, templateName, runtimeName, sshKeys, limits)
-        recordSandboxCreated(p.sub)
+        const result = await sandboxService.createSandbox(chosen, innerStack, idle, deep, owner, templateName, runtimeName, sshKeys, limits)
+        recordSandboxCreated(owner)
         return Response.json(result, { status: 201 })
       } catch (err) {
         const msg = err instanceof Error ? err.message : ''

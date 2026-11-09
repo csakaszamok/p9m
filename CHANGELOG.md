@@ -4,6 +4,10 @@ All notable changes are listed here. Versions follow [semantic versioning](https
 
 ## [Unreleased]
 
+### Added
+
+- **A sandbox can be copied**, to a new sandbox on the same server or on another one, with `scripts/clone-sandbox.mjs` ([docs](https://csakaszamok.github.io/p9m/latest/copy-sandbox/)). The copy gets its own name, addresses and keys, and is left stopped so its apps' settings can be checked first. A user's sandbox needs its owner's permission, given once on a page of its own; every copy is recorded.
+
 ## [0.19.0] - 2026-11-08
 
 Upgrading from 0.18.x: **first upgrade sysbox on the host to 0.7.0 or newer** (`sysbox-runc --version`; `bash check-host.sh` says so too): this release's sandbox image starts no container inside a sandbox on an older one. Then download the new `docker-compose.yml` from `https://github.com/csakaszamok/p9m/releases/latest/download/docker-compose.yml` (a `P9M_VERSION` in `.env` must say `0.19`) and `docker compose pull && docker compose up -d`. The sandboxes move to the new image at that start; running ones restart.
