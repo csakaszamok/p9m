@@ -1,7 +1,7 @@
 name: Sysbox
 
 # The sysbox runtime end to end on a Linux host: installs sysbox on the runner, starts the stack with
-# DEFAULT_RUNTIME=sysbox and runs a new sandbox, the sleep/wake and the archive scripts against it. A few minutes, but
+# DEFAULT_RUNTIME=sysbox and runs a new sandbox, the sleep/wake, archive, streaming, copy and export scripts against it. A few minutes, but
 # on every pull request: a new sandbox that never started (0.16-0.18) passed every unit test.
 on:
   workflow_dispatch:
@@ -17,7 +17,7 @@ env:
 jobs:
   e2e:
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       # Docker Hub's pull limit for anonymous pulls is shared by GitHub's runners (429 on the base image);
@@ -92,6 +92,15 @@ jobs:
 
       - name: tests/image-migration.sh (a running sandbox moves to the runtime's image)
         run: bash tests/image-migration.sh
+
+      - name: tests/app-streaming.sh (Server-Sent Events and chunked streams reach the client as they are written)
+        run: bash tests/app-streaming.sh
+
+      - name: tests/clone-sandbox.sh (a sandbox copied to a new one, its inner Docker's data included)
+        run: bash tests/clone-sandbox.sh
+
+      - name: tests/export-app.sh (a sandbox's app restored on a plain Docker)
+        run: bash tests/export-app.sh
 
       - name: Logs
         if: failure()
