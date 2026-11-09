@@ -4,6 +4,10 @@ All notable changes are listed here. Versions follow [semantic versioning](https
 
 ## [Unreleased]
 
+### Changed
+
+- **The waiting page counts the seconds** it has waited for a sandbox to wake, and shows how long it took once the address opens.
+
 Upgrading: download the new `docker-compose.yml` (Traefik loads the Sablier plugin from a new volume); the sandboxes need no change.
 
 ### Fixed
