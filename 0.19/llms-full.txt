@@ -656,6 +656,10 @@ A port an inner container publishes on all interfaces (`"5432:5432"`) can also g
 
 Raw TCP passes no sign-in: anyone who knows the address reaches the service, and only its own password protects it. So a container gets TCP addresses only when its app is `public` ([App access](https://csakaszamok.github.io/p9m/0.19/app-access/index.md)), or when it asks with the label `p9m.tcp: "true"`: a database, Redis or an SSH server, each with a password of its own. A web app that is `owner` or `domain` (the default) has its protected web address only. (Before 0.18.11 every published port had one, and an `owner` app answered anyone at its TCP address.)
 
+`p9m.tcp` opens the container to anyone who can reach the address
+
+A TCP address passes no sign-in, and the label overrides `p9m.access`: an `owner` container with `p9m.tcp: "true"` answers anyone at its TCP address. Only its own password protects it. Use the label only for a service with a login of its own (a database, Redis, an SSH server), with a strong password. Never put it on a web app: it would bypass the sign-in in front of it.
+
 ```
 services:
   db:
@@ -863,7 +867,7 @@ Behind `domain` and `owner`, every request to the app carries `X-P9m-User: <thei
 
 ## Not covered
 
-- **The TCP addresses** (databases, SSH, Docker) are not HTTP, so no sign-in stands in front of them. That is why an app that is not `public` has no TCP address (since 0.18.11): only a container that asks for one with `p9m.tcp: "true"`, protected by its own password; SSH and Docker by their keys. See [Isolation and TCP addresses](https://csakaszamok.github.io/p9m/0.19/networking/#tls-tcp-addresses).
+- **The TCP addresses** (databases, SSH, Docker) are not HTTP, so no sign-in stands in front of them. That is why an app that is not `public` has no TCP address (since 0.18.11): only a container that asks for one with `p9m.tcp: "true"`, protected by its own password (the label overrides `p9m.access`, so never put it on a web app); SSH and Docker by their keys. See [Isolation and TCP addresses](https://csakaszamok.github.io/p9m/0.19/networking/#tls-tcp-addresses).
 - **Other sandboxes do not get a way around it** since 0.12.23: a sandbox is on its own network, so another sandbox reaches its apps only through their addresses, like anyone ([Isolation and TCP addresses](https://csakaszamok.github.io/p9m/0.19/networking/index.md)).
 - **Webhooks and API clients without a browser** cannot make the sign-in hop. Keep an app that receives webhooks, or that a script or a mobile app calls, `public` for now.
 - **A coding agent's own `curl`** to an app that is not public gets the sign-in redirect. The agent checks whether an app answers from inside (`GET /sandboxes/:name` → `apps[].answers`), which is not affected.

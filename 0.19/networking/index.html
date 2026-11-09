@@ -1793,6 +1793,10 @@
 <h2 id="tls-tcp-addresses">TLS TCP addresses<a class="headerlink" href="#tls-tcp-addresses" title="Permanent link">&para;</a></h2>
 <p>A port an inner container publishes on all interfaces (<code>"5432:5432"</code>) can also get a TCP address, its HTTP name plus <code>-tcp</code>, on port 443, TLS only: <code>shop-inner-db-port5432-tcp.&lt;domain&gt;:443</code>. Ports published on <code>127.0.0.1</code> stay private: no TCP address and no link.</p>
 <p>Raw TCP passes no sign-in: anyone who knows the address reaches the service, and only its own password protects it. So a container gets TCP addresses only when its app is <code>public</code> (<a href="../app-access/">App access</a>), or when it asks with the label <code>p9m.tcp: "true"</code>: a database, Redis or an SSH server, each with a password of its own. A web app that is <code>owner</code> or <code>domain</code> (the default) has its protected web address only. (Before 0.18.11 every published port had one, and an <code>owner</code> app answered anyone at its TCP address.)</p>
+<div class="admonition warning">
+<p class="admonition-title"><code>p9m.tcp</code> opens the container to anyone who can reach the address</p>
+<p>A TCP address passes no sign-in, and the label overrides <code>p9m.access</code>: an <code>owner</code> container with <code>p9m.tcp: "true"</code> answers anyone at its TCP address. Only its own password protects it. Use the label only for a service with a login of its own (a database, Redis, an SSH server), with a strong password. Never put it on a web app: it would bypass the sign-in in front of it.</p>
+</div>
 <div class="highlight"><pre><span></span><code><span class="nt">services</span><span class="p">:</span>
 <span class="w">  </span><span class="nt">db</span><span class="p">:</span>
 <span class="w">    </span><span class="nt">image</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">postgres:16-alpine</span>
