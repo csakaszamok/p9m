@@ -1212,6 +1212,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#streaming" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Streaming
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#not-covered" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1718,6 +1729,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#streaming" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Streaming
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#not-covered" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1817,6 +1839,8 @@
 <p>An asleep app is woken only for someone who may open it: an anonymous visitor of an owner-only app gets the sign-in hop, not a waking sandbox.</p>
 <h2 id="the-app-knows-who-is-viewing">The app knows who is viewing<a class="headerlink" href="#the-app-knows-who-is-viewing" title="Permanent link">&para;</a></h2>
 <p>Behind <code>domain</code> and <code>owner</code>, every request to the app carries <code>X-P9m-User: &lt;their e-mail&gt;</code> (<code>admin</code> for the admin). An app can greet its visitor with it, or use it as its own sign-in. Purgatorium removes an <code>X-P9m-User</code> that a visitor sends themselves, also for public apps, so the header can be trusted, but only behind Purgatorium.</p>
+<h2 id="streaming">Streaming<a class="headerlink" href="#streaming" title="Permanent link">&para;</a></h2>
+<p>An app's web address passes a response on as the app writes it: Server-Sent Events and streamed answers work behind <code>domain</code> and <code>owner</code> as well. A long-open stream or WebSocket does not by itself keep a sandbox awake: without other web requests it sleeps after its idle timeout and the connection drops, so a client should reconnect.</p>
 <h2 id="not-covered">Not covered<a class="headerlink" href="#not-covered" title="Permanent link">&para;</a></h2>
 <ul>
 <li><strong>The TCP addresses</strong> (databases, SSH, Docker) are not HTTP, so no sign-in stands in front of them. That is why an app that is not <code>public</code> has no TCP address (since 0.18.11): only a container that asks for one with <code>p9m.tcp: "true"</code>, protected by its own password (the label overrides <code>p9m.access</code>, so never put it on a web app); SSH and Docker by their keys. See <a href="../networking/#tls-tcp-addresses">Isolation and TCP addresses</a>.</li>
