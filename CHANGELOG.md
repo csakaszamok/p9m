@@ -4,6 +4,10 @@ All notable changes are listed here. Versions follow [semantic versioning](https
 
 ## [Unreleased]
 
+## [0.20.0] - 2026-11-09
+
+Upgrading from 0.19.x: download the new `docker-compose.yml` from `https://github.com/csakaszamok/p9m/releases/latest/download/docker-compose.yml` (Traefik loads the Sablier plugin from a new volume; a `P9M_VERSION` in `.env` must say `0.20`) and `docker compose pull && docker compose up -d`; the sandboxes need no change. `claude plugin marketplace update p9m` and `claude plugin update p9m@p9m` get the deploy skill's change (then restart Claude Code). From 0.18.x: first upgrade sysbox on the host, as under 0.19.0.
+
 ### Added
 
 - **An app can be exported to run without Purgatorium**, on a plain Docker, with `scripts/export-app.mjs` ([docs](https://csakaszamok.github.io/p9m/latest/export-app/)): a compose file made from what its containers run, its settings, images and data, and a `restore.sh`. It needs the same permission from the owner as a copy.
@@ -12,8 +16,6 @@ All notable changes are listed here. Versions follow [semantic versioning](https
 ### Changed
 
 - **The waiting page counts the seconds** it has waited for a sandbox to wake, and shows how long it took once the address opens.
-
-Upgrading: download the new `docker-compose.yml` (Traefik loads the Sablier plugin from a new volume); the sandboxes need no change.
 
 ### Fixed
 
@@ -1066,7 +1068,8 @@ The first release.
 
 - The project used to be called Leander. Existing `leander-` sandboxes and `ldr_` tokens keep working; see "Upgrading from Leander" in the README.
 
-[Unreleased]: https://github.com/csakaszamok/p9m/compare/v0.19.0...HEAD
+[Unreleased]: https://github.com/csakaszamok/p9m/compare/v0.20.0...HEAD
+[0.20.0]: https://github.com/csakaszamok/p9m/releases/tag/v0.20.0
 [0.19.0]: https://github.com/csakaszamok/p9m/releases/tag/v0.19.0
 [0.18.12]: https://github.com/csakaszamok/p9m/releases/tag/v0.18.12
 [0.18.11]: https://github.com/csakaszamok/p9m/releases/tag/v0.18.11
