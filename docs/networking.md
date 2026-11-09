@@ -47,6 +47,9 @@ A port an inner container publishes on all interfaces (`"5432:5432"`) can also g
 
 Raw TCP passes no sign-in: anyone who knows the address reaches the service, and only its own password protects it. So a container gets TCP addresses only when its app is `public` ([App access](app-access.md)), or when it asks with the label `p9m.tcp: "true"`: a database, Redis or an SSH server, each with a password of its own. A web app that is `owner` or `domain` (the default) has its protected web address only. (Before 0.18.11 every published port had one, and an `owner` app answered anyone at its TCP address.)
 
+!!! warning "`p9m.tcp` opens the container to anyone who can reach the address"
+    A TCP address passes no sign-in, and the label overrides `p9m.access`: an `owner` container with `p9m.tcp: "true"` answers anyone at its TCP address. Only its own password protects it. Use the label only for a service with a login of its own (a database, Redis, an SSH server), with a strong password. Never put it on a web app: it would bypass the sign-in in front of it.
+
 ```yaml
 services:
   db:
