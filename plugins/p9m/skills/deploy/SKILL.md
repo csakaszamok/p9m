@@ -149,7 +149,8 @@ services:
   colleagues*: anyone who can sign in to their Purgatorium) or `public` (anyone: a public site, a webhook receiver).
   Without a label only the user opens it: set `public` or `domain` before the first deploy when the user wants that. Your own `curl` to a non-public app gets a sign-in redirect: rely on `answers`.
 - A database or other non-HTTP service the user wants to reach from outside (psql, redis-cli): the label
-  `p9m.tcp: "true"` gives it a TLS address (`tcp_urls`), which passes no sign-in, so it must have a password. Without
+  `p9m.tcp: "true"` gives it a TLS address (`tcp_urls`), which passes no sign-in, so it must have a password. Never
+  put the label on a web app: it overrides `p9m.access`, and the app would answer anyone at that address. Without
   the label only a `public` app has one. A database only the app uses needs neither: leave its port unpublished.
 - Secrets go in `environment:` / `env_file:` at run time, never into the image. Add `.p9m` to a
   `.dockerignore` so the keys never reach a build.
