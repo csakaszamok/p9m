@@ -27,5 +27,6 @@ li span:first-child { font-family: ui-monospace, SFMono-Regular, Consolas, monos
 .dot.error { background: #ef4444 }
 .error { color: #f87171 }
 @keyframes p9m-breathe { 0%,100% { opacity: .45 } 50% { opacity: 1 } }
+.elapsed { margin-top: 14px; font-size: 13px; color: #9a8f88; font-variant-numeric: tabular-nums }
 .hint { margin-top: 22px; font-size: 12px; color: #6f6560 }
 @media (prefers-reduced-motion: reduce) { .coal .core, .dot.starting { animation: none } }

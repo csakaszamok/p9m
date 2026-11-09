@@ -140,13 +140,14 @@ services:
       retries: 30
       start_period: 5s
 
-  # One-shot, on every up: copies this release's Sablier themes, registry config and
+  # One-shot, on every up: copies this release's Sablier themes and Traefik plugin, registry config and
   # dynamic/errors.yml from the image, so they always match it (no files from a checkout).
   p9m-init:
     image: ghcr.io/csakaszamok/p9m:${P9M_VERSION:-0.19.0}
     entrypoint: ["sh", "/app/assets/install-assets.sh"]
     volumes:
       - sablier_themes:/out/sablier-themes
+      - sablier_plugin:/out/sablier-plugin
       - registry_conf:/out/registry
       - ./dynamic:/out/dynamic
     network_mode: none
@@ -187,8 +188,8 @@ services:
   traefik:
     image: traefik:v3.6.25
     command:
-      - --experimental.plugins.sablier.moduleName=github.com/sablierapp/sablier-traefik-plugin
-      - --experimental.plugins.sablier.version=v1.3.0
+      # From this image (sablier-plugin/, via p9m-init): v1.3.0, changed so that streamed responses are not held back
+      - --experimental.localPlugins.sablier.moduleName=github.com/sablierapp/sablier-traefik-plugin
       - --providers.docker=true
       # A new sandbox's router within half a second of its socat turning healthy (the default waits 2 s)
       - --providers.providersThrottleDuration=500ms
@@ -212,6 +213,7 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - ./dynamic:/etc/traefik/dynamic:ro
       - ./certs:/certs:ro
+      - sablier_plugin:/plugins-local/src/github.com/sablierapp/sablier-traefik-plugin:ro
     networks:
       traefik-net:
         aliases:
@@ -286,6 +288,7 @@ volumes:
   registry_cache_data:
   registry_cache_ghcr_data:
   sablier_themes:
+  sablier_plugin:
   registry_conf:
 
 networks:
