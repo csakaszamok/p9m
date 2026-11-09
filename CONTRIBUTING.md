@@ -27,7 +27,7 @@ npm ci
 ## Tests
 
 - **Unit tests:** `npm test` (vitest). **Types:** `npm run typecheck` (tsc, the app code and the tests; tsx runs the code without checking types). Both run in CI on every push and pull request.
-- **End-to-end tests:** the scripts in `tests/*.sh` run against a live stack. Run the ones your change touches: `bash tests/sablier-wake.sh`, `bash tests/archive.sh`, `bash tests/isolation.sh`, `bash tests/deep-sleep.sh` (needs `DEEP_SLEEP_CHECK_INTERVAL=15s`), `bash tests/self-service.sh` (needs the mock OIDC env), `bash tests/https.sh` (self-signed `*.lvh.me`, restores HTTP afterwards), `bash tests/quota.sh` (mock OIDC env + `SANDBOX_QUOTA=1`), `bash tests/sleep-settings.sh`.
+- **End-to-end tests:** the scripts in `tests/*.sh` run against a live stack. Run the ones your change touches: `bash tests/sablier-wake.sh`, `bash tests/app-streaming.sh`, `bash tests/archive.sh`, `bash tests/isolation.sh`, `bash tests/deep-sleep.sh` (needs `DEEP_SLEEP_CHECK_INTERVAL=15s`), `bash tests/self-service.sh` (needs the mock OIDC env), `bash tests/https.sh` (self-signed `*.lvh.me`, restores HTTP afterwards), `bash tests/quota.sh` (mock OIDC env + `SANDBOX_QUOTA=1`), `bash tests/sleep-settings.sh`.
 - **Install scripts:** `bash tests/install-assets.sh` and `bash tests/setup.sh` run anywhere (also in CI). `bash tests/install.sh` installs from the release files; it refuses to run next to a Purgatorium, so on a development machine run it in `docker:dind` (the command is at the top of the file); CI runs it on every push.
 - **Documentation:** the site in `docs/` (MkDocs Material). Preview it with `pip install -r docs/requirements.txt` and `mkdocs serve`; `mkdocs build --strict` must pass.
 
