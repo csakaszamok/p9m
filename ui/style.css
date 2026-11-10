@@ -381,6 +381,7 @@ a.ov-card:hover { border-color: #ea580c; transform: translateY(-1px) }
 .about-foot { position: fixed; bottom: 12px; left: 0; right: 0; text-align: center; margin: 0; font-size: 12px }
 .about-foot a { color: var(--muted); text-decoration: none }
 .about-foot a:hover { color: var(--fg-2) }
+.about-foot span { color: var(--muted) }
 .card.about p { margin: 0 0 12px }
 
 /* Signed out soon for doing nothing (ui/idle.js) */

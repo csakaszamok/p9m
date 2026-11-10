@@ -55,3 +55,4 @@ main { max-width: 900px; margin: 0 auto; padding: 20px 16px 40px }
 .about-foot { text-align: center; margin: 24px 0 12px; font-size: 12px }
 .about-foot a { color: #888; text-decoration: none }
 .about-foot a:hover { color: #ddd }
+.about-foot span { color: #888 }

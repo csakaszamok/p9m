@@ -5,6 +5,7 @@ import { publicUrl } from '../session'
 import { isUserHost, onAdminHost, userUrl } from '../userHost'
 import { escapeHtml, html, pageSession, redirect } from './layout'
 import { brandTitle, faviconTag, logoImg } from './brand'
+import { aboutFoot } from './aboutFoot'
 
 /**
  * The session of a web UI page (the admin's); a user's sign-in gets the page that points to Claude Code. With
@@ -44,7 +45,7 @@ ${faviconTag()}</head>
   </ol>
   <form method="post" action="/logout"><button>Sign out</button></form>
 </div>
-<p class="about-foot"><a href="/about">About · AGPL-3.0</a></p>
+${aboutFoot()}
 <script src="/assets/embers.js" defer></script>
 </body></html>`)
 }

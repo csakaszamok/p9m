@@ -1,4 +1,5 @@
 import { escapeHtml } from '../ui/layout'
+import { aboutFoot } from '../ui/aboutFoot'
 import type { HubSession } from './session'
 import { faviconTag, logoImg } from '../ui/brand'
 
@@ -19,7 +20,7 @@ export function hubPage(opts: { title: string; viewer: HubSession }): string {
 <ul id="apps" class="apps" aria-live="polite"></ul>
 <div id="empty" class="empty" hidden><p>No apps here yet.</p><p>To publish one, add <code>p9m.publish: "true"</code> to its container's labels.
 <a href="https://csakaszamok.github.io/p9m/latest/hub/" target="_blank" rel="noopener">How to publish</a></p></div>
-</main><footer class="about-foot"><a href="/about">About · AGPL-3.0</a></footer><script src="/assets/hub.js"></script></body></html>`
+</main>${aboutFoot('footer')}<script src="/assets/hub.js"></script></body></html>`
 }
 
 export function hubLoginPage(opts: { title: string; error: string | null; sso: string | null; admin?: boolean }): string {
@@ -30,5 +31,5 @@ ${opts.sso ? `<a class="primary wide" href="/auth/oidc">Sign in with ${escapeHtm
 ${opts.admin ? `<details${opts.sso ? '' : ' open'}><summary>Administrator</summary>
 <form method="post" action="/login"><label>User <input name="username" autocomplete="username"></label>
 <label>Password <input name="password" type="password" autocomplete="current-password"></label>
-<button class="primary wide">Sign in</button></form></details>` : ''}</main><footer class="about-foot"><a href="/about">About · AGPL-3.0</a></footer></body></html>`
+<button class="primary wide">Sign in</button></form></details>` : ''}</main>${aboutFoot('footer')}</body></html>`
 }
