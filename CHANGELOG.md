@@ -4,8 +4,13 @@ All notable changes are listed here. Versions follow [semantic versioning](https
 
 ## [Unreleased]
 
+## [0.20.1] - 2026-11-10
+
+Upgrading from 0.20.0: `docker compose pull && docker compose up -d` where `.env` has `P9M_VERSION=0.20`; otherwise first download the new `docker-compose.yml` from `https://github.com/csakaszamok/p9m/releases/latest/download/docker-compose.yml`, which names this version.
+
 ### Changed
 
+- **The sign-in page, the users' page and the Hub show which version runs**, at the bottom, linked to its release notes (only the text with `GITHUB_LINK=off`).
 - **Approving a new sandbox for Claude Code counts the seconds** while it is made (`Creating the sandbox… 12 s`), which can take up to a minute.
 
 ## [0.20.0] - 2026-11-09
@@ -1072,7 +1077,8 @@ The first release.
 
 - The project used to be called Leander. Existing `leander-` sandboxes and `ldr_` tokens keep working; see "Upgrading from Leander" in the README.
 
-[Unreleased]: https://github.com/csakaszamok/p9m/compare/v0.20.0...HEAD
+[Unreleased]: https://github.com/csakaszamok/p9m/compare/v0.20.1...HEAD
+[0.20.1]: https://github.com/csakaszamok/p9m/releases/tag/v0.20.1
 [0.20.0]: https://github.com/csakaszamok/p9m/releases/tag/v0.20.0
 [0.19.0]: https://github.com/csakaszamok/p9m/releases/tag/v0.19.0
 [0.18.12]: https://github.com/csakaszamok/p9m/releases/tag/v0.18.12

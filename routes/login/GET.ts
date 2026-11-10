@@ -1,4 +1,5 @@
 import { escapeHtml, html, pageSession, redirect } from '../../services/ui/layout'
+import { aboutFoot } from '../../services/ui/aboutFoot'
 import { oidcEnabled, providerName } from '../../services/oidc'
 import { capacityHtml, loginCapacity } from '../../services/loginCapacity'
 import { brandTitle, faviconTag, logoImg } from '../../services/ui/brand'
@@ -35,7 +36,7 @@ ${faviconTag()}</head>
   ${oidcEnabled() ? claudeCodeHint() : ''}
   ${!oidcEnabled() && !adminEnabled ? '<p class="error">No sign-in method is on: set up OIDC, or for the admin ADMIN_LOGIN=on.</p>' : ''}
 </div>
-<p class="about-foot"><a href="/about">About · AGPL-3.0</a></p>
+${aboutFoot()}
 <script src="/assets/embers.js" defer></script>
 </body></html>`)
 }
