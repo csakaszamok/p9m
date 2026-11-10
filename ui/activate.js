@@ -1,4 +1,5 @@
-// /activate: a click on Approve or Deny swaps the buttons for a busy one with its data-busy text until the answer comes
+// /activate: a click on Approve or Deny swaps the buttons for a busy one with its data-busy text and the seconds waited
+// until the answer comes
 // (creating a sandbox takes up to a minute); the hidden field sends the choice the gone button would have
 document.querySelectorAll('form[data-activate]').forEach(form => form.addEventListener('submit', e => {
   const b = e.submitter
@@ -14,6 +15,10 @@ document.querySelectorAll('form[data-activate]').forEach(form => form.addEventLi
   busy.disabled = true
   busy.textContent = b.dataset.busy || 'Working…'
   form.querySelector('.actions').replaceChildren(busy)
+  // Creating a sandbox takes up to a minute: the seconds waited show that the page is alive (counting up, as nobody
+  // can say how long it will take); the next page ends it
+  const started = Date.now()
+  setInterval(() => { busy.textContent = `${b.dataset.busy || 'Working…'} ${Math.floor((Date.now() - started) / 1000)} s` }, 1000)
 }))
 
 // The confirmation code, selected (for Ctrl+C, when the clipboard is refused or slow to ask) and onto the clipboard

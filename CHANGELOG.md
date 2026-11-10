@@ -7,6 +7,7 @@ All notable changes are listed here. Versions follow [semantic versioning](https
 ### Changed
 
 - **The sign-in page, the users' page and the Hub show which version runs**, at the bottom, linked to its release notes (only the text with `GITHUB_LINK=off`).
+- **Approving a new sandbox for Claude Code counts the seconds** while it is made (`Creating the sandbox… 12 s`), which can take up to a minute.
 
 ## [0.20.0] - 2026-11-09
 
