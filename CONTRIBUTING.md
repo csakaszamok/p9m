@@ -27,7 +27,7 @@ npm ci
 ## Tests
 
 - **Unit tests:** `npm test` (vitest). **Types:** `npm run typecheck` (tsc, the app code and the tests; tsx runs the code without checking types). Both run in CI on every push and pull request.
-- **End-to-end tests:** the scripts in `tests/*.sh` run against a live stack. Run the ones your change touches: `bash tests/sablier-wake.sh`, `bash tests/archive.sh`, `bash tests/isolation.sh`, `bash tests/deep-sleep.sh` (needs `DEEP_SLEEP_CHECK_INTERVAL=15s`), `bash tests/self-service.sh` (needs the mock OIDC env), `bash tests/https.sh` (self-signed `*.lvh.me`, restores HTTP afterwards), `bash tests/quota.sh` (mock OIDC env + `SANDBOX_QUOTA=1`), `bash tests/sleep-settings.sh`.
+- **End-to-end tests:** the scripts in `tests/*.sh` run against a live stack. Run the ones your change touches: `bash tests/sablier-wake.sh`, `bash tests/app-streaming.sh`, `bash tests/archive.sh`, `bash tests/isolation.sh`, `bash tests/deep-sleep.sh` (needs `DEEP_SLEEP_CHECK_INTERVAL=15s`), `bash tests/self-service.sh` (needs the mock OIDC env), `bash tests/https.sh` (self-signed `*.lvh.me`, restores HTTP afterwards), `bash tests/quota.sh` (mock OIDC env + `SANDBOX_QUOTA=1`), `bash tests/sleep-settings.sh`.
 - **Install scripts:** `bash tests/install-assets.sh` and `bash tests/setup.sh` run anywhere (also in CI). `bash tests/install.sh` installs from the release files; it refuses to run next to a Purgatorium, so on a development machine run it in `docker:dind` (the command is at the top of the file); CI runs it on every push.
 - **Documentation:** the site in `docs/` (MkDocs Material). Preview it with `pip install -r docs/requirements.txt` and `mkdocs serve`; `mkdocs build --strict` must pass.
 
@@ -37,7 +37,7 @@ A pull request should add or update tests for what it changes.
 
 Each release series has its own branch, `release/<major>.<minor>` (`release/0.3`, `release/0.4`, …); there is no separate development branch.
 
-- **New features** go to the newest series' branch, the `release/*` with the highest number (now `release/0.19`), through a pull request from a feature branch. When you open the pull request on GitHub, change its base from `main` to that branch.
+- **New features** go to the newest series' branch, the `release/*` with the highest number (now `release/0.20`), through a pull request from a feature branch. When you open the pull request on GitHub, change its base from `main` to that branch.
 - **Fixes for a released series** go to its branch (e.g. `release/0.3`), and that branch is then merged into each newer one, so no fix is lost going forward.
 - **A release** is a version bump (`package.json`, the two image defaults in `docker-compose.yml` and `server.json`, checked by `scripts/check-release-version.sh`) and a `[x.y.z]` section in `CHANGELOG.md` on the series' branch, then a `vx.y.z` tag on it. The tag builds and publishes the image as `x.y.z` and `x.y`; `latest` only for the highest version, so a fix for an older series does not move it back. The same workflow publishes a release of the newest series to the MCP Registry (`server.json`, signed in with GitHub's OIDC token, no one logs in); by hand, from `main`: `mcp-publisher login github` as csakaszamok, then `mcp-publisher publish`.
 - **`main`** is the newest release: it is updated when a release of the newest series is made. Pull requests do not go to `main`.

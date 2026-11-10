@@ -14,18 +14,18 @@ export function displayCode(input: string): string {
 }
 
 /** The card; body is HTML (escape what goes in it) */
-export function activatePage(body: string, status = 200): Response {
+export function activatePage(body: string, status = 200, heading = 'Connect Claude Code'): Response {
   const name = brandTitle()
   return html(`<!DOCTYPE html>
 <html lang="en">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Connect Claude Code${name ? ` — ${escapeHtml(name)}` : ''}</title><link rel="stylesheet" href="/assets/style.css">
+<title>${escapeHtml(heading)}${name ? ` — ${escapeHtml(name)}` : ''}</title><link rel="stylesheet" href="/assets/style.css">
 ${faviconTag()}</head>
 <body class="login">
 <div class="heat"></div>
 <div class="card">
   ${logoImg(56, 'logo')}
-  <h1>Connect Claude Code</h1>
+  <h1>${escapeHtml(heading)}</h1>
   ${body}
 </div>
 <script src="/assets/embers.js" defer></script>

@@ -21,6 +21,7 @@ services:
     build: .
     volumes:
       - ./sablier-themes:/app/assets/sablier-themes:ro
+      - ./sablier-plugin:/app/assets/sablier-plugin:ro
       - ./registry:/app/assets/registry:ro
       - ./traefik:/app/assets/traefik:ro
       - ./scripts/install-assets.sh:/app/assets/install-assets.sh:ro

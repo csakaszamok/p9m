@@ -4,6 +4,23 @@ All notable changes are listed here. Versions follow [semantic versioning](https
 
 ## [Unreleased]
 
+## [0.20.0] - 2026-11-09
+
+Upgrading from 0.19.x: download the new `docker-compose.yml` from `https://github.com/csakaszamok/p9m/releases/latest/download/docker-compose.yml` (Traefik loads the Sablier plugin from a new volume; a `P9M_VERSION` in `.env` must say `0.20`) and `docker compose pull && docker compose up -d`; the sandboxes need no change. `claude plugin marketplace update p9m` and `claude plugin update p9m@p9m` get the deploy skill's change (then restart Claude Code). From 0.18.x: first upgrade sysbox on the host, as under 0.19.0.
+
+### Added
+
+- **An app can be exported to run without Purgatorium**, on a plain Docker, with `scripts/export-app.mjs` ([docs](https://csakaszamok.github.io/p9m/latest/export-app/)): a compose file made from what its containers run, its settings, images and data, and a `restore.sh`. It needs the same permission from the owner as a copy.
+- **A sandbox can be copied**, to a new sandbox on the same server or on another one, with `scripts/clone-sandbox.mjs` ([docs](https://csakaszamok.github.io/p9m/latest/copy-sandbox/)). The copy gets its own name, addresses and keys, and is left stopped so its apps' settings can be checked first. A user's sandbox needs its owner's permission, given once on a page of its own; every copy is recorded.
+
+### Changed
+
+- **The waiting page counts the seconds** it has waited for a sandbox to wake, and shows how long it took once the address opens.
+
+### Fixed
+
+- **Streamed responses reach the browser as the app writes them.** Traefik's Sablier plugin held a response back until about 4 KB had gathered, so Server-Sent Events and an LLM's answer arrived in lumps, or not at all. Purgatorium now ships the plugin (v1.3.0, changed in `sablier-plugin/`) instead of downloading it at Traefik's start.
+
 ## [0.19.0] - 2026-11-08
 
 Upgrading from 0.18.x: **first upgrade sysbox on the host to 0.7.0 or newer** (`sysbox-runc --version`; `bash check-host.sh` says so too): this release's sandbox image starts no container inside a sandbox on an older one. Then download the new `docker-compose.yml` from `https://github.com/csakaszamok/p9m/releases/latest/download/docker-compose.yml` (a `P9M_VERSION` in `.env` must say `0.19`) and `docker compose pull && docker compose up -d`. The sandboxes move to the new image at that start; running ones restart.
@@ -1051,7 +1068,8 @@ The first release.
 
 - The project used to be called Leander. Existing `leander-` sandboxes and `ldr_` tokens keep working; see "Upgrading from Leander" in the README.
 
-[Unreleased]: https://github.com/csakaszamok/p9m/compare/v0.19.0...HEAD
+[Unreleased]: https://github.com/csakaszamok/p9m/compare/v0.20.0...HEAD
+[0.20.0]: https://github.com/csakaszamok/p9m/releases/tag/v0.20.0
 [0.19.0]: https://github.com/csakaszamok/p9m/releases/tag/v0.19.0
 [0.18.12]: https://github.com/csakaszamok/p9m/releases/tag/v0.18.12
 [0.18.11]: https://github.com/csakaszamok/p9m/releases/tag/v0.18.11

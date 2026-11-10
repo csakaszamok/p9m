@@ -15,9 +15,13 @@ COPY runtimes ./runtimes
 COPY error-pages ./error-pages
 # Files other services read: p9m-init (assets/install-assets.sh) copies them into their volumes on every up
 COPY sablier-themes ./assets/sablier-themes
+COPY sablier-plugin ./assets/sablier-plugin
 COPY registry ./assets/registry
 COPY traefik ./assets/traefik
 COPY scripts/install-assets.sh ./assets/install-assets.sh
+# Run on the server: docker compose exec p9m node /app/scripts/clone-sandbox.mjs
+COPY scripts/clone-sandbox.mjs ./scripts/clone-sandbox.mjs
+COPY scripts/export-app.mjs scripts/export-compose.mjs scripts/export-restore.sh ./scripts/
 COPY ui ./ui
 # Purgatorium's own package.json (its version for the topbar); /app/package.json is the base image's
 COPY package.json ./p9m/package.json

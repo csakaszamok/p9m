@@ -43,6 +43,14 @@ describe('docker-compose.yml', () => {
     expect(p9m.networks['sablier-net']?.aliases).toEqual(['p9m-internal'])
     expect((compose as unknown as { networks: Record<string, { internal?: boolean }> }).networks['sablier-net'].internal).toBe(true)
   })
+  // The catalog's plugin holds back streamed responses (Server-Sent Events, an LLM's answer) until 4 KB have gathered
+  it('Traefik loads the Sablier plugin that p9m-init installs, not the catalog\'s', () => {
+    const traefik = compose.services.traefik as unknown as { command: string[]; volumes: string[] }
+    expect(traefik.command).toContain('--experimental.localPlugins.sablier.moduleName=github.com/sablierapp/sablier-traefik-plugin')
+    expect(traefik.command.some(c => c.startsWith('--experimental.plugins.'))).toBe(false)
+    expect(traefik.volumes).toContain('sablier_plugin:/plugins-local/src/github.com/sablierapp/sablier-traefik-plugin:ro')
+    expect((compose.services['p9m-init'] as unknown as { volumes: string[] }).volumes).toContain('sablier_plugin:/out/sablier-plugin')
+  })
   // Its API (every router: every user's sandboxes and apps) was open to the sandboxes on traefik-net
   it("Traefik's API is not served", () => {
     expect((compose.services.traefik.command ?? []).some((c: string) => c.startsWith('--api'))).toBe(false)
