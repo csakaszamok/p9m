@@ -4,6 +4,10 @@ All notable changes are listed here. Versions follow [semantic versioning](https
 
 ## [Unreleased]
 
+### Changed
+
+- **Approving a new sandbox for Claude Code counts the seconds** while it is made (`Creating the sandbox… 12 s`), which can take up to a minute.
+
 ## [0.20.0] - 2026-11-09
 
 Upgrading from 0.19.x: download the new `docker-compose.yml` from `https://github.com/csakaszamok/p9m/releases/latest/download/docker-compose.yml` (Traefik loads the Sablier plugin from a new volume; a `P9M_VERSION` in `.env` must say `0.20`) and `docker compose pull && docker compose up -d`; the sandboxes need no change. `claude plugin marketplace update p9m` and `claude plugin update p9m@p9m` get the deploy skill's change (then restart Claude Code). From 0.18.x: first upgrade sysbox on the host, as under 0.19.0.
