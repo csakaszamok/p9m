@@ -19,7 +19,7 @@ function el(props: Record<string, unknown> = {}) {
 }
 
 /** ui/activate.js on a fake approval page: the form with its buttons, the confirmation code and its Copy */
-function run(clipboard: (t: string) => Promise<void>) {
+function run(clipboard: (t: string) => Promise<void>, now: () => number = () => 0) {
   const actions = el()
   const form = el({ querySelector: (s: string) => s === '.actions' ? actions : null })
   const code = el({ textContent: 'BCDF-GHJK' })
@@ -31,8 +31,9 @@ function run(clipboard: (t: string) => Promise<void>) {
     createElement: () => el(),
     createRange: () => ({ selectNodeContents: vi.fn() }),
   }
-  vm.runInNewContext(source, { document, navigator: { clipboard: { writeText: clipboard } }, getSelection: () => select, setTimeout: () => 0 })
-  return { form, actions, copy, select }
+  let tick: (() => unknown) | null = null
+  vm.runInNewContext(source, { document, navigator: { clipboard: { writeText: clipboard } }, getSelection: () => select, setTimeout: () => 0, setInterval: (f: () => unknown) => { tick = f; return 1 }, Date: { now } })
+  return { form, actions, copy, select, second: () => tick?.() }
 }
 
 describe('ui/activate.js', () => {
@@ -41,6 +42,14 @@ describe('ui/activate.js', () => {
     form.fire('submit', { submitter: { name: 'decision', value: 'approve', dataset: { busy: 'Creating the sandbox…' } } })
     expect(form.children).toMatchObject([{ type: 'hidden', name: 'decision', value: 'approve' }])
     expect(actions.children).toMatchObject([{ className: 'busy', disabled: true, textContent: 'Creating the sandbox…' }])
+  })
+
+  it('the busy button counts the seconds waited', () => {
+    let t = 0
+    const { form, actions, second } = run(async () => {}, () => t)
+    form.fire('submit', { submitter: { name: 'decision', value: 'approve', dataset: { busy: 'Creating the sandbox…' } } })
+    t = 12_400; second()
+    expect(actions.children).toMatchObject([{ textContent: 'Creating the sandbox… 12 s' }])
   })
 
   it('Copy puts the confirmation code on the clipboard, and selects it', async () => {
