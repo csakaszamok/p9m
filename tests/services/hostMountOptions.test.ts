@@ -11,8 +11,8 @@ vi.mock('node:child_process', async importOriginal => {
 import { hostMountOptions } from '../../services/hostMounts'
 
 describe('hostMountOptions (default helper)', () => {
-  it('reads the options with a read-only --mount bind (no -v: it must not create a missing folder), with a timeout', async () => {
+  it('reads the options from /proc/self/mounts (alpine has no findmnt) with a read-only --mount bind (no -v: it must not create a missing folder), with a timeout', async () => {
     expect(await hostMountOptions('/srv/shared/a:b')).toEqual(['rw', 'nosuid', 'nodev', 'relatime'])
-    expect(calls[0]).toEqual(['docker', ['run', '--rm', '--network', 'none', '--mount', 'type=bind,src=/srv/shared/a:b,dst=/m,readonly', 'alpine', 'findmnt', '-no', 'OPTIONS', '--target', '/m'], { timeout: 60_000 }])
+    expect(calls[0]).toEqual(['docker', ['run', '--rm', '--network', 'none', '--mount', 'type=bind,src=/srv/shared/a:b,dst=/m,readonly', 'alpine', 'awk', '$2 == "/m" { o = $4 } END { print o }', '/proc/self/mounts'], { timeout: 60_000 }])
   })
 })

@@ -145,9 +145,9 @@ export interface MountDeps {
 
 const execFileAsync = promisify(execFile)
 
-/** The options of the mount holding this host folder: a bind keeps its source mount's flags, so a throw-away container reads them from the bind. --mount, not -v: it errors on a missing folder instead of creating it on the host, and a colon in the path is safe. The timeout keeps a pull or a hung docker from hanging the request. */
+/** The options of the mount holding this host folder: a bind keeps its source mount's flags, so a throw-away container reads them from the bind, in its /proc/self/mounts (alpine has no findmnt; the last line for /m is the one in effect). --mount, not -v: it errors on a missing folder instead of creating it on the host, and a colon in the path is safe. The timeout keeps a pull or a hung docker from hanging the request. */
 export async function hostMountOptions(host: string): Promise<string[]> {
-  const { stdout } = await execFileAsync('docker', ['run', '--rm', '--network', 'none', '--mount', `type=bind,src=${host},dst=/m,readonly`, 'alpine', 'findmnt', '-no', 'OPTIONS', '--target', '/m'], { timeout: 60_000 })
+  const { stdout } = await execFileAsync('docker', ['run', '--rm', '--network', 'none', '--mount', `type=bind,src=${host},dst=/m,readonly`, 'alpine', 'awk', '$2 == "/m" { o = $4 } END { print o }', '/proc/self/mounts'], { timeout: 60_000 })
   return stdout.trim().split(',').filter(Boolean)
 }
 
