@@ -154,6 +154,8 @@ if $docker_ok; then
     else
       kata_ok=true
       kata_shim=$(docker info --format '{{json .Runtimes}}' 2>/dev/null | grep -o '"kata":{[^}]*}' | grep -oE '"(runtimeType|path)":"[^"]*"' | head -1 | cut -d'"' -f4)
+      # Docker does not report a runtimeType: then the shim containerd finds by name (install-kata.sh links it there)
+      [ -n "$kata_shim" ] || kata_shim=$(command -v containerd-shim-kata-v2 || echo /usr/local/bin/containerd-shim-kata-v2)
       kata_version=$("$kata_shim" --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
       if [ -z "$kata_version" ]; then warn "could not tell the Kata version (shim: ${kata_shim:-?})" "Purgatorium's Kata sandboxes need Kata 4.3.1 or newer"
       elif version_ge "$kata_version" 4.3.1; then ok "Kata $kata_version is registered with Docker"

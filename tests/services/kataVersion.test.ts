@@ -38,17 +38,22 @@ describe('kataVersion', () => {
     host({ runc: { path: 'runc' }, kata: { runtimeType: SHIM } }, '4.3.1')
     expect(await kataVersion()).toEqual([4, 3, 1])
     expect(execFile.mock.calls[1][0]).toBe('docker')
-    expect(execFile.mock.calls[1][1]).toEqual(['run', '--rm', '--network', 'none', '-v', `${SHIM}:/kata-shim:ro`, '--entrypoint', '/kata-shim', 'alpine', '--version'])
+    expect(execFile.mock.calls[1][1]).toEqual(['run', '--rm', '--network', 'none', '--mount', `type=bind,src=${SHIM},dst=/kata-shim,readonly`, '--entrypoint', '/kata-shim', 'alpine', '--version'])
   })
   it('falls back to path', async () => {
     host({ kata: { path: '/usr/local/bin/containerd-shim-kata-v2' } }, '4.3.1')
     expect(await kataVersion()).toEqual([4, 3, 1])
-    expect(execFile.mock.calls[1][1]).toContain('/usr/local/bin/containerd-shim-kata-v2:/kata-shim:ro')
+    expect(execFile.mock.calls[1][1]).toContain('type=bind,src=/usr/local/bin/containerd-shim-kata-v2,dst=/kata-shim,readonly')
   })
   it('a bare name in the list is in /usr/bin', async () => {
     host({ kata: { runtimeType: 'containerd-shim-kata-v2' } }, '4.3.1')
     await kataVersion()
-    expect(execFile.mock.calls[1][1]).toContain('/usr/bin/containerd-shim-kata-v2:/kata-shim:ro')
+    expect(execFile.mock.calls[1][1]).toContain('type=bind,src=/usr/bin/containerd-shim-kata-v2,dst=/kata-shim,readonly')
+  })
+  it("Docker lists kata without its shim (it does not report runtimeType): the shim install-kata.sh links", async () => {
+    host({ runc: { path: 'runc' }, kata: { status: {} } }, '4.3.1')
+    expect(await kataVersion()).toEqual([4, 3, 1])
+    expect(execFile.mock.calls[1][1]).toContain('type=bind,src=/usr/local/bin/containerd-shim-kata-v2,dst=/kata-shim,readonly')
   })
   it('no kata: null, and no container is run', async () => {
     host({ runc: { path: 'runc' } }, '4.3.1')
