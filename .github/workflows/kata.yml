@@ -70,8 +70,10 @@ jobs:
       # Without the version -kata sandboxes would silently stay on their old image, and new ones could not be made
       - name: Purgatorium reads the host's Kata version
         run: |
-          shim=$(docker info --format '{{json .Runtimes}}' | jq -r '.kata.runtimeType // .kata.path')
-          echo "shim: $shim"
+          docker info --format '{{json .Runtimes}}'
+          # Docker's runtime list leaves out a runtimeType: the shim is where install-kata.sh links it
+          shim=$(readlink -f /usr/local/bin/containerd-shim-kata-v2)
+          file "$shim"
           # The raw output the parser (services/kataVersion.ts: the first x.y.z) reads
           "$shim" --version
           docker compose exec -T p9m node_modules/.bin/tsx -e "import('./services/kataVersion').then(async m => { const v = await m.kataVersion(); console.log('kata', v); process.exit(v && m.kataNewEnough(v) ? 0 : 1) })"
