@@ -178,8 +178,8 @@ if $docker_ok; then
       grep -qx 'static_sandbox_resource_mgmt = false' "$kata_real" || bad="$bad, static_sandbox_resource_mgmt = false"
       grep -qx 'sandbox_cgroup_only = true' "$kata_real" || bad="$bad, sandbox_cgroup_only = true"
       grep -qF -- '"--xattrmap=:map::user.virtiofs.:"' "$kata_real" || bad="$bad, virtiofsd's --xattrmap"
-      # virtiofsd keeps only the last --modcaps: exactly one, and it drops mknod
-      if [ "$(grep -c -- '--modcaps' "$kata_real")" != 1 ] || ! grep -q -- '"--modcaps=[^"]*-mknod' "$kata_real"; then
+      # virtiofsd keeps only the last --modcaps: exactly one (counted per occurrence, not per line), and it drops mknod
+      if [ "$(grep -o -- '--modcaps' "$kata_real" | wc -l)" -ne 1 ] || ! grep -q -- '"--modcaps=[^"]*-mknod' "$kata_real"; then
         bad="$bad, exactly one --modcaps=-mknod:-setfcap"
       fi
       # Through an annotation a sandbox could change virtiofsd's arguments or binary

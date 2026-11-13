@@ -1,12 +1,14 @@
 #!/usr/bin/env bash
 # Installs Kata Containers (static release) on this host and registers it with Docker as the runtime "kata", with
-# the hardened configuration Purgatorium's Kata sandboxes rely on. Run as root; safe to run again.
+# the hardened configuration Purgatorium's Kata sandboxes rely on. Run as root.
 #
-#   sudo scripts/install-kata.sh [--hypervisor clh|qemu]     # default clh (Cloud Hypervisor)
-#   KATA_VERSION=4.3.1 sudo scripts/install-kata.sh          # another Kata release
+#   sudo scripts/install-kata.sh [--hypervisor clh|qemu] [--yes]   # default clh (Cloud Hypervisor)
+#   KATA_VERSION=4.3.1 sudo scripts/install-kata.sh                # another Kata release
 #
 # Needs KVM (/dev/kvm): a dedicated server, or a VM whose provider offers nested virtualization.
-# Docker is stopped for a moment: the data root gets a nosuid,nodev self-bind (in /etc/fstab, so it stays).
+# Safe to run again: when everything is already in place it changes nothing and leaves Docker running. Otherwise
+# Docker is stopped for a moment (its data root gets a nosuid,nodev self-bind, kept in /etc/fstab), which stops
+# every running container and sandbox: with containers running it asks for --yes first.
 set -euo pipefail
 
 KATA_VERSION=${KATA_VERSION:-4.3.1}
@@ -56,18 +58,31 @@ kata_edit_config() {
   }' "$f"
 
   # A sed that matched nothing must fail here, not leave an unhardened config
-  local bad=""
+  kata_verify_config "$f" || return 1
+  grep -nE '^\s*(static_sandbox_resource_mgmt|default_memory|sandbox_cgroup_only|virtio_fs_extra_args|enable_annotations)\s*=' "$f"
+}
+
+# kata_verify_config FILE: FILE has every hardened setting; else names the missing ones and fails
+kata_verify_config() {
+  local f=$1 bad=""
   grep -qx 'static_sandbox_resource_mgmt = false' "$f" || bad="$bad static_sandbox_resource_mgmt"
   grep -qx 'default_memory = 512' "$f" || bad="$bad default_memory"
   grep -qx 'sandbox_cgroup_only = true' "$f" || bad="$bad sandbox_cgroup_only"
   grep -qF -- "$KATA_VIRTIOFS_ARGS" "$f" || bad="$bad virtio_fs_extra_args"
-  [ "$(grep -c -- '--modcaps' "$f")" -eq 1 ] || bad="$bad --modcaps(count)"
+  # Occurrences, not lines: a second --modcaps on the same line would override the first
+  [ "$(grep -o -- '--modcaps' "$f" | wc -l)" -eq 1 ] || bad="$bad --modcaps(count)"
   ! grep -E '^enable_annotations\s*=' "$f" | grep -qE '"virtio_fs_(extra_args|daemon)"' || bad="$bad enable_annotations"
   if [ -n "$bad" ]; then
     echo "install-kata: could not set in $f:$bad" >&2
     return 1
   fi
-  grep -nE '^\s*(static_sandbox_resource_mgmt|default_memory|sandbox_cgroup_only|virtio_fs_extra_args|enable_annotations)\s*=' "$f"
+}
+
+# kata_find_shim [ROOT]: the runtime-rs containerd shim under ROOT (default /opt/kata); nothing when there is none yet
+kata_find_shim() {
+  local root=${1:-/opt/kata}
+  [ -d "$root" ] || return 0
+  find "$root" -path '*runtime-rs*' -name containerd-shim-kata-v2 \( -type f -o -type l \) 2>/dev/null | head -1 || true
 }
 
 # mount_hardened DIR: DIR's mount has nosuid and nodev
@@ -77,14 +92,34 @@ mount_hardened() {
   grep -qx nosuid <<< "$opts" && grep -qx nodev <<< "$opts"
 }
 
+# State for the EXIT trap: what this run changed, the step it is on, whether it stopped Docker
+_ki_dl="" _ki_stopped=false _ki_step=""
+_ki_done=()
+
+_ki_on_exit() {
+  local rc=$?
+  [ -z "$_ki_dl" ] || rm -rf "$_ki_dl"
+  [ "$rc" = 0 ] && return 0
+  echo "install-kata: failed (exit $rc) at: ${_ki_step:-start}" >&2
+  if [ "${#_ki_done[@]}" -gt 0 ]; then
+    echo "install-kata: changed before that:" >&2
+    printf '  - %s\n' "${_ki_done[@]}" >&2
+  fi
+  if $_ki_stopped; then
+    echo "install-kata: starting containerd and Docker again" >&2
+    systemctl start containerd docker || echo "install-kata: they did not start: see systemctl status docker containerd" >&2
+  fi
+}
+
 main() {
-  local hypervisor=clh
+  local hypervisor=clh yes=false
   while [ $# -gt 0 ]; do
     case "$1" in
       --hypervisor) hypervisor=${2:-}; shift 2 || { echo "--hypervisor needs a value: clh or qemu" >&2; exit 2; } ;;
       --hypervisor=*) hypervisor=${1#*=}; shift ;;
-      -h|--help) sed -n '2,9p' "$0"; exit 0 ;;
-      *) echo "unknown argument: $1 (usage: install-kata.sh [--hypervisor clh|qemu])" >&2; exit 2 ;;
+      -y|--yes) yes=true; shift ;;
+      -h|--help) sed -n '2,11p' "$0"; exit 0 ;;
+      *) echo "unknown argument: $1 (usage: install-kata.sh [--hypervisor clh|qemu] [--yes])" >&2; exit 2 ;;
     esac
   done
   case "$hypervisor" in
@@ -108,7 +143,9 @@ main() {
     *) echo "install-kata: no Kata static release for $(uname -m)" >&2; exit 1 ;;
   esac
 
-  local missing=""
+  trap _ki_on_exit EXIT
+  _ki_step="installing curl, jq, zstd"
+  local missing="" c
   for c in curl jq zstd; do command -v "$c" >/dev/null || missing="$missing $c"; done
   if [ -n "$missing" ]; then
     if command -v apt-get >/dev/null; then
@@ -119,89 +156,154 @@ main() {
     fi
   fi
 
-  # Docker's data root before Docker is stopped: that is the folder to harden
+  # Docker's data root while Docker still runs: that is the folder to harden
   local data_root
   data_root=$(docker info --format '{{.DockerRootDir}}' 2>/dev/null || true)
   data_root=${data_root:-/var/lib/docker}
+  local dirs=("$data_root" /var/lib/containerd) d unit
+  local dropin
+  dropin=$(printf '[Unit]\nRequiresMountsFor=%s' "${dirs[*]}")
+  local cfg=$KATA_DEFAULTS/runtime-rs/configuration-$hypervisor-runtime-rs.toml
+
+  # What needs Docker restarted, worked out before anything changes
+  _ki_step="checking what is already in place"
+  local shim installed=false
+  shim=$(kata_find_shim)
+  if [ -n "$shim" ] && "$shim" --version 2>/dev/null | grep -qF "$KATA_VERSION"; then installed=true; fi
+  local restart=()
+  if ! $installed; then
+    restart+=("install Kata $KATA_VERSION")
+  else
+    local probe
+    probe=$(mktemp)
+    if [ -f "$cfg" ] && cp "$cfg" "$probe" && kata_edit_config "$probe" >/dev/null 2>&1 && cmp -s "$cfg" "$probe"; then :
+    else restart+=("harden $cfg"); fi
+    rm -f "$probe"
+    if [ ! -s /etc/docker/daemon.json ] || ! jq -e --arg shim "$shim" '.runtimes.kata == {runtimeType: $shim}' /etc/docker/daemon.json >/dev/null 2>&1; then
+      restart+=("register the kata runtime in /etc/docker/daemon.json")
+    fi
+  fi
+  for d in "${dirs[@]}"; do
+    grep -qxF "$d $d none bind,nosuid,nodev 0 0" /etc/fstab 2>/dev/null || restart+=("add the $d self-bind to /etc/fstab")
+    mount_hardened "$d" || restart+=("mount $d nosuid,nodev")
+  done
+  for unit in docker containerd; do
+    [ "$(cat "/etc/systemd/system/$unit.service.d/kata-data-root.conf" 2>/dev/null)" = "$dropin" ] \
+      || restart+=("add the RequiresMountsFor drop-in for $unit")
+  done
+  if [ "${#restart[@]}" -gt 0 ] && ! $yes; then
+    local running
+    running=$(docker ps -q 2>/dev/null | wc -l)
+    if [ "$running" -gt 0 ]; then
+      echo "install-kata: Docker has to be restarted to:" >&2
+      printf '  - %s\n' "${restart[@]}" >&2
+      echo "install-kata: that stops the $running running containers (sandboxes included). Run again with --yes to go ahead." >&2
+      trap - EXIT
+      exit 1
+    fi
+  fi
 
   # 1. The static release (skipped when this version is already in place)
-  local shim
-  shim=$(find /opt/kata -path '*runtime-rs*' -name containerd-shim-kata-v2 \( -type f -o -type l \) 2>/dev/null | head -1)
-  if [ -n "$shim" ] && "$shim" --version 2>/dev/null | grep -qF "$KATA_VERSION"; then
+  if $installed; then
     echo "== Kata $KATA_VERSION is already installed"
   else
+    _ki_step="downloading Kata $KATA_VERSION"
     echo "== downloading Kata $KATA_VERSION ($arch)"
-    local dl
-    dl=$(mktemp -d)
-    # shellcheck disable=SC2064
-    trap "rm -rf '$dl'" EXIT
-    curl -fsSL -o "$dl/kata.tar.zst" \
+    _ki_dl=$(mktemp -d)
+    curl -fsSL -o "$_ki_dl/kata.tar.zst" \
       "https://github.com/kata-containers/kata-containers/releases/download/$KATA_VERSION/kata-static-$KATA_VERSION-$arch.tar.zst"
-    tar --zstd -xf "$dl/kata.tar.zst" -C /
-    shim=$(find /opt/kata -path '*runtime-rs*' -name containerd-shim-kata-v2 \( -type f -o -type l \) | head -1)
+    _ki_step="extracting Kata $KATA_VERSION into /opt/kata"
+    tar --zstd -xf "$_ki_dl/kata.tar.zst" -C /
+    _ki_done+=("extracted Kata $KATA_VERSION into /opt/kata")
+    shim=$(kata_find_shim)
   fi
   [ -n "$shim" ] || { echo "install-kata: no runtime-rs containerd-shim-kata-v2 under /opt/kata" >&2; exit 1; }
 
   # 2. The config, edited in place; Kata 4.3 rejects copies elsewhere, and an /etc copy would shadow the edits
-  local cfg=$KATA_DEFAULTS/runtime-rs/configuration-$hypervisor-runtime-rs.toml
+  _ki_step="hardening $cfg"
   [ -f "$cfg" ] || { echo "install-kata: $cfg is not in the release" >&2; exit 1; }
   rm -f /etc/kata-containers/configuration.toml /etc/kata-containers/runtime-rs/configuration.toml
   echo "== $cfg"
   kata_edit_config "$cfg"
+  _ki_done+=("hardened $cfg")
 
   # 3. The default lookup name points at it; 4. the shim where containerd looks for it
+  _ki_step="linking the config and the shim"
   ln -sfn "$(basename "$cfg")" "$KATA_DEFAULTS/runtime-rs/configuration.toml"
   ln -sfn "$shim" /usr/local/bin/containerd-shim-kata-v2
 
   # 5. Docker's runtime "kata" (the rest of daemon.json kept)
+  _ki_step="registering the kata runtime in /etc/docker/daemon.json"
   mkdir -p /etc/docker
   [ -s /etc/docker/daemon.json ] || echo '{}' > /etc/docker/daemon.json
-  jq --arg shim "$shim" '.runtimes.kata = {runtimeType: $shim}' /etc/docker/daemon.json > /etc/docker/daemon.json.kata
-  chmod --reference=/etc/docker/daemon.json /etc/docker/daemon.json.kata
-  mv /etc/docker/daemon.json.kata /etc/docker/daemon.json
+  if ! jq -e --arg shim "$shim" '.runtimes.kata == {runtimeType: $shim}' /etc/docker/daemon.json >/dev/null; then
+    jq --arg shim "$shim" '.runtimes.kata = {runtimeType: $shim}' /etc/docker/daemon.json > /etc/docker/daemon.json.kata
+    chmod --reference=/etc/docker/daemon.json /etc/docker/daemon.json.kata
+    mv /etc/docker/daemon.json.kata /etc/docker/daemon.json
+    _ki_done+=("registered the kata runtime in /etc/docker/daemon.json")
+  fi
 
   # 6. The vsock and vhost-net devices Kata's VMs use, now and after a reboot
+  _ki_step="loading vhost_vsock and vhost_net"
+  mkdir -p /etc/modules-load.d
   printf 'vhost_vsock\nvhost_net\n' > /etc/modules-load.d/kata.conf
   modprobe vhost_vsock
   modprobe vhost_net
 
-  # 7. Docker stopped while its data root is remounted
-  echo "== stopping Docker"
-  local unit
-  for unit in docker.socket docker containerd; do
-    systemctl stop "$unit" 2>/dev/null || true
-  done
+  if [ "${#restart[@]}" -gt 0 ]; then
+    # 7. Docker stopped while its data root is remounted
+    _ki_step="stopping Docker"
+    echo "== stopping Docker"
+    _ki_stopped=true
+    for unit in docker.socket docker containerd; do
+      systemctl stop "$unit" 2>/dev/null || true
+    done
 
-  # 8. setuid files and device nodes on the data root are inert on the host (virtiofsd writes as host root): a
-  # nosuid,nodev self-bind, not noexec (Docker runs its layers from there)
-  local dirs=("$data_root" /var/lib/containerd) d line
-  for d in "${dirs[@]}"; do
-    mkdir -p "$d"
-    line="$d $d none bind,nosuid,nodev 0 0"
-    grep -qxF "$line" /etc/fstab || echo "$line" >> /etc/fstab
-  done
+    # 8. setuid files and device nodes on the data root are inert on the host (virtiofsd writes as host root): a
+    # nosuid,nodev self-bind, not noexec (Docker runs its layers from there)
+    _ki_step="adding the self-binds to /etc/fstab"
+    local line
+    for d in "${dirs[@]}"; do
+      mkdir -p "$d"
+      line="$d $d none bind,nosuid,nodev 0 0"
+      if ! grep -qxF "$line" /etc/fstab; then
+        echo "$line" >> /etc/fstab
+        _ki_done+=("added to /etc/fstab: $line")
+      fi
+    done
 
-  # 9. Docker and containerd start only once the self-binds are mounted (at boot too)
-  for unit in docker containerd; do
-    mkdir -p "/etc/systemd/system/$unit.service.d"
-    printf '[Unit]\nRequiresMountsFor=%s\n' "${dirs[*]}" > "/etc/systemd/system/$unit.service.d/kata-data-root.conf"
-  done
-  systemctl daemon-reload
+    # 9. Docker and containerd start only once the self-binds are mounted (at boot too)
+    _ki_step="adding the RequiresMountsFor drop-ins"
+    for unit in docker containerd; do
+      mkdir -p "/etc/systemd/system/$unit.service.d"
+      printf '%s\n' "$dropin" > "/etc/systemd/system/$unit.service.d/kata-data-root.conf"
+    done
+    _ki_done+=("wrote /etc/systemd/system/{docker,containerd}.service.d/kata-data-root.conf")
+    systemctl daemon-reload
 
-  # 10. The self-binds now (unless already in place), then Docker again
-  for d in "${dirs[@]}"; do
-    if ! mount_hardened "$d"; then
-      mount --bind "$d" "$d"
-      mount -o remount,bind,nosuid,nodev "$d" "$d"
-    fi
-    mount_hardened "$d" || { echo "install-kata: $d is not mounted nosuid,nodev" >&2; exit 1; }
-  done
-  echo "== starting Docker"
-  systemctl start containerd docker
+    # 10. The self-binds now (unless already in place), then Docker again
+    for d in "${dirs[@]}"; do
+      _ki_step="mounting $d nosuid,nodev"
+      if ! mount_hardened "$d"; then
+        mount --bind "$d" "$d"
+        _ki_done+=("bind-mounted $d onto itself")
+        mount -o remount,bind,nosuid,nodev "$d" "$d"
+      fi
+      mount_hardened "$d" || { echo "install-kata: $d is not mounted nosuid,nodev" >&2; exit 1; }
+    done
+    _ki_step="starting containerd and Docker"
+    echo "== starting Docker"
+    systemctl start containerd docker
+    _ki_stopped=false
+  else
+    echo "== Docker's runtime, data root mounts and drop-ins are already in place: Docker keeps running"
+  fi
+  _ki_step="checking Docker's runtimes"
   docker info --format '{{json .Runtimes}}' | jq -e 'has("kata")' >/dev/null \
     || { echo "install-kata: Docker does not list the kata runtime" >&2; exit 1; }
 
   # 11. A first Kata container
+  _ki_step="the test run (docker run --rm --runtime kata alpine true)"
   echo "== test run"
   timeout 300 docker run --rm --runtime kata alpine true
   echo "Kata $KATA_VERSION ($hypervisor) is installed: Docker runtime \"kata\". Check the host with ./check-host.sh"

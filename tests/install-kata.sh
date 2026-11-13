@@ -59,6 +59,25 @@ grep -qx 'enable_annotations = \["enable_iommu"\]' "$cfg" && pass "virtio_fs_dae
 # No static_sandbox_resource_mgmt line at all: added under [runtime]
 sed -n '/^\[runtime\]/,$p' "$cfg" | grep -qx 'static_sandbox_resource_mgmt = false' && pass "static_sandbox_resource_mgmt added under [runtime]" || fail "static_sandbox_resource_mgmt not added"
 
+# A second --modcaps on the same line overrides the first in virtiofsd: the verification counts occurrences, not lines
+cat > "$cfg" <<'EOF'
+enable_annotations = ["enable_iommu"]
+default_memory = 512
+virtio_fs_extra_args = ["--xattr", "--xattrmap=:map::user.virtiofs.:", "--modcaps=-mknod:-setfcap", "--modcaps=+mknod"]
+static_sandbox_resource_mgmt = false
+sandbox_cgroup_only = true
+EOF
+if kata_verify_config "$cfg" 2>/dev/null; then fail "two --modcaps on one line must fail the verification"; fi
+pass "two --modcaps on one line fail the verification"
+sed -i 's/, "--modcaps=+mknod"//' "$cfg"
+kata_verify_config "$cfg" && pass "the same config with one --modcaps passes" || fail "one --modcaps must pass"
+
+# No /opt/kata yet (a fresh host): the shim lookup returns nothing instead of aborting the script under set -e
+shim=$(kata_find_shim "$tmp/no-kata")
+[ -z "$shim" ] && pass "fresh host: no shim, no abort" || fail "shim on a fresh host: $shim"
+mkdir -p "$tmp/kata/runtime-rs/bin" && touch "$tmp/kata/runtime-rs/bin/containerd-shim-kata-v2"
+[ "$(kata_find_shim "$tmp/kata")" = "$tmp/kata/runtime-rs/bin/containerd-shim-kata-v2" ] && pass "the runtime-rs shim found" || fail "shim not found"
+
 # A config the edits cannot complete (no virtio_fs_extra_args) fails instead of passing silently
 printf '[hypervisor.cloud-hypervisor]\ndefault_memory = 2048\n[runtime]\nsandbox_cgroup_only = true\n' > "$cfg"
 if kata_edit_config "$cfg" >/dev/null 2>&1; then fail "a config without virtio_fs_extra_args must fail"; fi
