@@ -5,7 +5,7 @@ import path from 'path'
 import yaml from 'js-yaml'
 import {
   MOUNTS_LABEL, SYSTEM_DIRS, hostMountRoots, parseHostMountRoots, cleanPath, underRoot, ownTargets,
-  validateMount, readMounts, withMounts, mountsOf, setMounts, type HostMount,
+  validateMount, readMounts, withMounts, mountsOf, setMounts, addMount, MountError, type HostMount,
 } from '../../services/hostMounts'
 import { withUsersDir, mountedUsersDir } from '../../services/pathMigration'
 
@@ -173,5 +173,48 @@ describe('setMounts', () => {
   })
   it('mountsOf: none for a sandbox without a readable compose file', () => {
     expect(mountsOf('p9m-none', '/nonexistent/docker-compose.yml')).toEqual([])
+  })
+})
+
+describe('addMount: Kata sandboxes', () => {
+  // Guest root reaches a read-write host folder through virtiofsd as host root: only a nosuid,nodev host mount defuses setuid files left there
+  const KATA = yaml.load(fs.readFileSync(path.join(__dirname, '..', '..', 'runtimes', 'kata.yaml'), 'utf8')) as { docker_compose: unknown }
+  const kataCompose = () => yaml.dump(KATA.docker_compose, { lineWidth: -1 }).split('${runtime_name}').join('kata').split('${sandbox_dir}').join(`${HOST}/p9m-shop`).split('${name}').join('p9m-shop')
+  const file = (text: string) => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'p9m-kata-mounts-'))
+    fs.writeFileSync(`${dir}/docker-compose.yml`, text)
+    return `${dir}/docker-compose.yml`
+  }
+  const env = { HOST_MOUNT_ROOTS: '/srv/shared' }
+  const rw = { host: '/srv/shared/a', target: '/mnt/a' }
+  const run = (text: string, input: unknown, options: string[]) => {
+    const f = file(text)
+    const mountOptions = vi.fn(async () => options)
+    const recreate = vi.fn(async () => {})
+    return { mountOptions, recreate, result: addMount('p9m-shop', 'running', input, { env, composePath: () => f, recreate, mountOptions }) }
+  }
+
+  it('read-write on a host mount without nosuid and nodev: refused', async () => {
+    const { result, recreate, mountOptions } = run(kataCompose(), rw, ['rw', 'relatime'])
+    await expect(result).rejects.toThrow('A Kata sandbox gets a read-write host folder only where the host mounts it nosuid,nodev; mount it read-only')
+    await expect(result).rejects.toBeInstanceOf(MountError)
+    expect(mountOptions).toHaveBeenCalledWith('/srv/shared/a')
+    expect(recreate).not.toHaveBeenCalled()
+  })
+  it('read-write needs both flags: nosuid alone is refused', async () => {
+    await expect(run(kataCompose(), rw, ['rw', 'nosuid']).result).rejects.toThrow(/nosuid,nodev/)
+  })
+  it('read-write on a nosuid,nodev host mount: added', async () => {
+    expect(await run(kataCompose(), rw, ['rw', 'nosuid', 'nodev']).result).toEqual([{ ...rw, readonly: false }])
+  })
+  it('read-only: added whatever the host mount flags are', async () => {
+    const { result, mountOptions } = run(kataCompose(), { ...rw, readonly: true }, ['rw'])
+    expect(await result).toEqual([{ ...rw, readonly: true }])
+    expect(mountOptions).not.toHaveBeenCalled()
+  })
+  it('a dind sandbox: read-write added, and the host mount is never inspected', async () => {
+    const { result, mountOptions } = run(compose(), rw, ['rw'])
+    expect(await result).toEqual([{ ...rw, readonly: false }])
+    expect(mountOptions).not.toHaveBeenCalled()
   })
 })

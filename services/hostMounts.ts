@@ -1,4 +1,6 @@
 import fs from 'fs'
+import { execFile } from 'node:child_process'
+import { promisify } from 'node:util'
 import path from 'path'
 import yaml from 'js-yaml'
 import { composeUpService } from './compose'
@@ -137,7 +139,20 @@ export interface MountDeps {
   composePath?: (name: string) => string
   /** Recreates the sandbox container from the compose file: started, or left stopped */
   recreate?: (composePath: string, start: boolean) => Promise<void>
+  /** The mount options of the host filesystem a folder is on (Kata check) */
+  mountOptions?: (host: string) => Promise<string[]>
 }
+
+const execFileAsync = promisify(execFile)
+
+/** The options of the mount holding this host folder: a bind keeps its source mount's flags, so a throw-away container reads them from the bind. */
+async function hostMountOptions(host: string): Promise<string[]> {
+  const { stdout } = await execFileAsync('docker', ['run', '--rm', '--network', 'none', '-v', `${host}:/m:ro`, 'alpine', 'findmnt', '-no', 'OPTIONS', '--target', '/m'])
+  return stdout.trim().split(',').filter(Boolean)
+}
+
+/** Whether the sandbox's compose file says it runs under Kata (an old sandbox's empty runtime label is not). */
+const isKata = (text: string) => load(text)?.services?.sandbox?.labels?.['p9m.runtime'] === 'kata'
 
 /** What Docker said (compose's stderr), not "Command failed: docker compose …". */
 const dockerWords = (err: unknown) => {
@@ -184,6 +199,13 @@ export async function addMount(name: string, status: string, input: unknown, dep
   const existing = readMounts(text)
   const mount = validateMount(input, { roots, existing, own: ownTargets(text) })
   if (typeof mount === 'string') throw new MountError(mount, 400)
+  // Guest root of a Kata VM reaches a read-write folder through virtiofsd as host root and could leave setuid-root files there: only nosuid,nodev on the host defuses that
+  if (!mount.readonly && isKata(text)) {
+    const options = await (deps.mountOptions ?? hostMountOptions)(mount.host)
+    if (!options.includes('nosuid') || !options.includes('nodev')) {
+      throw new MountError('A Kata sandbox gets a read-write host folder only where the host mounts it nosuid,nodev; mount it read-only', 400)
+    }
+  }
   return setMounts(name, status, [...existing, mount], deps)
 }
 
