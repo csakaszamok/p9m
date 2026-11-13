@@ -82,3 +82,12 @@ mkdir -p "$tmp/kata/runtime-rs/bin" && touch "$tmp/kata/runtime-rs/bin/container
 printf '[hypervisor.cloud-hypervisor]\ndefault_memory = 2048\n[runtime]\nsandbox_cgroup_only = true\n' > "$cfg"
 if kata_edit_config "$cfg" >/dev/null 2>&1; then fail "a config without virtio_fs_extra_args must fail"; fi
 pass "a config the edits cannot complete fails"
+
+# The VMs' shared files under /run/kata-containers: closed to other users now, and after a reboot through tmpfiles.d
+mkdir -p "$tmp/run/kata-containers" && chmod 755 "$tmp/run/kata-containers"
+kata_private_run_dir "$tmp/tmpfiles.d/kata-containers.conf" "$tmp/run/kata-containers"
+[ "$(cat "$tmp/tmpfiles.d/kata-containers.conf")" = "d $tmp/run/kata-containers 0750 root root -" ] \
+  && pass "tmpfiles.d keeps /run/kata-containers at 0750" || fail "tmpfiles.d: $(cat "$tmp/tmpfiles.d/kata-containers.conf")"
+[ "$(stat -c %a "$tmp/run/kata-containers")" = 750 ] && pass "/run/kata-containers is 0750 now" || fail "mode $(stat -c %a "$tmp/run/kata-containers")"
+kata_private_run_dir "$tmp/tmpfiles.d/kata-containers.conf" "$tmp/run/new"
+[ "$(stat -c %a "$tmp/run/new")" = 750 ] && pass "made with 0750 when missing" || fail "missing dir: mode $(stat -c %a "$tmp/run/new")"

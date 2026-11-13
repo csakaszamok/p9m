@@ -85,6 +85,17 @@ kata_find_shim() {
   find "$root" -path '*runtime-rs*' -name containerd-shim-kata-v2 \( -type f -o -type l \) 2>/dev/null | head -1 || true
 }
 
+# kata_private_run_dir [CONF] [DIR]: DIR (default /run/kata-containers, the running VMs' shared files) closed to
+# other users, now and after a reboot: /run starts empty, and systemd-tmpfiles makes DIR with this mode before Kata
+# would make it 0755
+kata_private_run_dir() {
+  local conf=${1:-/etc/tmpfiles.d/kata-containers.conf} dir=${2:-/run/kata-containers}
+  mkdir -p "$(dirname "$conf")" "$dir"
+  printf 'd %s 0750 root root -
+' "$dir" > "$conf"
+  chmod 0750 "$dir"
+}
+
 # mount_hardened DIR: DIR's mount has nosuid and nodev
 mount_hardened() {
   local opts
@@ -243,12 +254,14 @@ main() {
     _ki_done+=("registered the kata runtime in /etc/docker/daemon.json")
   fi
 
-  # 6. The vsock and vhost-net devices Kata's VMs use, now and after a reboot
+  # 6. The vsock and vhost-net devices Kata's VMs use, and /run/kata-containers closed to others, now and after a reboot
   _ki_step="loading vhost_vsock and vhost_net"
   mkdir -p /etc/modules-load.d
   printf 'vhost_vsock\nvhost_net\n' > /etc/modules-load.d/kata.conf
   modprobe vhost_vsock
   modprobe vhost_net
+  _ki_step="closing /run/kata-containers to other users"
+  kata_private_run_dir
 
   if [ "${#restart[@]}" -gt 0 ]; then
     # 7. Docker stopped while its data root is remounted
