@@ -14,7 +14,10 @@ describe('capacity: the suggested SANDBOX_MAX_TOTAL', () => {
     expect(capacity({ cpus: 8, memory: 32 * G, disk: 100 * G }, per)).toMatchObject({ ideal: 4, suggested: 5, by: 'disk' })
   })
   it('the per-sandbox overhead (Kata VMM) counts toward the memory each takes', () => {
-    expect(capacity({ cpus: 64, memory: 16 * G, disk: null }, per, KATA_VMM_OVERHEAD).memory).toBe(Math.floor((16 * G - 2 * G) / (4 * G + 200 * 1024 ** 2)))
+    // 18 GB less 2 is 16 GB: 4 sandboxes of 4 GB, but only 3 of 4 GB + 200 MB
+    const host = { cpus: 64, memory: 18 * G, disk: null }
+    expect(capacity(host, per).memory).toBe(4)
+    expect(capacity(host, per, KATA_VMM_OVERHEAD).memory).toBe(3)
   })
   it('at least one, however small the host', () => {
     expect(capacity({ cpus: 1, memory: 2 * G, disk: 5 * G }, per)).toMatchObject({ ideal: 1, suggested: 1 })
