@@ -11,6 +11,9 @@ describe('allocateSubnet', () => {
   it('skips every block a wider network overlaps', () => {
     expect(allocateSubnet('10.213.0.0/16', ['10.213.0.0/24'])?.subnet).toBe('10.213.1.0/28')
   })
+  it('lets a used /29 take its whole /28 block', () => {
+    expect(allocateSubnet('10.213.0.0/16', ['10.213.0.8/29'])?.subnet).toBe('10.213.0.16/28')
+  })
   it('ignores malformed entries', () => {
     expect(allocateSubnet('10.213.0.0/16', ['bogus', ''])?.subnet).toBe('10.213.0.0/28')
   })

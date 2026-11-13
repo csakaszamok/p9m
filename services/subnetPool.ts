@@ -6,6 +6,10 @@ export const DEFAULT_SUBNET_POOL = '10.213.0.0/16'
 
 const BLOCK = 16
 
+function mask(prefix: number): number {
+  return prefix === 0 ? 0 : (~0 << (32 - prefix)) >>> 0
+}
+
 /** Parses an IPv4 CIDR into its network address and prefix length, or null when malformed. */
 function parseCidr(cidr: string): { base: number; prefix: number } | null {
   const m = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})\/(\d{1,2})$/.exec(cidr.trim())
@@ -14,8 +18,7 @@ function parseCidr(cidr: string): { base: number; prefix: number } | null {
   const prefix = Number(m[5])
   if (octets.some((o) => o > 255) || prefix > 32) return null
   const ip = ((octets[0] << 24) | (octets[1] << 16) | (octets[2] << 8) | octets[3]) >>> 0
-  const mask = prefix === 0 ? 0 : (~0 << (32 - prefix)) >>> 0
-  return { base: (ip & mask) >>> 0, prefix }
+  return { base: (ip & mask(prefix)) >>> 0, prefix }
 }
 
 function toIp(n: number): string {
@@ -39,24 +42,19 @@ export function cidrOverlaps(a: string, b: string): boolean {
   const y = parseCidr(b)
   if (!x || !y) return false
   const prefix = Math.min(x.prefix, y.prefix)
-  const mask = prefix === 0 ? 0 : (~0 << (32 - prefix)) >>> 0
-  return ((x.base ^ y.base) & mask) === 0
+  return ((x.base ^ y.base) & mask(prefix)) === 0
 }
 
 /** Picks the first /28 in the pool that overlaps nothing in used, or null when the pool is full. */
 export function allocateSubnet(pool: string, used: string[]): SubnetBlock | null {
   const p = parseCidr(pool)
   if (!p || p.prefix > 28) return null
-  const taken = used.map(parseCidr).filter((u): u is { base: number; prefix: number } => u !== null)
   const count = 2 ** (28 - p.prefix)
   for (let i = 0; i < count; i++) {
     const base = (p.base + i * BLOCK) >>> 0
-    const overlaps = taken.some((u) => {
-      const prefix = Math.min(u.prefix, 28)
-      const mask = prefix === 0 ? 0 : (~0 << (32 - prefix)) >>> 0
-      return ((u.base ^ base) & mask) === 0
-    })
-    if (!overlaps) return { subnet: `${toIp(base)}/28`, ip_range: `${toIp(base + 8)}/29`, dns_ip: toIp(base + 2) }
+    const candidate = `${toIp(base)}/28`
+    const overlaps = used.some((u) => cidrOverlaps(candidate, u))
+    if (!overlaps) return { subnet: candidate, ip_range: `${toIp(base + 8)}/29`, dns_ip: toIp(base + 2) }
   }
   return null
 }
