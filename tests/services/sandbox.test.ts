@@ -8,7 +8,8 @@ vi.mock('../../services/docker', () => ({
   getContainerStatus: vi.fn().mockResolvedValue('running'),
   engineApiVersion: vi.fn().mockResolvedValue('1.48'),
   execRun: vi.fn(),
-  justStarted: vi.fn().mockResolvedValue(false)
+  justStarted: vi.fn().mockResolvedValue(false),
+  dockerSubnets: vi.fn(async () => [])
 }))
 
 vi.mock('../../services/compose', () => ({
@@ -77,9 +78,9 @@ vi.stubEnv('RUNTIMES_DIR', './runtimes')
 vi.stubEnv('SANDBOXES_DIR', '/opt/sandboxes')
 vi.stubEnv('ARCHIVE_DIR', '/opt/archive')
 
-import { sandboxService, daemonJson } from '../../services/sandbox'
+import { sandboxService, daemonJson, COREFILE } from '../../services/sandbox'
 const realFs = await vi.importActual<typeof import('fs')>('fs')
-import { listManagedContainers } from '../../services/docker'
+import { listManagedContainers, dockerSubnets } from '../../services/docker'
 import { primeSablierSession } from '../../services/wake'
 import { writeAuthorizedKeys } from '../../services/sandboxSsh'
 import { composeUp, composeUpInner, composeDown, composeStart, composeStop } from '../../services/compose'
@@ -327,7 +328,7 @@ describe('sandbox service', () => {
   const written = (name: string, file: string) => vi.mocked(fs.writeFileSync).mock.calls
     .find(c => /^\/opt\/sandboxes\/[^/]+\//.test(String(c[0])) && String(c[0]).endsWith(`/${name}/${file}`))?.[1] as string | undefined
   // ${…} that Purgatorium itself fills in; anything else is left for docker compose
-  const OURS = /\$\{(name|raw_name|template_name|runtime_name|compose_source|created_at|host_users_dir|host_domain|frp_token|frps_api_auth|idle_timeout|deep_sleep_after|owner|demo_password|cpus|memory|portainer_[a-z_]+)\}/
+  const OURS = /\$\{(name|raw_name|template_name|runtime_name|compose_source|created_at|host_users_dir|host_domain|frp_token|frps_api_auth|idle_timeout|deep_sleep_after|owner|demo_password|cpus|memory|subnet|ip_range|dns_ip|portainer_[a-z_]+)\}/
 
   it("gives a new sandbox's frps API a password, which socat's health check uses", async () => {
     vi.mocked(fs.writeFileSync).mockClear()
@@ -387,7 +388,7 @@ describe('sandbox service', () => {
     expect(written('p9m-u2', 'inner/docker-compose.yml')).toBeUndefined()
   }, 60000)
 
-  for (const runtime of ['dind', 'sysbox']) {
+  for (const runtime of ['dind', 'kata', 'sysbox']) {
     for (const template of ['starter', 'tcp-demo']) {
       it(`${runtime} + ${template}: the outer compose from the runtime, labelled with both names`, async () => {
         vi.mocked(fs.writeFileSync).mockClear()
@@ -399,10 +400,76 @@ describe('sandbox service', () => {
         expect(labels['p9m.template']).toBe(template)
         expect(outer).not.toMatch(OURS)
         if (runtime === 'sysbox') expect(outer).toContain('runtime: sysbox-runc')
-        else expect(outer).toContain('privileged: true')
+        else if (runtime === 'kata') {
+          // The first /28 of the default pool: the dns service at its first address after the gateway
+          expect(outer).toContain('runtime: kata')
+          expect(outer).not.toContain('privileged')
+          expect(outer).toContain('subnet: 10.213.0.0/28')
+          expect(outer).toContain('ipv4_address: 10.213.0.2')
+          const sb = (yaml.load(outer) as { services: { sandbox: { environment: Record<string, string> } } }).services.sandbox
+          expect(sb.environment.DNS_SERVER).toBe('10.213.0.2')
+        } else expect(outer).toContain('privileged: true')
       }, 60000)
     }
   }
+
+  // The per-name lock lets two different names through together: each must still get its own /28
+  it('two concurrent kata creates get different subnets', async () => {
+    vi.mocked(fs.writeFileSync).mockClear()
+    const realExists = vi.mocked(fs.existsSync).getMockImplementation()!
+    const realRead = vi.mocked(fs.readFileSync).getMockImplementation()!
+    // The sandbox directories are the ones whose compose file is written, and that file reads back as written
+    const composed = () => vi.mocked(fs.writeFileSync).mock.calls.map(c => /^\/opt\/sandboxes\/admin\/([^/]+)\/docker-compose\.yml$/.exec(String(c[0]))?.[1]).filter((n): n is string => !!n)
+    vi.mocked(fs.existsSync).mockImplementation(p => p === '/opt/sandboxes/admin' || realExists(p))
+    const readdir = vi.spyOn(fs, 'readdirSync').mockImplementation(((p: fs.PathLike) => p === '/opt/sandboxes/admin' ? composed() : realFs.readdirSync(p)) as typeof fs.readdirSync)
+    vi.mocked(fs.readFileSync).mockImplementation(((p: fs.PathOrFileDescriptor, o?: unknown) => {
+      const n = /^\/opt\/sandboxes\/admin\/([^/]+)\/docker-compose\.yml$/.exec(String(p))?.[1]
+      return (n && written(n, 'docker-compose.yml')) ?? realRead(p, o as never)
+    }) as typeof fs.readFileSync)
+    // Docker answers two overlapping asks together, a lone one after 2 s: without the lock both creates would read
+    // the sandbox directories before either wrote its compose file
+    const pending = new Map<() => void, ReturnType<typeof setTimeout>>()
+    vi.mocked(dockerSubnets).mockImplementation(() => new Promise<string[]>(resolve => {
+      const done = () => { clearTimeout(pending.get(done)); pending.delete(done); resolve([]) }
+      pending.set(done, setTimeout(done, 2000))
+      if (pending.size >= 2) [...pending.keys()].forEach(d => d())
+    }))
+    try {
+      await Promise.all(['kc1', 'kc2'].map(raw => sandboxService.createSandbox(raw, false, undefined, undefined, 'admin', 'starter', 'kata')))
+      const subnetOf = (n: string) => /subnet: (\S+)/.exec(written(n, 'docker-compose.yml')!)?.[1]
+      expect(subnetOf('p9m-kc1')).toMatch(/^10\.213\.0\.\d+\/28$/)
+      expect(subnetOf('p9m-kc2')).toMatch(/^10\.213\.0\.\d+\/28$/)
+      expect(subnetOf('p9m-kc1')).not.toBe(subnetOf('p9m-kc2'))
+    } finally {
+      vi.mocked(fs.existsSync).mockImplementation(realExists)
+      vi.mocked(fs.readFileSync).mockImplementation(realRead)
+      readdir.mockRestore()
+      vi.mocked(dockerSubnets).mockImplementation(async () => [])
+    }
+  }, 60000)
+
+  it('writes the Corefile for a runtime with a dns service', async () => {
+    vi.mocked(fs.writeFileSync).mockClear()
+    await sandboxService.createSandbox('cf1', false, undefined, undefined, 'admin', 'starter', 'kata')
+    expect(written('p9m-cf1', 'Corefile')).toBe(COREFILE)
+    expect(COREFILE).toBe('.:53 {\n  forward . 127.0.0.11\n  cache 5\n  errors\n}\n')
+    await sandboxService.createSandbox('cf2', false, undefined, undefined, 'admin', 'starter', 'dind')
+    expect(written('p9m-cf2', 'Corefile')).toBeUndefined()
+  }, 60000)
+
+  it('subnet pool exhausted: a kata create is refused before anything is written', async () => {
+    const saved = process.env.SANDBOX_SUBNET_POOL
+    process.env.SANDBOX_SUBNET_POOL = '10.213.0.0/28'
+    vi.mocked(dockerSubnets).mockResolvedValue(['10.213.0.0/28'])
+    vi.mocked(fs.writeFileSync).mockClear()
+    try {
+      await expect(sandboxService.createSandbox('full1', false, undefined, undefined, 'admin', 'starter', 'kata')).rejects.toThrow('No free subnet in SANDBOX_SUBNET_POOL')
+      expect(written('p9m-full1', 'certs/server/ca.pem')).toBeUndefined()
+    } finally {
+      if (saved === undefined) delete process.env.SANDBOX_SUBNET_POOL; else process.env.SANDBOX_SUBNET_POOL = saved
+      vi.mocked(dockerSubnets).mockResolvedValue([])
+    }
+  }, 60000)
 
   it('dind + tcp-demo: the inner compose from the template, with the generated demo password', async () => {
     vi.mocked(fs.writeFileSync).mockClear()
@@ -784,7 +851,7 @@ describe('tunnel URLs only for running sandboxes', () => {
 })
 
 describe('HTTPS routing in runtimes', () => {
-  for (const runtime of ['dind', 'sysbox']) {
+  for (const runtime of ['dind', 'kata', 'sysbox']) {
     it(`${runtime}: the sandbox router listens on web and websecure`, () => {
       const t = yaml.load(realFs.readFileSync(`runtimes/${runtime}.yaml`, 'utf8')) as { docker_compose: { services: { socat: { labels: Record<string, string> } } } }
       expect(t.docker_compose.services.socat.labels['traefik.http.routers.frps-${name}.entrypoints']).toBe('web,websecure')

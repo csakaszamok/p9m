@@ -53,7 +53,7 @@ export const openapi = {
     400: { description: 'Invalid name' },
     401: { description: 'Unauthorized' },
     409: { description: 'Name taken/conflicting, or sandbox limit reached' },
-    503: { description: 'No free ports available in template range' }
+    503: { description: 'No free sandbox name, ports, subnet (SANDBOX_SUBNET_POOL) or Docker network' }
   },
   security: [{ bearerAuth: [] }],
 }

@@ -41,6 +41,7 @@ import { startRegistryGc } from "./services/registryGc";
 import { resumeScans } from "./services/registryScans";
 import { notifySecret } from "./services/notifySecret";
 import { resourceDefaults } from "./services/resources";
+import { subnetPool } from "./services/subnetPool";
 
 // Supports both old-style handler.ts (handle(req,res)) and
 // new-style METHOD.ts (default(req: Request): Promise<Response>)
@@ -357,6 +358,7 @@ startRegistryGc();
 void resumeScans().catch(err => console.error("[registry] resuming scans:", err));
 raiseConnectTimeout();
 for (const w of resourceDefaults().warnings) console.warn(`[resources] ${w}`);
+for (const w of subnetPool().warnings) console.warn(`[subnets] ${w}`);
 // Sandboxes whose install directory was moved or renamed: point their mounts at the current directory; then those
 // made under another apps domain (APPS_DOMAIN set or changed): their apps under the current one
 migrateHostPaths().catch(err => console.error("[paths] migration failed:", err))

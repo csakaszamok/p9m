@@ -281,6 +281,11 @@ export async function dockerRuntimes(): Promise<string[]> {
   return Object.keys((await docker.info()).Runtimes ?? {})
 }
 
+/** Every subnet the host's Docker networks use: a sandbox's own subnet (Kata) must overlap none of them. */
+export async function dockerSubnets(): Promise<string[]> {
+  return (await docker.listNetworks()).flatMap(n => (n.IPAM?.Config ?? []).flatMap(c => c.Subnet ? [c.Subnet] : []))
+}
+
 /** The host's size: how far the admin may raise a sandbox's limits. */
 export async function hostResources(): Promise<Limits> {
   if (!hostSize) {

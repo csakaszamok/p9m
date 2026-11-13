@@ -22,7 +22,7 @@ import { sshKeysOf } from './sshKeys'
 import { resourceDefaults, memoryForCompose, type Limits } from './resources'
 import { sandboxName, rawNameOf, readLabel } from './naming'
 import { sessionDurationOf, cappedSleepDefault } from './sleepSettings'
-import { listManagedContainers, resolveHostSandboxesDir, execRun, justStarted, type SandboxMeta } from './docker'
+import { listManagedContainers, resolveHostSandboxesDir, execRun, justStarted, dockerSubnets, type SandboxMeta } from './docker'
 import { sandboxDir, sandboxParent, listSandboxDirs, newSandboxDir, archiveRoot, ownerDirName, ownerOfCompose, sandboxesDir, forgetSandboxDir, sandboxesMounted, SANDBOX_NAME } from './sandboxPaths'
 import { composeUp, composeStop, composeStart, composeDown, composeUpInner } from './compose'
 import { concurrency } from './concurrency'
@@ -31,6 +31,25 @@ import { hashPassword } from './registryAuth'
 import { ownHostTaken, uiHost } from './uiHost'
 import { userHost } from './userHost'
 import { listProjectVolumes, exportVolume, removeVolume, stopProjectContainers, removeProjectContainers } from './project'
+import { allocateSubnet, subnetsInCompose, subnetPool, type SubnetBlock } from './subnetPool'
+
+/** CoreDNS's config for a runtime with a dns service (Kata): everything to Docker's embedded DNS, briefly cached. */
+export const COREFILE = '.:53 {\n  forward . 127.0.0.11\n  cache 5\n  errors\n}\n'
+
+// One subnet allocation at a time, from reading the used subnets until the new compose file names its own: the
+// per-name create lock (markCreating) lets two different names through together, and both took the same block
+const subnetLock = concurrency(1)
+
+/** The first free /28 of SANDBOX_SUBNET_POOL: in no sandbox's compose file and overlapping no Docker network. */
+async function freeSubnet(): Promise<SubnetBlock> {
+  const used = listSandboxDirs().flatMap(e => {
+    try { return subnetsInCompose(fs.readFileSync(`${e.dir}/docker-compose.yml`, 'utf8')) } catch { return [] }
+  })
+  used.push(...await dockerSubnets())
+  const block = allocateSubnet(subnetPool().pool, used)
+  if (!block) throw new Error('No free subnet in SANDBOX_SUBNET_POOL')
+  return block
+}
 
 /** The sandbox's directory; for an unknown one a path that does not exist (reads then fail as before). */
 const dirOf = (name: string) => sandboxDir(name) ?? `${sandboxParent(name)}/${name}`
@@ -269,6 +288,10 @@ export const sandboxService = {
 
     const services = (runtime.docker_compose.services ?? {}) as Record<string, unknown>
     const hasFrps = 'frps' in services
+    // Its own subnet (Kata: the dns service's fixed address). Asked here too, before anything is written, so a full
+    // pool leaves no half-made sandbox directory; the block itself is taken under the lock below
+    const needsSubnet = JSON.stringify(runtime.docker_compose).includes('${subnet}')
+    if (needsSubnet) await freeSubnet()
 
     // <raw>-docker.<domain>: where a Docker CLI reaches this dockerd through the gateway (TLS passed through)
     timer.lap('checks')
@@ -294,6 +317,7 @@ export const sandboxService = {
     const frpToken = crypto.randomBytes(16).toString('hex')
     const frpsApiPassword = newFrpsApiPassword()
     if (hasFrps) fs.writeFileSync(`${dir}/frps.toml`, frpsToml(frpToken, frpsApiPassword))
+    if ('dns' in services) fs.writeFileSync(`${dir}/Corefile`, COREFILE)
 
     const vars: Record<string, string> = {
       name,
@@ -332,7 +356,13 @@ export const sandboxService = {
 
     // start_interval (a router sooner) needs Docker Engine 25: taken out below it, or compose refuses the file
     const runtimeCompose = (await startIntervalSupported()) ? runtime.docker_compose : withoutStartInterval(runtime.docker_compose)
-    fs.writeFileSync(`${dir}/docker-compose.yml`, applyVars(runtimeCompose, vars))
+    const writeCompose = () => fs.writeFileSync(`${dir}/docker-compose.yml`, applyVars(runtimeCompose, vars))
+    if (needsSubnet) {
+      await subnetLock(async () => {
+        Object.assign(vars, await freeSubnet())
+        writeCompose()
+      })
+    } else writeCompose()
     let innerText: string | undefined
     if (createInnerStack) {
       const inner = applyVars(template.compose, vars)

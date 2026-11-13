@@ -6,7 +6,7 @@ import path from 'path'
 import yaml from 'js-yaml'
 
 // socat's health check, run as written in each runtime against a stand-in for the frps API
-const RUNTIMES = ['dind', 'sysbox']
+const RUNTIMES = ['dind', 'kata', 'sysbox']
 const hasSh = spawnSync('sh', ['-c', 'true']).status === 0
 
 function check(runtime: string): string {
@@ -37,8 +37,8 @@ function run(script: string, answers: { http: string; stcp: string }, since?: nu
 }
 
 describe.skipIf(!hasSh)("socat's health check", () => {
-  it('both runtimes have the same check', () => {
-    expect(check('sysbox')).toBe(check('dind'))
+  it('every runtime has the same check', () => {
+    for (const runtime of RUNTIMES) expect(check(runtime), runtime).toBe(check('dind'))
   })
 
   for (const runtime of RUNTIMES) {
