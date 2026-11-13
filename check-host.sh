@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Checks whether this machine is ready for Purgatorium, before the first `docker compose up`.
-# Changes nothing on the host; the sysbox check runs one `docker run --rm alpine` (pulls alpine).
+# Changes nothing on the host; the sysbox check runs one `docker run --rm alpine` (pulls alpine), the Kata check another.
 #
 #   curl -fsSL https://github.com/csakaszamok/p9m/releases/latest/download/check-host.sh | bash -s -- [domain]
 #   ./check-host.sh [domain]     # domain: the HOST_DOMAIN you plan to use, e.g. dev.example.com (UI: p9m.dev.example.com)
@@ -41,6 +41,19 @@ suggest() {
 }
 # version_ge A B: A >= B (dotted versions)
 version_ge() { [ "$(printf '%s\n%s\n' "$2" "$1" | sort -V | head -1)" = "$2" ]; }
+# mount_hardened PATH: the mount PATH is on has nosuid and nodev
+mount_hardened() {
+  local opts
+  opts=$(findmnt -no OPTIONS --target "$1" 2>/dev/null | tr , '\n')
+  grep -qx nosuid <<< "$opts" && grep -qx nodev <<< "$opts"
+}
+
+# The runtimes .env allows (empty: sysbox only; all: every one). The Kata checks run only where Kata is meant to be used.
+allowed=$(env_get ALLOWED_RUNTIMES | tr 'A-Z' 'a-z' | tr -d ' ')
+default_runtime=$(env_get DEFAULT_RUNTIME | tr 'A-Z' 'a-z' | tr -d ' ')
+sysbox_allowed=false kata_wanted=false
+[[ -z "$allowed" || ",$allowed," == *",sysbox,"* || ",$allowed," == *",all,"* ]] && sysbox_allowed=true
+[[ ",$allowed," == *",kata,"* || "$default_runtime" == kata ]] && kata_wanted=true
 
 section "System"
 if [ "$(uname -s)" != Linux ]; then
@@ -49,8 +62,12 @@ else
   # shellcheck disable=SC1091
   os=$( (. /etc/os-release 2>/dev/null && echo "$PRETTY_NAME") || echo Linux)
   kernel=$(uname -r | cut -d- -f1)
-  if version_ge "$kernel" 5.5; then ok "$os, kernel $kernel"
-  else warn "$os, kernel $kernel" "sysbox needs kernel 5.5 or newer; without it sandboxes run privileged (dind)"; fi
+  # Kata: virtiofsd's --modcaps, which keeps device nodes off the sandboxes' shared folders, needs 5.8
+  if $kata_wanted && ! version_ge "$kernel" 5.8; then
+    fail "$os, kernel $kernel" "Kata sandboxes need kernel 5.8 or newer: upgrade the kernel"
+  elif $sysbox_allowed && ! version_ge "$kernel" 5.5; then
+    warn "$os, kernel $kernel" "sysbox needs kernel 5.5 or newer; without it sandboxes run privileged (dind)"
+  else ok "$os, kernel $kernel"; fi
 fi
 cpus=$(nproc 2>/dev/null || echo 0)
 mem_gb=$(awk '/MemTotal/ {printf "%d", $2/1024/1024}' /proc/meminfo 2>/dev/null || echo 0)
@@ -90,13 +107,17 @@ fi
 if $docker_ok; then
   section "Sandbox runtime"
   runtimes=$(docker info --format '{{range $k, $v := .Runtimes}}{{$k}} {{end}}' 2>/dev/null)
-  allowed=$(env_get ALLOWED_RUNTIMES | tr 'A-Z' 'a-z' | tr -d ' ')
   dind_allowed=false
   [[ ",$allowed," == *",dind,"* || ",$allowed," == *",all,"* ]] && dind_allowed=true
   if [[ " $runtimes " != *" sysbox-runc "* ]]; then
     if $dind_allowed; then
       insecure "sysbox is not installed, and ALLOWED_RUNTIMES=$allowed lets sandboxes run privileged (dind): root in a sandbox can reach the host" \
                "dind is for development only: install sysbox (https://github.com/nestybox/sysbox) and empty ALLOWED_RUNTIMES"
+    elif ! $sysbox_allowed; then
+      ok "sysbox is not installed (not needed: ALLOWED_RUNTIMES=$allowed)"
+    elif $kata_wanted; then
+      fail "sysbox is not installed, but ALLOWED_RUNTIMES=$allowed allows it: new sysbox sandboxes cannot be created" \
+           "install sysbox (https://github.com/nestybox/sysbox), or take sysbox out of ALLOWED_RUNTIMES (e.g. ALLOWED_RUNTIMES=kata)"
     else
       fail "sysbox is not installed: new sandboxes cannot be created (only sysbox is allowed; dind is for development only)" \
            "install sysbox: https://github.com/nestybox/sysbox (to try Purgatorium on a laptop: ALLOWED_RUNTIMES=sysbox,dind in .env)"
@@ -117,6 +138,120 @@ if $docker_ok; then
       if $dind_allowed; then insecure "ALLOWED_RUNTIMES=$allowed also allows the privileged dind runtime" "dind is for development only: empty ALLOWED_RUNTIMES (sysbox only)"; fi
     else
       fail "sysbox is installed, but a test container did not start" "$(echo "$out" | tail -1)"
+    fi
+  fi
+
+  if $kata_wanted; then
+    section "Kata"
+    root=$(docker info --format '{{.DockerRootDir}}' 2>/dev/null)
+    root=${root:-/var/lib/docker}
+    if [ -e /dev/kvm ]; then ok "/dev/kvm is present"
+    else fail "no /dev/kvm: Kata runs each sandbox in a VM and needs KVM" "use a dedicated server, or a VM whose provider enables nested virtualization"; fi
+
+    kata_ok=false
+    if [[ " $runtimes " != *" kata "* ]]; then
+      fail "Kata is not registered with Docker (no kata runtime): new Kata sandboxes cannot be created" "run scripts/install-kata.sh as root (needs KVM)"
+    else
+      kata_ok=true
+      kata_shim=$(docker info --format '{{json .Runtimes}}' 2>/dev/null | grep -o '"kata":{[^}]*}' | grep -oE '"(runtimeType|path)":"[^"]*"' | head -1 | cut -d'"' -f4)
+      kata_version=$("$kata_shim" --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
+      if [ -z "$kata_version" ]; then warn "could not tell the Kata version (shim: ${kata_shim:-?})" "Purgatorium's Kata sandboxes need Kata 4.3.1 or newer"
+      elif version_ge "$kata_version" 4.3.1; then ok "Kata $kata_version is registered with Docker"
+      else fail "Kata $kata_version is too old: new Kata sandboxes cannot be created" "upgrade to 4.3.1 or newer: KATA_VERSION=4.3.1 scripts/install-kata.sh"; fi
+    fi
+
+    # The shipped config is edited in place (Kata 4.3 accepts no other); an /etc copy would be read instead of it
+    kata_cfg=/opt/kata/share/defaults/kata-containers/runtime-rs/configuration.toml
+    kata_clh=false
+    for f in /etc/kata-containers/configuration.toml /etc/kata-containers/runtime-rs/configuration.toml; do
+      [ -e "$f" ] && fail "$f shadows the hardened Kata config" "remove it, then run scripts/install-kata.sh again"
+    done
+    if [ ! -f "$kata_cfg" ]; then
+      fail "no Kata config at $kata_cfg" "run scripts/install-kata.sh as root"
+    else
+      kata_real=$(readlink -f "$kata_cfg")
+      case "$kata_real" in
+        */configuration-clh-runtime-rs.toml) kata_clh=true ;;
+        *) warn "the active Kata config is $kata_real, not Cloud Hypervisor's" "Purgatorium is tested with Cloud Hypervisor: scripts/install-kata.sh --hypervisor clh" ;;
+      esac
+      bad=""
+      grep -qx 'static_sandbox_resource_mgmt = false' "$kata_real" || bad="$bad, static_sandbox_resource_mgmt = false"
+      grep -qx 'sandbox_cgroup_only = true' "$kata_real" || bad="$bad, sandbox_cgroup_only = true"
+      grep -qF -- '"--xattrmap=:map::user.virtiofs.:"' "$kata_real" || bad="$bad, virtiofsd's --xattrmap"
+      # virtiofsd keeps only the last --modcaps: exactly one, and it drops mknod
+      if [ "$(grep -c -- '--modcaps' "$kata_real")" != 1 ] || ! grep -q -- '"--modcaps=[^"]*-mknod' "$kata_real"; then
+        bad="$bad, exactly one --modcaps=-mknod:-setfcap"
+      fi
+      # Through an annotation a sandbox could change virtiofsd's arguments or binary
+      grep -E '^\s*enable_annotations\s*=' "$kata_real" | grep -qE '"virtio_fs_(extra_args|daemon)"' && bad="$bad, enable_annotations without virtio_fs_extra_args and virtio_fs_daemon"
+      if [ -n "$bad" ]; then fail "the Kata config $kata_real lacks: ${bad#, }" "run scripts/install-kata.sh again"
+      else ok "the Kata config is hardened ($kata_real)"; fi
+    fi
+
+    # virtiofsd writes as host root: setuid files and device nodes a sandbox leaves on Docker's data root must be inert
+    for d in "$root" /var/lib/containerd; do
+      [ -d "$d" ] || continue
+      if mount_hardened "$d"; then ok "$d is mounted nosuid,nodev"
+      else fail "$d is not mounted nosuid,nodev: a setuid file from a Kata sandbox would run as root on the host" "run scripts/install-kata.sh (a self-bind in /etc/fstab: $d $d none bind,nosuid,nodev 0 0)"; fi
+    done
+    # A running sandbox's rootfs is mounted without nosuid: only root may reach it
+    for d in "$root" "$root/overlay2"; do
+      mode=$(stat -c %a "$d" 2>/dev/null) || continue
+      case "$mode" in
+        710|700) ok "$d is mode $mode" ;;
+        *) fail "$d is mode $mode: others can reach the running sandboxes' files" "chmod 710 $d" ;;
+      esac
+    done
+
+    if $kata_ok; then
+      if out=$(timeout 120 docker run --rm --runtime kata alpine true 2>&1); then ok "a Kata test container started"
+      else fail "Kata is installed, but a test container did not start" "$(echo "$out" | tail -1)"; fi
+      if [ -d /run/kata-containers ]; then
+        mode=$(stat -c %a /run/kata-containers)
+        if [ "${mode: -1}" = 0 ]; then ok "/run/kata-containers is mode $mode"
+        else fail "/run/kata-containers is mode $mode: others can reach the running sandboxes' shared files" "chmod o-rwx /run/kata-containers"; fi
+      fi
+    fi
+    # The VMM's own seccomp filter (Seccomp: 2 is filter mode): one layer between a VM escape and the host
+    if $kata_clh; then
+      clh_pids=$(pgrep -f '(^|/)cloud-hypervisor( |$)' 2>/dev/null)
+      if [ -z "$clh_pids" ]; then
+        warn "no running cloud-hypervisor process: its seccomp filter was not checked" "run this again while a Kata sandbox runs"
+      else
+        unfiltered=""
+        for pid in $clh_pids; do grep -q $'^Seccomp:\t2$' "/proc/$pid/status" 2>/dev/null || unfiltered="$unfiltered $pid"; done
+        if [ -z "$unfiltered" ]; then ok "Cloud Hypervisor runs with its seccomp filter"
+        else fail "cloud-hypervisor without its seccomp filter (pid$unfiltered)" "remove disable_seccomp from $kata_real, then restart the Kata sandboxes"; fi
+      fi
+    fi
+
+    if $sysbox_allowed; then
+      ok "setuid programs in sysbox sandboxes' /opt, /home, /root and /srv volumes do not run (nosuid data root)"
+    fi
+    # Archives and copies of sandbox files, and the host folders Kata sandboxes may write to
+    IFS=, read -ra host_roots <<< "$(env_get HOST_MOUNT_ROOTS)"
+    for d in opt/sandboxes opt/archive "${host_roots[@]}"; do
+      d=$(echo "$d" | tr -d ' ')
+      [ -n "$d" ] && [ -d "$d" ] || continue
+      abs=$(cd "$d" && pwd -P)
+      if mount_hardened "$abs"; then ok "$abs is mounted nosuid,nodev"
+      else
+        case "$d" in
+          opt/*) warn "$abs is not mounted nosuid,nodev: sandbox files kept there keep their setuid bits" "a self-bind in /etc/fstab: $abs $abs none bind,nosuid,nodev 0 0" ;;
+          *) warn "HOST_MOUNT_ROOTS $abs is not mounted nosuid,nodev: Kata sandboxes get its folders read-only only" "for read-write, a self-bind in /etc/fstab: $abs $abs none bind,nosuid,nodev 0 0" ;;
+        esac
+      fi
+    done
+    # A host switching to Kata: device nodes in existing volumes (other than the 0:0 whiteouts) become reachable
+    if [ -r "$root/volumes" ] && [ -x "$root/volumes" ]; then
+      nodes=$(find "$root/volumes" -xdev \( -type b -o -type c \) -exec stat -c '%t:%T %n' {} + 2>/dev/null | grep -v '^0:0 ')
+      if [ -z "$nodes" ]; then ok "no device nodes in Docker's volumes"
+      else
+        warn "$(echo "$nodes" | wc -l) device nodes in Docker's volumes (e.g. $(echo "$nodes" | head -1 | cut -d' ' -f2-))" \
+             "delete them, and review setuid files (find $root/volumes -xdev -type f -perm /6000), before the first Kata start: find $root/volumes -xdev \\( -type b -o -type c \\) -exec sh -c 'for f; do [ \"\$(stat -c %t:%T \"\$f\")\" = 0:0 ] || rm -v \"\$f\"; done' sh {} +"
+      fi
+    elif [ -e "$root/volumes" ]; then
+      warn "could not read $root/volumes: device nodes in existing volumes not checked" "run this as root"
     fi
   fi
 
