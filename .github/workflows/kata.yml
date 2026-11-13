@@ -120,9 +120,14 @@ jobs:
             -d "{\"name\":\"$name\",\"create_inner_stack\":false}" http://localhost:8081/sandboxes | jq -r .name)
           trap 'curl -sf -X DELETE -H "Authorization: Bearer $P9M_TOKEN" "http://localhost:8081/sandboxes/$full" >/dev/null || true' EXIT
           for i in $(seq 1 60); do docker exec "$full" true 2>/dev/null && break; sleep 2; done
-          if docker exec "$full" mknod /tmp/x b 8 0; then
-            echo "guest root made a block device node in the sandbox"; docker exec "$full" ls -l /tmp/x; exit 1
-          fi
+          # Not /tmp: the dind entrypoint mounts a tmpfs there, in the guest's memory, where a device node never reaches
+          # the host. The shared paths are the rootfs and the volumes (here /opt), both through virtiofsd
+          docker exec "$full" grep -E ' (/|/tmp|/opt) ' /proc/mounts
+          for f in /x /opt/x; do
+            if docker exec "$full" mknod "$f" b 8 0; then
+              echo "guest root made a block device node at $f, on a path the host shares"; docker exec "$full" ls -l "$f"; exit 1
+            fi
+          done
           # Purgatorium's own check for a read-write host folder (services/hostMounts.ts) sees both flags
           docker compose exec -T p9m node_modules/.bin/tsx -e "import('./services/hostMounts').then(async m => { const o = await m.hostMountOptions('/var/lib/docker'); console.log('hostMountOptions', o); process.exit(o.includes('nosuid') && o.includes('nodev') ? 0 : 1) })"
 
