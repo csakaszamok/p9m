@@ -26,6 +26,7 @@ import { listManagedContainers, resolveHostSandboxesDir, execRun, justStarted, d
 import { sandboxDir, sandboxParent, listSandboxDirs, newSandboxDir, archiveRoot, ownerDirName, ownerOfCompose, sandboxesDir, forgetSandboxDir, sandboxesMounted, SANDBOX_NAME } from './sandboxPaths'
 import { composeUp, composeStop, composeStart, composeDown, composeUpInner } from './compose'
 import { concurrency } from './concurrency'
+import { copySandboxDir } from './sandboxFs'
 import { parseComposeText } from './composeCache'
 import { hashPassword } from './registryAuth'
 import { ownHostTaken, uiHost } from './uiHost'
@@ -553,10 +554,15 @@ async function archive(name: string): Promise<string> {
   if (!owner) { try { owner = ownerOfCompose(fs.readFileSync(composePath, 'utf8')) } catch { owner = 'admin' } }
   const dest = `${archiveRoot(owner)}/${name}-${archivedAt.toISOString().replace(/[:.]/g, '-')}`
   const volumes = await listProjectVolumes(name)
-  fs.mkdirSync(`${dest}/volumes`, { recursive: true })
+  // Only Purgatorium reads an archive: it holds the sandbox's data and keys
+  fs.mkdirSync(path.dirname(dest), { recursive: true })
+  fs.mkdirSync(dest, { mode: 0o700 })
+  fs.mkdirSync(`${dest}/volumes`)
   // A project teleported into the sandbox keeps its secrets in the inner Docker's claude_secrets volume: never archived
   for (const volume of volumes) await exportVolume(volume, `${dest}/volumes/${volume}.tar.gz`, volume.endsWith('_docker_data') ? [SECRETS_IN_DOCKER_DATA] : [])
-  fs.cpSync(dir, `${dest}/config`, { recursive: true })
+  // Regular files only, nothing the sandbox could have planted (setuid files, devices, links); a new sandbox makes its
+  // own SSH host keys
+  copySandboxDir(dir, `${dest}/config`, ['ssh-host-keys'])
   fs.writeFileSync(`${dest}/manifest.json`, JSON.stringify({
     name,
     owner,
@@ -593,7 +599,9 @@ async function removeLeftover(name: string): Promise<string> {
   if (volumes.length) {
     const archivedAt = new Date()
     dest = `${archiveRoot(meta?.owner || 'admin')}/${name}-${archivedAt.toISOString().replace(/[:.]/g, '-')}`
-    fs.mkdirSync(`${dest}/volumes`, { recursive: true })
+    fs.mkdirSync(path.dirname(dest), { recursive: true })
+    fs.mkdirSync(dest, { mode: 0o700 })
+    fs.mkdirSync(`${dest}/volumes`)
     for (const volume of volumes) await exportVolume(volume, `${dest}/volumes/${volume}.tar.gz`)
     fs.writeFileSync(`${dest}/manifest.json`, JSON.stringify({ name, owner: meta?.owner || 'admin', leftover: true, archived_at: archivedAt.toISOString(), volumes }, null, 2))
   }

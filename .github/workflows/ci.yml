@@ -31,8 +31,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - run: bash -n setup.sh check-host.sh scripts/install-assets.sh
+      - run: bash -n setup.sh check-host.sh scripts/install-assets.sh scripts/export-restore.sh tests/export-restore.sh
       - run: bash tests/install-assets.sh
+      - run: bash tests/export-restore.sh
       - run: bash tests/setup.sh
       - run: bash -n plugins/p9m/scripts/*.sh
       - run: bash tests/teleport-lib.sh

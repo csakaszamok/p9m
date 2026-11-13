@@ -50,6 +50,8 @@ docker exec "$SRC" docker volume create claude_secrets >/dev/null
 docker exec "$SRC" docker run --rm -v claude_secrets:/d alpine sh -c 'echo secret > /d/key' >/dev/null 2>&1
 docker exec "$SRC" sh -c "echo $MARKER > /root/marker"
 docker run --rm --cap-add SYS_ADMIN -v "${SRC}_sandbox_srv:/d" alpine sh -c 'apk add -q attr >/dev/null 2>&1; mkdir /d/opaque; setfattr -n trusted.overlay.opaque -v y /d/opaque' || fail "setfattr"
+# A real device node, an overlay whiteout (0:0) and a setuid file: only the device must not come back
+docker run --rm -v "${SRC}_sandbox_srv:/d" alpine sh -c 'mknod /d/blk b 8 0 && mknod /d/wh c 0 0 && cp /bin/busybox /d/suid && chmod 4755 /d/suid' || fail "mknod"
 wait_app "$SRC_RAW-web-port8080.$HOST_DOMAIN" "$MARKER" || fail "the source's app never answered"
 pass "Source ready"
 
@@ -77,6 +79,8 @@ info "Unpacking under another name..."
 OUT=$(clone unpack "$COPY" "$DST_RAW" 2>&1) || fail "unpack: $OUT"
 DST=$(echo "$OUT" | sed -n 's/^Made \([^.]*\)\. .*/\1/p'); [ -n "$DST" ] || fail "no name in: $OUT"
 [ "$(status "$DST")" != running ] && pass "The copy is left stopped" || fail "the copy runs"
+NODES=$(docker run --rm -v "${DST}_sandbox_srv:/d" alpine sh -c 'test -e /d/blk && echo blk; test -c /d/wh && echo wh; stat -c %a /d/suid' | tr '\n' ' ')
+[ "$NODES" = "wh 4755 " ] && pass "The block device was dropped; the whiteout and the setuid file's mode came" || fail "srv after unpack: $NODES"
 set +e; OUT=$(clone unpack "$COPY" "$DST_RAW" 2>&1); CODE=$?; set -e
 [ "$CODE" != 0 ] && pass "A name that exists is not overwritten" || fail "unpacked over an existing sandbox"
 

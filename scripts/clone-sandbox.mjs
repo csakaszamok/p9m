@@ -9,6 +9,7 @@ import { spawn, execFile } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
+import { pathToFileURL } from 'node:url'
 import { promisify } from 'node:util'
 
 const API = process.env.P9M_INTERNAL_API ?? 'http://127.0.0.1:3000'
@@ -68,10 +69,19 @@ function packVolume(volume, file, exclude) {
   })
 }
 
+/**
+ * The script that loads a copied volume: the copy is the source sandbox's, so untrusted. After the extract, character
+ * and block devices are dropped except 0:0, the overlay whiteout a Docker's data needs (a real device would reach the
+ * host's disks wherever the volume is opened as host root, as under Kata). A failed extract still fails the script.
+ */
+export function unpackScript() {
+  return `set -e; find /data -mindepth 1 -delete; tar ${TAR_FLAGS.map(f => `'${f}'`).join(' ')} -xzf - -C /data; ` +
+    `find /data \\( -type b -o -type c \\) -exec sh -c 'for f; do [ "$(stat -c %t:%T "$f")" = 0:0 ] || rm -f "$f"; done' _ {} +`
+}
+
 function unpackVolume(volume, file) {
   return new Promise((resolve, reject) => {
-    const script = `find /data -mindepth 1 -delete && exec tar ${TAR_FLAGS.map(f => `'${f}'`).join(' ')} -xzf - -C /data`
-    const proc = spawn('docker', [...TAR_RUN, '-v', `${volume}:/data`, TAR_IMAGE, 'sh', '-c', script], { stdio: ['pipe', 'ignore', 'pipe'] })
+    const proc = spawn('docker', [...TAR_RUN, '-v', `${volume}:/data`, TAR_IMAGE, 'sh', '-c', unpackScript()], { stdio: ['pipe', 'ignore', 'pipe'] })
     let stderr = ''
     proc.stderr.on('data', d => { stderr += d })
     fs.createReadStream(file).pipe(proc.stdin)
@@ -198,11 +208,15 @@ function parse(argv) {
 }
 
 const usage = 'usage: clone-sandbox pack <sandbox> [--no-consent --reason "..."] | unpack <copy> <new name> [--owner <e-mail>]'
-const { args: [command, ...rest], opts } = parse(process.argv.slice(2))
-if (!process.env.ADMIN_TOKEN) die('ADMIN_TOKEN is not set: run this in the Purgatorium container')
-if (command === 'pack' && rest.length === 1) {
-  if (opts.noConsent && !opts.reason.trim()) die('--no-consent needs --reason "..."')
-  await pack(rest[0], opts)
-} else if (command === 'unpack' && rest.length === 2) {
-  await unpack(rest[0], rest[1], opts)
-} else die(usage, 2)
+
+// Run as a command, not when a test imports it
+if (process.argv[1] && import.meta.url === pathToFileURL(fs.realpathSync(process.argv[1])).href) {
+  const { args: [command, ...rest], opts } = parse(process.argv.slice(2))
+  if (!process.env.ADMIN_TOKEN) die('ADMIN_TOKEN is not set: run this in the Purgatorium container')
+  if (command === 'pack' && rest.length === 1) {
+    if (opts.noConsent && !opts.reason.trim()) die('--no-consent needs --reason "..."')
+    await pack(rest[0], opts)
+  } else if (command === 'unpack' && rest.length === 2) {
+    await unpack(rest[0], rest[1], opts)
+  } else die(usage, 2)
+}

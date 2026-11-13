@@ -46,6 +46,8 @@ vi.mock('../../services/project', () => ({
   removeVolume: vi.fn().mockResolvedValue(undefined)
 }))
 
+// The archive's config copy: steps are recorded in place of copying
+vi.mock('../../services/sandboxFs', async orig => ({ ...(await orig<typeof import('../../services/sandboxFs')>()), copySandboxDir: vi.fn() }))
 // Sandbox directories on the mocked fs: /opt/sandboxes/admin; new sandboxes are written to /opt/sandboxes/<owner>/<name>
 vi.mock('../../services/sandboxPaths', async orig => (await import('../helpers/flatSandboxPaths')).flatSandboxPaths(orig))
 
@@ -88,6 +90,7 @@ import { listProjectVolumes, exportVolume, removeVolume, stopProjectContainers, 
 import fs from 'fs'
 import yaml from 'js-yaml'
 import { ownerDirName, sandboxDir } from '../../services/sandboxPaths'
+import { copySandboxDir } from '../../services/sandboxFs'
 
 describe('sandbox service', () => {
   beforeEach(() => {
@@ -564,7 +567,7 @@ describe('archiveSandbox', () => {
     vi.mocked(stopProjectContainers).mockImplementation(async () => { steps.push('stop') })
     vi.mocked(removeProjectContainers).mockImplementation(async () => { steps.push('rmcontainers') })
     vi.mocked(exportVolume).mockImplementation(async v => { steps.push(`export:${v}`) })
-    vi.mocked(fs.cpSync).mockImplementation(() => { steps.push('copy') })
+    vi.mocked(copySandboxDir).mockImplementation(() => { steps.push('copy') })
     vi.mocked(fs.writeFileSync).mockImplementation(p => { if (String(p).endsWith('manifest.json')) steps.push('manifest') })
     vi.mocked(composeDown).mockImplementation(async () => { steps.push('down') })
     vi.mocked(removeVolume).mockImplementation(async v => { steps.push(`rmvol:${v}`) })
@@ -580,6 +583,13 @@ describe('archiveSandbox', () => {
     const archive = await sandboxService.archiveSandbox(name)
     expect(archive).toMatch(new RegExp(`^/opt/archive/admin/${name}-`))
     expect(steps).toEqual(['stop', `export:${vol}`, 'copy', 'manifest', 'down', 'rmcontainers', `rmvol:${vol}`, 'rmdir'])
+  })
+
+  it('copies the config without the SSH host keys into an archive only its owner can read', async () => {
+    vi.mocked(fs.mkdirSync).mockClear()
+    const archive = await sandboxService.archiveSandbox(name)
+    expect(copySandboxDir).toHaveBeenCalledWith(dir, `${archive}/config`, ['ssh-host-keys'])
+    expect(vi.mocked(fs.mkdirSync)).toHaveBeenCalledWith(archive, expect.objectContaining({ mode: 0o700 }))
   })
 
   it("archives under its owner's directory, the manifest names the owner", async () => {
