@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Test for scripts/export-restore.sh: what it extracts from an export is the sandbox's, so untrusted. No setuid/setgid
 # bit and no device node (other than the 0:0 whiteout) may come back armed, on the host's binds or in the volumes.
-# Runs against a stub docker on PATH. Usage: bash tests/export-restore.sh
+# Runs against a stub docker on PATH. Usage: bash tests/export-restore.sh (RESTORE_SH=<file> tests another restore.sh)
 set -euo pipefail
 cd "$(dirname "$0")/.."
 RED='\033[0;31m'; GREEN='\033[0;32m'; RESET='\033[0m'
@@ -23,12 +23,16 @@ esac
 exit 0
 EOF
 chmod +x "$tmp/bin/docker"
+# A tar that keeps setuid/setgid as root's does by default (-p): a non-root GNU tar drops them on its own, which would
+# make the bind checks below pass without the restore's strip
+real_tar=$(command -v tar)
+printf '#!/bin/sh\nexec "%s" "$@" -p\n' "$real_tar" > "$tmp/bin/tar" && chmod +x "$tmp/bin/tar"
 
 # An export as scripts/export-app.mjs makes it: one bind with a setuid file, one volume
 fixture() {
   local e=$1
   mkdir -p "$e/binds" "$e/volumes" "$tmp/src"
-  sed 's/^PROJECT=$/PROJECT=shop/' "$repo/scripts/export-restore.sh" > "$e/restore.sh"
+  sed 's/^PROJECT=$/PROJECT=shop/' "${RESTORE_SH:-$repo/scripts/export-restore.sh}" > "$e/restore.sh"
   rm -rf "$tmp/src" && mkdir "$tmp/src"
   printf '#!/bin/sh\n' > "$tmp/src/suid" && chmod 4755 "$tmp/src/suid"
   printf 'plain\n' > "$tmp/src/plain" && chmod 2755 "$tmp/src/plain"
