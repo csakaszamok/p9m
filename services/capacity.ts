@@ -7,14 +7,16 @@
 import { selfContainerId } from './selfContainer'
 
 export const OVERCOMMIT = 2
+/** Kata runs each sandbox in its own VM: the VMM and guest kernel take this much on top of the sandbox limit. */
+export const KATA_VMM_OVERHEAD = 200 * 1024 ** 2
 const RESERVED_MEMORY = 2 * 1024 ** 3
 
 export type Bottleneck = 'cpu' | 'memory' | 'disk'
 export interface Capacity { ideal: number; suggested: number; by: Bottleneck; cpu: number; memory: number; disk: number | null }
 
-export function capacity(host: { cpus: number; memory: number; disk: number | null }, per: { cpus: number; memory: number; disk: number }): Capacity {
+export function capacity(host: { cpus: number; memory: number; disk: number | null }, per: { cpus: number; memory: number; disk: number }, overhead = 0): Capacity {
   const cpu = Math.floor(host.cpus / per.cpus)
-  const memory = Math.floor(Math.max(0, host.memory - RESERVED_MEMORY) / per.memory)
+  const memory = Math.floor(Math.max(0, host.memory - RESERVED_MEMORY) / (per.memory + overhead))
   const disk = host.disk === null ? null : Math.floor(host.disk / per.disk)
   const ideal = Math.max(1, Math.min(cpu, memory))
   const doubled = ideal * OVERCOMMIT

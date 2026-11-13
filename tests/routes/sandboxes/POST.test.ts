@@ -31,7 +31,11 @@ vi.mock('../../../services/templateLoader', () => {
   return { listTemplates: () => all, loadTemplate: (n: string) => all.find(t => t.name === n) }
 })
 vi.mock('../../../services/runtimeLoader', () => ({
-  listRuntimes: () => [{ name: 'dind' }, { name: 'sysbox' }]
+  listRuntimes: () => [{ name: 'dind' }, { name: 'sysbox' }],
+  loadRuntime: (n: string) => {
+    const runtime = n === 'sysbox' ? 'sysbox-runc' : n === 'kata' ? 'kata' : undefined
+    return { name: n, docker_compose: { services: { sandbox: runtime ? { runtime } : {} } } }
+  }
 }))
 
 const { default: handler } = await import('../../../routes/sandboxes/POST')

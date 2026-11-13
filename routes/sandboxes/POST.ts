@@ -13,7 +13,7 @@ export const openapi = {
           type: 'object',
           properties: {
             name: { type: 'string', pattern: '^[a-z0-9][a-z0-9_-]{0,62}$', example: 'user1', description: 'Omit for a generated one (six letters and digits, k3x9q2): the name in the answer says which. GET /sandbox-name suggests one first.' },
-            runtime: { type: 'string', example: 'dind', description: 'How the sandbox runs (GET /runtimes). Omit for DEFAULT_RUNTIME (auto: sysbox where installed, else dind).' },
+            runtime: { type: 'string', example: 'dind', description: 'How the sandbox runs (GET /runtimes). Omit for DEFAULT_RUNTIME (auto: sysbox where installed, else dind); kata where allowed (opt-in).' },
             template: { type: 'string', example: 'starter', description: 'What runs inside (GET /templates). Omit for DEFAULT_TEMPLATE (starter).' },
             cpus: { type: 'number', example: 2, description: 'CPU limit (cores). Default SANDBOX_CPUS; users up to SANDBOX_MAX_CPUS, the admin up to the host.' },
             memory: { type: 'string', example: '4g', description: 'Memory limit (512m, 4g). Default SANDBOX_MEMORY; users up to SANDBOX_MAX_MEMORY, the admin up to the host.' },

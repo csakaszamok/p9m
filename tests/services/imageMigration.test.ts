@@ -12,12 +12,15 @@ vi.mock('../../services/docker', () => ({ getSandboxState: vi.fn() }))
 let sysbox: number[] | null = [0, 7, 1]
 vi.mock('../../services/sysboxVersion', async importActual => ({ ...await importActual<typeof import('../../services/sysboxVersion')>(), sysboxVersion: vi.fn(async () => sysbox) }))
 
+let kata: number[] | null = [4, 3, 1]
+vi.mock('../../services/kataVersion', async importActual => ({ ...await importActual<typeof import('../../services/kataVersion')>(), kataVersion: vi.fn(async () => kata) }))
+
 import { withCurrentImage, withLogRotation, migrateSandboxImage } from '../../services/imageMigration'
 import { composeUp, composeCreate } from '../../services/compose'
 import { getSandboxState } from '../../services/docker'
 import { DOCKER_LOGS } from '../../services/sandbox'
 
-const images = { sysbox: 'ghcr.io/csakaszamok/foxglove:0.12.0-sysbox', dind: 'ghcr.io/csakaszamok/foxglove:0.12.0-dind' }
+const images = { kata: 'ghcr.io/csakaszamok/foxglove:0.12.0-kata', sysbox: 'ghcr.io/csakaszamok/foxglove:0.12.0-sysbox', dind: 'ghcr.io/csakaszamok/foxglove:0.12.0-dind' }
 const compose = (image: string) => yaml.dump({ services: { sandbox: { image, container_name: 'x', labels: { 'p9m.managed': 'true' } }, frps: { image: 'fatedier/frps:v0.62.1' } } }, { lineWidth: -1 })
 const imageOf = (text: string) => (yaml.load(text) as { services: { sandbox: { image: string } } }).services.sandbox.image
 const state = (status: string, error = '') => ({ name: 'x', status, finishedAt: '', deepSleepAfter: '7d', staleNetwork: false, error })
@@ -48,7 +51,7 @@ describe('withLogRotation', () => {
 })
 
 describe('migrateSandboxImage', () => {
-  beforeEach(() => { vi.mocked(composeUp).mockClear(); vi.mocked(composeCreate).mockClear(); sysbox = [0, 7, 1] })
+  beforeEach(() => { vi.mocked(composeUp).mockClear(); vi.mocked(composeCreate).mockClear(); sysbox = [0, 7, 1]; kata = [4, 3, 1] })
   const usersDir = (names: string[], image = 'ghcr.io/csakaszamok/foxglove:0.11.0-sysbox') => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'p9m-img-'))
     for (const n of names) {
@@ -67,6 +70,21 @@ describe('migrateSandboxImage', () => {
     expect(fs.readFileSync(`${dir}/p9m-old/docker-compose.yml`, 'utf8')).toBe(before)
     expect(composeUp).not.toHaveBeenCalled()
     expect(JSON.parse(fs.readFileSync(`${dir}/p9m-old/daemon.json`, 'utf8'))['log-opts']).toEqual(DOCKER_LOGS['log-opts'])
+  })
+  it.each([[[4, 2, 0]], [null]])('kata %j: -kata sandboxes keep their image while -dind ones move', async version => {
+    kata = version
+    vi.mocked(getSandboxState).mockResolvedValue(state('running'))
+    const dir = usersDir(['p9m-k'], 'ghcr.io/csakaszamok/foxglove:0.11.0-kata')
+    fs.mkdirSync(`${dir}/p9m-d`); fs.writeFileSync(`${dir}/p9m-d/docker-compose.yml`, compose('ghcr.io/csakaszamok/foxglove:0.11.0-dind'))
+    expect(await migrateSandboxImage(dir, images)).toEqual(['p9m-d'])
+    expect(imageOf(fs.readFileSync(`${dir}/p9m-k/docker-compose.yml`, 'utf8'))).toBe('ghcr.io/csakaszamok/foxglove:0.11.0-kata')
+    expect(imageOf(fs.readFileSync(`${dir}/p9m-d/docker-compose.yml`, 'utf8'))).toBe(images.dind)
+  })
+  it('kata 4.3.1 moves a -kata sandbox to the new image', async () => {
+    vi.mocked(getSandboxState).mockResolvedValue(state('running'))
+    const dir = usersDir(['p9m-k'], 'ghcr.io/csakaszamok/foxglove:0.11.0-kata')
+    expect(await migrateSandboxImage(dir, images)).toEqual(['p9m-k'])
+    expect(imageOf(fs.readFileSync(`${dir}/p9m-k/docker-compose.yml`, 'utf8'))).toBe(images.kata)
   })
   it('an old sysbox does not hold back -dind sandboxes', async () => {
     sysbox = [0, 6, 7]
