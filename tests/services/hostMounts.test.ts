@@ -217,4 +217,11 @@ describe('addMount: Kata sandboxes', () => {
     expect(await result).toEqual([{ ...rw, readonly: false }])
     expect(mountOptions).not.toHaveBeenCalled()
   })
+  it('fails closed: if the host mount options cannot be read, nothing is added or recreated', async () => {
+    const f = file(kataCompose())
+    const recreate = vi.fn(async () => {})
+    await expect(addMount('p9m-shop', 'running', rw, { env, composePath: () => f, recreate, mountOptions: async () => { throw new Error('docker unavailable') } })).rejects.toThrow('docker unavailable')
+    expect(recreate).not.toHaveBeenCalled()
+    expect(mountsOf('p9m-shop', f)).toEqual([])
+  })
 })
