@@ -1674,6 +1674,11 @@
 <td>every server (the only one allowed by default); requires <a href="https://github.com/nestybox/sysbox">sysbox</a> on a Linux host</td>
 </tr>
 <tr>
+<td><code>kata</code></td>
+<td>a lightweight VM per sandbox (Kata Containers 4.3.1 or newer, Cloud Hypervisor), with its own kernel; no privileged mode on the host</td>
+<td>untrusted code, on a host with KVM (bare metal or nested virtualization, not a plain VPS). Opt-in: needs <code>kata</code> in <code>ALLOWED_RUNTIMES</code> (<code>DEFAULT_RUNTIME=kata</code> on top of that only makes it the default) and <code>sudo scripts/install-kata.sh</code> on the host (<a href="../install/#kata-containers-the-microvm-runtime">Install</a>)</td>
+</tr>
+<tr>
 <td><code>dind</code></td>
 <td><code>privileged: true</code></td>
 <td><strong>development only</strong> (a laptop, Docker Desktop / WSL, where sysbox cannot run): root in a <code>dind</code> sandbox can reach the host. Never on a server; allowed only with <code>ALLOWED_RUNTIMES=sysbox,dind</code> (or <code>all</code>)</td>
@@ -1718,7 +1723,15 @@
 </tr>
 </tbody>
 </table>
-<p>Both runtimes have the same wiring (FRP tunnel, Traefik route, Sablier sleep/wake, <code>docker_data</code> volume, archive on delete). The sysbox image runs plain <code>dockerd</code>, so its TLS listener is configured through the runtime's <code>daemon_json</code> field, which Purgatorium merges into the generated <code>daemon.json</code>. Only <code>sysbox</code> belongs on a server, and it is the only runtime allowed unless <code>ALLOWED_RUNTIMES</code> says otherwise (see <a href="../security/">Security</a>).</p>
+<p>All runtimes have the same wiring (FRP tunnel, Traefik route, Sablier sleep/wake, <code>docker_data</code> volume, archive on delete). The sysbox image runs plain <code>dockerd</code>, so its TLS listener is configured through the runtime's <code>daemon_json</code> field, which Purgatorium merges into the generated <code>daemon.json</code>; the kata image, like dind's, runs the dind entrypoint, which sets up TLS and the 2376 listener from <code>/certs</code> itself. Only <code>sysbox</code> and <code>kata</code> belong on a server, and <code>sysbox</code> is the only runtime allowed unless <code>ALLOWED_RUNTIMES</code> says otherwise (see <a href="../security/">Security</a>).</p>
+<p><strong>The <code>kata</code> runtime</strong> (<code>runtimes/kata.yaml</code>) runs the sandbox in a microVM: Kata 4.3.1 or newer (runtime-rs) with Cloud Hypervisor, and the image <code>ghcr.io/csakaszamok/foxglove:0.13.0-kata</code>. Things that differ from <code>sysbox</code>:</p>
+<ul>
+<li>The sandbox container is not <code>privileged</code>, but inside the guest it has all capabilities and unconfined seccomp, AppArmor and systempaths (like <code>dind</code>, so the inner Docker works): the VM is the boundary, not the container's own restrictions.</li>
+<li>Docker's embedded DNS cannot be reached from inside a Kata guest, so each Kata sandbox gets a small CoreDNS sidecar (<code>&lt;name&gt;-dns</code>, <code>coredns/coredns:1.11.3</code>) at a fixed address on the sandbox's own network. That network is a <code>/28</code> taken from <code>SANDBOX_SUBNET_POOL</code> (<a href="../configuration/">Configuration</a>); when the pool is used up, creating a Kata sandbox fails with a 503.</li>
+<li>Each awake Kata sandbox costs about 160 to 200 MiB for the VM monitor on top of its memory limit. With <code>DEFAULT_RUNTIME=kata</code>, the suggested <code>SANDBOX_MAX_TOTAL</code> counts 200 MiB per sandbox for it. A Kata sandbox's memory use, as Purgatorium shows it, is the guest's: it leaves out the VM monitor's memory.</li>
+<li>Resources change live: <code>docker update</code> grows CPU and memory at once. Lowering memory takes effect in the guest's cgroup straight away, but the host gets the RAM back at the next sleep and wake.</li>
+<li>A create on a host without Kata gets a 400 that names <code>scripts/install-kata.sh</code>; Kata older than 4.3.1 is refused. The inner Docker and the persistence of <code>docker_data</code> work as with <code>sysbox</code>.</li>
+</ul>
 <p><strong>Runtimes</strong> are <code>runtimes/&lt;name&gt;.yaml</code>: a <code>description</code>, the sandbox's own <code>docker_compose</code> (the DinD container, frps, socat, and their Traefik and Sablier labels) and an optional <code>daemon_json</code>. <strong>Templates</strong> are directories, <code>templates/&lt;name&gt;/</code>:</p>
 <ul>
 <li><code>compose.yaml</code> (required): the stack deployed into the sandbox's own Docker on creation, a plain compose file.</li>

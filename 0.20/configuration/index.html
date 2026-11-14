@@ -1796,12 +1796,17 @@
 <tr>
 <td><code>DEFAULT_RUNTIME</code></td>
 <td><code>auto</code></td>
-<td>Runtime for new sandboxes when a request names none: <code>auto</code> picks <code>sysbox</code> where the host has sysbox installed (no privileged container) and <code>dind</code> otherwise; or name one (see <a href="../runtimes-templates/">Runtimes and templates</a>)</td>
+<td>Runtime for new sandboxes when a request names none: <code>auto</code> picks <code>sysbox</code> where the host has sysbox installed (no privileged container) and <code>dind</code> otherwise (never <code>kata</code>: set this to <code>kata</code> to make it the default; it must also be in <code>ALLOWED_RUNTIMES</code>, as any default must, or every create without a runtime is a 400); or name one (see <a href="../runtimes-templates/">Runtimes and templates</a>)</td>
 </tr>
 <tr>
 <td><code>ALLOWED_RUNTIMES</code></td>
 <td><code>sysbox</code></td>
-<td>Runtimes new sandboxes may use, as a comma list, or <code>all</code>. The privileged <code>dind</code> is for development only (Docker Desktop, a laptop): <code>sysbox,dind</code> there; the development compose file (<code>docker-compose.dev.yml</code>) allows <code>all</code>. Others are left out of <code>GET /runtimes</code> and the <strong>New sandbox</strong> form, and a create asking for one is a 400 (so is one without a runtime when the default is not allowed). Existing sandboxes keep running, sleeping and waking</td>
+<td>Runtimes new sandboxes may use, as a comma list, or <code>all</code>. The privileged <code>dind</code> is for development only (Docker Desktop, a laptop): <code>sysbox,dind</code> there; add <code>kata</code> (<code>sysbox,kata</code>) once the host is set up for it (<a href="../install/#kata-containers-the-microvm-runtime">Install</a>); the development compose file (<code>docker-compose.dev.yml</code>) allows <code>all</code>. Others are left out of <code>GET /runtimes</code> and the <strong>New sandbox</strong> form, and a create asking for one is a 400 (so is one without a runtime when the default is not allowed). Existing sandboxes keep running, sleeping and waking</td>
+</tr>
+<tr>
+<td><code>SANDBOX_SUBNET_POOL</code></td>
+<td><code>10.213.0.0/16</code></td>
+<td>The address range the <code>kata</code> runtime takes each sandbox's own network from, one <code>/28</code> per sandbox (4096 for a <code>/16</code>). It must not overlap the host's Docker address pools or the server's own networks. A malformed value, or a range wider than a <code>/16</code> or narrower than a <code>/28</code>, falls back to the default, with a <code>[subnets]</code> warning at startup. When it is used up, creating a Kata sandbox is a 503 (<code>No free subnet in SANDBOX_SUBNET_POOL</code>). Not used by <code>sysbox</code> and <code>dind</code></td>
 </tr>
 <tr>
 <td><code>SANDBOX_CPUS</code>, <code>SANDBOX_MEMORY</code></td>
@@ -1826,7 +1831,7 @@
 <tr>
 <td><code>HOST_MOUNT_ROOTS</code></td>
 <td>(empty: off)</td>
-<td>Host folders the admin may mount into a sandbox, as a comma list of absolute paths (e.g. <code>/srv/shared,/data/projects</code>): a mount's host path must be one of them or under one (<code>/srv/shared2</code> is not under <code>/srv/shared</code>). Entries that are not absolute or have <code>..</code> are ignored, with a warning at startup; <code>/</code> (the whole host) is allowed, with a warning. <strong>A mount gives whoever owns the sandbox that host folder, as root</strong> (read-only if mounted so), and to every app in it. Empty: nobody can add a mount; ones already there stay until the admin removes them. See <a href="../web-ui/#host-folders">Host folders</a></td>
+<td>Host folders the admin may mount into a sandbox, as a comma list of absolute paths (e.g. <code>/srv/shared,/data/projects</code>): a mount's host path must be one of them or under one (<code>/srv/shared2</code> is not under <code>/srv/shared</code>). Entries that are not absolute or have <code>..</code> are ignored, with a warning at startup; <code>/</code> (the whole host) is allowed, with a warning. <strong>A mount gives whoever owns the sandbox that host folder, as root</strong> (read-only if mounted so), and to every app in it. A Kata sandbox gets a read-write mount only where the host mounts the folder <code>nosuid,nodev</code> (else read-only only), since its guest root writes there as host root. Empty: nobody can add a mount; ones already there stay until the admin removes them. See <a href="../web-ui/#host-folders">Host folders</a></td>
 </tr>
 <tr>
 <td><code>LOGIN_CAPACITY</code></td>

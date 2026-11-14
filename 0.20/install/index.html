@@ -489,6 +489,24 @@
         
       
       
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Install
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
       <a href="./" class="md-nav__link md-nav__link--active">
         
   
@@ -505,6 +523,36 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#kata-containers-the-microvm-runtime" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Kata Containers, the microVM runtime
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
       
     </li>
   
@@ -1642,6 +1690,25 @@
     
   
   
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#kata-containers-the-microvm-runtime" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Kata Containers, the microVM runtime
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
 </nav>
                   </div>
                 </div>
@@ -1667,14 +1734,14 @@
 less<span class="w"> </span>check-host.sh
 bash<span class="w"> </span>check-host.sh<span class="w"> </span>dev.example.com
 </code></pre></div>
-<p>Then, on a Linux host with Docker Engine, the compose plugin (Compose 2.17 or newer) and <a href="https://github.com/nestybox/sysbox">sysbox</a> 0.7.0 or newer (without it no sandbox can be created: the privileged <code>dind</code> runtime is for development only):</p>
+<p>Then, on a Linux host with Docker Engine, the compose plugin (Compose 2.17 or newer) and <a href="https://github.com/nestybox/sysbox">sysbox</a> 0.7.0 or newer (without it no sandbox can be created, unless you use the <a href="#kata-containers-the-microvm-runtime">Kata runtime</a> instead: the privileged <code>dind</code> runtime is for development only):</p>
 <div class="highlight"><pre><span></span><code>mkdir<span class="w"> </span>p9m<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nb">cd</span><span class="w"> </span>p9m
 curl<span class="w"> </span>-fsSLO<span class="w"> </span>https://github.com/csakaszamok/p9m/releases/latest/download/docker-compose.yml
 curl<span class="w"> </span>-fsSL<span class="w"> </span>https://github.com/csakaszamok/p9m/releases/latest/download/setup.sh<span class="w"> </span><span class="p">|</span><span class="w"> </span>bash<span class="w"> </span>-s<span class="w"> </span>--<span class="w"> </span>dev.example.com<span class="w">   </span><span class="c1"># .env with your domain and random secrets</span>
 docker<span class="w"> </span>compose<span class="w"> </span>up<span class="w"> </span>-d
 </code></pre></div>
 <p>The directory must be called <code>p9m</code>: the compose project name comes from it. For a given version, use <code>releases/download/v0.5.0/…</code> instead of <code>releases/latest/download/…</code>.</p>
-<p><code>check-host.sh</code> checks Docker and Docker Compose, sysbox, the address pools, ports, disk and registry access, and changes nothing (its sysbox check runs one throw-away <code>alpine</code> container); with the <code>HOST_DOMAIN</code> you plan to use it also checks the DNS records and, if <code>certs/</code> has one, the certificate. Lines marked ✘ must be fixed first, ⚠ are worth reading. Run it again in the <code>p9m</code> folder once Purgatorium is set up: it then also checks the security of its <code>.env</code> and of the host (the API port, the admin's password sign-in, default secrets, an open OIDC sign-in, HTTPS, other open ports, the firewall, automatic updates, SSH passwords), marks each problem with <strong>!</strong>, and lists them all again at the end under <em>NOT SECURE</em>.</p>
+<p><code>check-host.sh</code> checks Docker and Docker Compose, sysbox (and, if you use it, Kata), the address pools, ports, disk and registry access, and changes nothing (its sysbox check runs one throw-away <code>alpine</code> container); with the <code>HOST_DOMAIN</code> you plan to use it also checks the DNS records and, if <code>certs/</code> has one, the certificate. Lines marked ✘ must be fixed first, ⚠ are worth reading. Run it again in the <code>p9m</code> folder once Purgatorium is set up: it then also checks the security of its <code>.env</code> and of the host (the API port, the admin's password sign-in, default secrets, an open OIDC sign-in, HTTPS, other open ports, the firewall, automatic updates, SSH passwords), marks each problem with <strong>!</strong>, and lists them all again at the end under <em>NOT SECURE</em>.</p>
 <p><code>setup.sh</code> works in the current directory: it creates <code>.env</code> from its release's <code>env.example</code>, sets <code>HOST_DOMAIN</code> to the domain you give it and <code>PUBLIC_URL</code> to <code>p9m.&lt;domain&gt;</code> (<code>https://</code> if <code>certs/</code> already holds a certificate, else <code>http://</code>: run it again with the domain after adding one; a <code>PUBLIC_URL</code> you set yourself is kept), fills in random secrets, creates <code>data/</code>, <code>opt/</code>, <code>certs/</code> and <code>dynamic/</code>, and prints the admin password and token. It keeps values you already set, so it is safe to run again. Without it: download <code>env.example</code> of the release as <code>.env</code> and set <code>HOST_DOMAIN</code>, <code>PUBLIC_URL</code> and the three secrets by hand.</p>
 <p><code>docker compose up -d</code> pulls the released image <code>ghcr.io/csakaszamok/p9m</code>. It carries the sandbox templates and runtimes, and the files the other services read: on every <code>up</code> the one-shot <code>p9m-init</code> service copies the Sablier themes, the error pages, the registry config and <code>dynamic/errors.yml</code> from it, so they always match the running version. To work on the code, see <a href="https://github.com/csakaszamok/p9m/blob/main/CONTRIBUTING.md">CONTRIBUTING.md</a>.</p>
 <p>The stack runs Traefik v3.6 with the Sablier plugin, Sablier, a registry and the Purgatorium API. The UI is at <code>http://p9m.&lt;HOST_DOMAIN&gt;</code> (by default <code>http://p9m.lvh.me</code>, which resolves to <code>127.0.0.1</code>), the API also on port <code>8081</code> of the host.</p>
@@ -1702,6 +1769,22 @@ docker<span class="w"> </span>network<span class="w"> </span>rm<span class="w"> 
 docker<span class="w"> </span>compose<span class="w"> </span>up<span class="w"> </span>-d
 </code></pre></div>
 <p><code>check-host.sh</code> tells how many sandboxes <code>traefik-net</code> has room for.</p>
+</blockquote>
+<h2 id="kata-containers-the-microvm-runtime">Kata Containers, the microVM runtime<a class="headerlink" href="#kata-containers-the-microvm-runtime" title="Permanent link">&para;</a></h2>
+<p>For code you do not trust, the <code>kata</code> runtime puts each sandbox in its own VM (<a href="../security/#the-kata-runtime-a-vm-per-sandbox">Security</a>). It is optional and off by default. What it needs:</p>
+<ul>
+<li><strong>A host with KVM</strong> (<code>/dev/kvm</code>), x86_64, kernel 5.8 or newer: a bare-metal server, or a cloud VM with nested virtualization. A plain VPS such as Hetzner Cloud has no KVM and cannot run it; there, use sysbox.</li>
+<li><strong>Kata 4.3.1</strong> with Cloud Hypervisor (or QEMU), set up for Purgatorium. Do not install Kata by hand: run the script from the release (from a clone, <code>sudo scripts/install-kata.sh</code> is the same); it changes the host:</li>
+</ul>
+<div class="highlight"><pre><span></span><code>curl<span class="w"> </span>-fsSLO<span class="w"> </span>https://github.com/csakaszamok/p9m/releases/latest/download/install-kata.sh
+less<span class="w"> </span>install-kata.sh
+sudo<span class="w"> </span>bash<span class="w"> </span>install-kata.sh<span class="w">            </span><span class="c1"># --hypervisor clh|qemu (default clh), --yes to allow stopping running containers</span>
+</code></pre></div>
+<p>The script downloads Kata 4.3.1, adjusts its hypervisor configuration (VM sizing, the virtiofsd options that drop the capabilities to create device nodes and file capabilities, locked-down annotations), registers the <code>kata</code> runtime in <code>/etc/docker/daemon.json</code>, mounts Docker's data root and <code>/var/lib/containerd</code> <code>nosuid,nodev</code> (an <code>/etc/fstab</code> self-bind mount, so a setuid file or device node a sandbox writes is inert on the host), and sets <code>/run/kata-containers</code> to <code>0750</code>. It is safe to run again. Docker is restarted only when something changed, and with containers running only if you pass <code>--yes</code> (the script stops without it): they stop for the restart.</p>
+<p>Then allow the runtime in <code>.env</code> and recreate Purgatorium: <code>ALLOWED_RUNTIMES=sysbox,kata</code>, and <code>DEFAULT_RUNTIME=kata</code> on top of that if new sandboxes should use it by default (<code>DEFAULT_RUNTIME=kata</code> alone does not allow it: every create without a runtime would be refused). Kata sandboxes also take their own address range, <code>SANDBOX_SUBNET_POOL</code> (default <code>10.213.0.0/16</code>, one <code>/28</code> per sandbox), which must not overlap the host's Docker address pools (<a href="../configuration/">Configuration</a>). <code>check-host.sh</code> has a Kata section that checks all of this, including a test run.</p>
+<p><strong>Docker's volumes on a separate disk.</strong> A filesystem mounted under the data root or <code>/var/lib/containerd</code> (<code>/var/lib/docker/volumes</code> on a disk of its own, say) keeps its own mount options, so the data root's self-bind does not harden it. The script carries such a mount along when it is <code>nosuid,nodev</code> itself, and refuses before it changes anything when it is not: add <code>nosuid,nodev</code> to that mount's own options in <code>/etc/fstab</code>, remount it (<code>sudo mount -o remount,nosuid,nodev /var/lib/docker/volumes</code>) and run the script again. Do not put <code>nosuid</code> on the root filesystem <code>/</code>: it breaks <code>sudo</code> and <code>su</code>. If the mounts it lists belong to running containers, stop those and run it again. When the data root is itself a filesystem of its own already mounted <code>nosuid,nodev</code>, no self-bind is added for it. <code>check-host.sh</code> checks the data root, <code>volumes</code> and <code>overlay2</code> separately for the same reason.</p>
+<p><strong>On a host that also runs sysbox sandboxes</strong>, the <code>nosuid,nodev</code> data root also disables setuid programs in their <code>/opt</code>, <code>/home</code>, <code>/root</code> and <code>/srv</code> volumes. <code>check-host.sh</code> says so as information; if you need setuid there, give the Kata sandboxes their own host.</p>
+<blockquote>
 <p><strong>Before exposing Purgatorium publicly</strong>, set <code>ADMIN_TOKEN</code>, <code>SESSION_SECRET</code> and <code>ADMIN_PASSWORD</code> to real secrets (<code>setup.sh</code> does). <code>docker compose</code> does not start without an <code>ADMIN_TOKEN</code>; the <code>.env.example</code> placeholders are only meant for local dev and the e2e scripts: Purgatorium logs a startup warning while one is in effect, and refuses to start with an <code>https://</code> <code>PUBLIC_URL</code>. The direct API port <code>8081</code> listens on the host only (<code>P9M_API_BIND</code>), and OIDC needs <code>OIDC_ALLOWED_DOMAINS</code> or <code>OIDC_ALLOWED_EMAILS</code> (see <a href="../configuration/">Configuration</a>).</p>
 </blockquote>
 <p>All settings: <a href="../configuration/">Configuration</a>. For HTTPS: <a href="../https/">HTTPS</a>.</p>

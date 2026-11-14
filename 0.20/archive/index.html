@@ -1662,18 +1662,23 @@
 <ol>
 <li>stops the sandbox;</li>
 <li>writes every Docker volume of the sandbox's compose project to <code>opt/archive/&lt;owner&gt;/&lt;name&gt;-&lt;timestamp&gt;/volumes/&lt;volume&gt;.tar.gz</code> (the DinD data volume holds all inner images, containers and volumes, except <code>claude_secrets</code>, the secrets a project brought with <code>/p9m:teleport</code>: they never go into an archive, and a restored sandbox is teleported into again to get them);</li>
-<li>copies <code>opt/sandboxes/&lt;owner&gt;/&lt;name&gt;/</code> (compose files, certs, credentials) to <code>.../config/</code> and writes <code>manifest.json</code> (with the owner, and <code>secrets_excluded: true</code>);</li>
+<li>copies the regular files of <code>opt/sandboxes/&lt;owner&gt;/&lt;name&gt;/</code> (compose files, certs, credentials; no links, device nodes or other special files, and not its SSH host keys: a restored sandbox makes new ones) to <code>.../config/</code> and writes <code>manifest.json</code> (with the owner, and <code>secrets_excluded: true</code>). The archive directory is <code>0700</code>;</li>
 <li>only then removes the containers, the volumes and <code>opt/sandboxes/&lt;owner&gt;/&lt;name&gt;/</code> (and the owner's directory once it is empty). If any archive step fails nothing is removed and the call returns 500.</li>
 </ol>
 <p>Afterwards the name is free again and the sandbox URL returns 404. Archives are never pruned automatically; expect a few hundred MB per sandbox, more with large images.</p>
+<p>The volume tarballs are the volumes as they were, so whatever root in the sandbox put there is in them too: setuid files and, from a <code>sysbox</code> or <code>dind</code> sandbox, device nodes. Treat them as untrusted. Restore them only onto a <code>nosuid,nodev</code> filesystem, or, as below, strip setuid and setgid bits and device nodes (other than the 0:0 overlay whiteouts) right after extracting, the sweep export-restore runs.</p>
 <p>Restoring by hand:</p>
 <div class="highlight"><pre><span></span><code><span class="nv">A</span><span class="o">=</span>opt/archive/alice@example.com/p9m-alice-2026-09-26T21-47-01-401Z
 mkdir<span class="w"> </span>-p<span class="w"> </span>opt/sandboxes/alice@example.com
 cp<span class="w"> </span>-r<span class="w"> </span><span class="nv">$A</span>/config<span class="w"> </span>opt/sandboxes/alice@example.com/p9m-alice
+chmod<span class="w"> </span><span class="m">700</span><span class="w"> </span>opt/sandboxes/alice@example.com/p9m-alice<span class="w">   </span><span class="c1"># as Purgatorium makes a sandbox directory</span>
 <span class="k">for</span><span class="w"> </span>f<span class="w"> </span><span class="k">in</span><span class="w"> </span><span class="nv">$A</span>/volumes/*.tar.gz<span class="p">;</span><span class="w"> </span><span class="k">do</span>
 <span class="w">  </span><span class="nv">v</span><span class="o">=</span><span class="k">$(</span>basename<span class="w"> </span><span class="nv">$f</span><span class="w"> </span>.tar.gz<span class="k">)</span>
 <span class="w">  </span>docker<span class="w"> </span>volume<span class="w"> </span>create<span class="w"> </span>--label<span class="w"> </span>com.docker.compose.project<span class="o">=</span>p9m-alice<span class="w"> </span><span class="nv">$v</span>
-<span class="w">  </span>docker<span class="w"> </span>run<span class="w"> </span>--rm<span class="w"> </span>-v<span class="w"> </span><span class="nv">$v</span>:/data<span class="w"> </span>-v<span class="w"> </span><span class="s2">"</span><span class="nv">$PWD</span><span class="s2">/</span><span class="nv">$A</span><span class="s2">/volumes"</span>:/archive<span class="w"> </span>alpine<span class="w"> </span>tar<span class="w"> </span>xzf<span class="w"> </span>/archive/<span class="nv">$v</span>.tar.gz<span class="w"> </span>-C<span class="w"> </span>/data
+<span class="w">  </span>docker<span class="w"> </span>run<span class="w"> </span>--rm<span class="w"> </span>--network<span class="w"> </span>none<span class="w"> </span>-v<span class="w"> </span><span class="nv">$v</span>:/data<span class="w"> </span>-v<span class="w"> </span><span class="s2">"</span><span class="nv">$PWD</span><span class="s2">/</span><span class="nv">$A</span><span class="s2">/volumes"</span>:/archive<span class="w"> </span>alpine<span class="w"> </span>sh<span class="w"> </span>-ec<span class="w"> </span><span class="s1">'</span>
+<span class="s1">    tar xzf /archive/$1.tar.gz -C /data</span>
+<span class="s1">    find /data \( -perm -4000 -o -perm -2000 \) -exec chmod ug-s {} +</span>
+<span class="s1">    find /data \( -type b -o -type c \) -exec sh -c "for f; do [ \"\$(stat -c %t:%T \"\$f\")\" = 0:0 ] || rm -f \"\$f\"; done" _ {} +'</span><span class="w"> </span>_<span class="w"> </span><span class="nv">$v</span>
 <span class="k">done</span>
 docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>opt/sandboxes/alice@example.com/p9m-alice/docker-compose.yml<span class="w"> </span>up<span class="w"> </span>-d
 </code></pre></div>

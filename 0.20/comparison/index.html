@@ -2064,7 +2064,7 @@
 </ul>
 <h2 id="where-purgatorium-is-weaker">Where Purgatorium is weaker<a class="headerlink" href="#where-purgatorium-is-weaker" title="Permanent link">&para;</a></h2>
 <ol>
-<li><strong>Isolation is not yet a boundary against hostile code.</strong> The <code>dind</code> runtime runs the sandbox <code>privileged</code>: root inside a sandbox can escape to the host. That is fine for colleagues and their own agents, not for strangers. The <code>sysbox</code> runtime removes <code>privileged</code> and is used in production, but still shares the host's kernel; a <strong>Kata Containers</strong> runtime, a lightweight VM with its own kernel per sandbox, is on the <a href="../roadmap/">roadmap</a>.</li>
+<li><strong>Isolation against hostile code needs the <code>kata</code> runtime and a KVM host.</strong> The <code>dind</code> runtime runs the sandbox <code>privileged</code>: root inside a sandbox can escape to the host. That is fine for colleagues and their own agents, not for strangers. The <code>sysbox</code> runtime removes <code>privileged</code> and is used in production, but still shares the host's kernel. The <strong><code>kata</code></strong> runtime puts each sandbox in a lightweight VM with its own kernel, but needs a host with KVM (not a plain VPS), is x86_64 only, and leaves a residual risk on the host (<a href="../security/#the-kata-runtime-a-vm-per-sandbox">Security</a>).</li>
 <li><strong>One host for now.</strong> No multi-host scheduling and no warm pool; a new sandbox takes about 10 seconds once its images are pulled (the first one on a new server a minute or two), a wake from deep sleep about 30. <strong>Kubernetes support</strong> is on the roadmap.</li>
 <li><strong>Sleep stops the containers.</strong> On wake the stack restarts by its restart policies; what was only in memory is gone.</li>
 <li><strong>Missing pieces:</strong> no teams yet (a sandbox has one owner), no hard disk quota (only a warning above a disk limit; CPU and memory limits exist), no egress rules, no SDK (a REST API with an <a href="../api/#openapi-and-clients">OpenAPI document</a> to generate a client from, the Docker CLI and <a href="../agent-guide/">agent-guide.md</a>).</li>
@@ -2073,7 +2073,7 @@
 <h2 id="when-to-choose-something-else">When to choose something else<a class="headerlink" href="#when-to-choose-something-else" title="Permanent link">&para;</a></h2>
 <ul>
 <li><strong>Production that must scale and stay up without you</strong> → a cloud PaaS, or Coolify / Dokploy on your own servers.</li>
-<li><strong>Untrusted code from strangers</strong> (public sign-up) → a microVM sandbox (E2B, Docker Sandboxes, Northflank), until Purgatorium has a Kata runtime.</li>
+<li><strong>Untrusted code from strangers</strong> (public sign-up) → Purgatorium's <code>kata</code> runtime on a KVM host, or a microVM sandbox service (E2B, Docker Sandboxes, Northflank) where you have no KVM.</li>
 <li><strong>Writing code in a cloud IDE</strong> → Coder or Codespaces.</li>
 <li><strong>An agent running short scripts from an SDK</strong> → E2B, Daytona (as a service) or agent-sandbox.</li>
 <li><strong>Coding agents for a large engineering team, with policies per process</strong> → Coder (its agent features beyond Tasks are partly paid).</li>
