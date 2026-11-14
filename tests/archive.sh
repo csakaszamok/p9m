@@ -47,6 +47,11 @@ pass "Created and serving: $FULL_NAME"
 info "[2/4] Writing marker into /var/lib/docker (docker_data volume)..."
 docker exec "$FULL_NAME" sh -c "echo $MARKER > /var/lib/docker/p9m-marker"
 pass "Marker written: $MARKER"
+# What root in a sandbox could plant in its directory (under Kata it is host root there): not archived
+SBDIR=$(ls -d opt/sandboxes/*/"$FULL_NAME")
+mkfifo "$SBDIR/ssh-host-keys/p9m-fifo"
+cp /bin/true "$SBDIR/ssh-host-keys/p9m-suid" && chmod 4755 "$SBDIR/ssh-host-keys/p9m-suid"
+pass "Planted a FIFO and a setuid file in ssh-host-keys"
 
 # ── 3. Delete → archive ───────────────────────────────────────────────────────
 info "[3/4] DELETE /sandboxes/$FULL_NAME..."
@@ -67,6 +72,9 @@ TAR="$LOCAL/volumes/${FULL_NAME}_docker_data.tar.gz"
 [ -f "$TAR" ] || fail "volume archive missing: $TAR"
 [ "$(tar xzOf "$TAR" ./p9m-marker)" = "$MARKER" ] || fail "marker not found in volume archive"
 pass "Archive has manifest, config, certs and the volume with the marker ($(du -h "$TAR" | cut -f1))"
+[ ! -e "$LOCAL/config/ssh-host-keys" ] || fail "config/ssh-host-keys was archived"
+[ "$(stat -c %a "$LOCAL")" = 700 ] || fail "archive dir is mode $(stat -c %a "$LOCAL"), expected 700"
+pass "No ssh-host-keys in the archive, which only its owner can read"
 
 docker volume inspect "${FULL_NAME}_docker_data" >/dev/null 2>&1 && fail "volume still exists"
 ls -d opt/sandboxes/*/"$FULL_NAME" >/dev/null 2>&1 && fail "opt/sandboxes/*/$FULL_NAME still exists"

@@ -21,8 +21,9 @@ services:
       # No default: setup.sh writes a random one into .env
       ADMIN_TOKEN: ${ADMIN_TOKEN:?ADMIN_TOKEN is not set in .env - run ./setup.sh, it fills in a random one}
       DEFAULT_RUNTIME: ${DEFAULT_RUNTIME:-auto}
-      # Runtimes new sandboxes may use (comma list); default sysbox. The privileged dind is for development only
-      # (ALLOWED_RUNTIMES=sysbox,dind, or all): root in a dind sandbox can reach the host
+      # Runtimes new sandboxes may use (comma list, or all); default sysbox. kata (a VM per sandbox) once the host is set
+      # up for it (ALLOWED_RUNTIMES=sysbox,kata). The privileged dind is for development only (ALLOWED_RUNTIMES=sysbox,dind):
+      # root in a dind sandbox can reach the host
       ALLOWED_RUNTIMES: ${ALLOWED_RUNTIMES:-sysbox}
       DEFAULT_TEMPLATE: ${DEFAULT_TEMPLATE:-starter}
       # off: never ask GitHub for the star and fork counts in the topbar
@@ -45,6 +46,8 @@ services:
       SANDBOX_MAX_IDLE_TIMEOUT: ${SANDBOX_MAX_IDLE_TIMEOUT:-}
       SANDBOX_MAX_DEEP_SLEEP_AFTER: ${SANDBOX_MAX_DEEP_SLEEP_AFTER:-}
       SANDBOX_DISK: ${SANDBOX_DISK:-20g}
+      # Where Kata sandboxes get their own /28 (empty: 10.213.0.0/16); must not overlap the host's other networks
+      SANDBOX_SUBNET_POOL: ${SANDBOX_SUBNET_POOL:-}
       # Host folders the admin may mount into a sandbox (comma list, e.g. /srv/shared); empty: no mounts
       HOST_MOUNT_ROOTS: ${HOST_MOUNT_ROOTS:-}
       SANDBOX_MAX_TOTAL: ${SANDBOX_MAX_TOTAL:-200}

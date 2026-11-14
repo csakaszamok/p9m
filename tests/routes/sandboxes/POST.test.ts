@@ -11,6 +11,7 @@ vi.mock('../../../services/sandbox', () => ({
     createSandbox: vi.fn().mockImplementation(async (name: string) => {
       if (name === 'dupe') throw new Error('Sandbox already exists: dupe')
       if (name === 'nofree') throw new Error('No free ports available in template range')
+      if (name === 'nosubnet') throw new Error('No free subnet in SANDBOX_SUBNET_POOL')
       return { name, docker_host: 'tcp://1.2.3.4:32001', ca_cert: 'ca', client_cert: 'cc', client_key: 'ck' }
     }),
     suggestName: vi.fn(async () => 'k3x9q2'),
@@ -30,7 +31,11 @@ vi.mock('../../../services/templateLoader', () => {
   return { listTemplates: () => all, loadTemplate: (n: string) => all.find(t => t.name === n) }
 })
 vi.mock('../../../services/runtimeLoader', () => ({
-  listRuntimes: () => [{ name: 'dind' }, { name: 'sysbox' }]
+  listRuntimes: () => [{ name: 'dind' }, { name: 'sysbox' }],
+  loadRuntime: (n: string) => {
+    const runtime = n === 'sysbox' ? 'sysbox-runc' : n === 'kata' ? 'kata' : undefined
+    return { name: n, docker_compose: { services: { sandbox: runtime ? { runtime } : {} } } }
+  }
 }))
 
 const { default: handler } = await import('../../../routes/sandboxes/POST')
@@ -94,6 +99,13 @@ describe('POST /sandboxes', () => {
   it('returns 503 when port range exhausted', async () => {
     const res = await handler(jsonReq({ name: 'nofree' }))
     expect(res.status).toBe(503)
+  })
+
+  // A Kata sandbox needs its own /28: none left is a full server, not a fault
+  it('returns 503 when the subnet pool is exhausted', async () => {
+    const res = await handler(jsonReq({ name: 'nosubnet' }))
+    expect(res.status).toBe(503)
+    expect((await res.json()).error).toBe('No free subnet in SANDBOX_SUBNET_POOL')
   })
 
   it('sleep limits: a user may not create above them (the admin may)', async () => {

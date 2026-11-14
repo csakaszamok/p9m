@@ -47,12 +47,13 @@ set_value() {
 
 # size_mb SIZE: 4g, 512m, 1024k → megabytes
 size_mb() { awk -v s="$1" 'BEGIN { n = s + 0; u = tolower(substr(s, length(s))); print int(u == "g" ? n * 1024 : u == "m" ? n : u == "k" ? n / 1024 : n / 1048576) }'; }
-# suggest CPUS MEMORY_MB DISK_GB PER_CPUS PER_MEMORY_MB PER_DISK_MB → "suggested ideal bottleneck" (DISK_GB empty: unknown).
+# suggest CPUS MEMORY_MB DISK_GB PER_CPUS PER_MEMORY_MB PER_DISK_MB [OVERHEAD_MB] → "suggested ideal bottleneck" (DISK_GB empty: unknown).
+# OVERHEAD_MB: what each sandbox takes beyond its limit (200 with Kata: the VM around it).
 # As services/capacity.ts: how many can use their full CPU and memory at once (2 GB kept for the rest),
 # twice that (most idle or sleep), at most as many as the disk holds at SANDBOX_DISK each.
 suggest() {
-  awk -v c="$1" -v m="$2" -v d="$3" -v pc="$4" -v pm="$5" -v pd="$6" 'BEGIN {
-    cpu = pc > 0 ? int(c / pc) : 0; mem = pm > 0 ? int((m - 2048) / pm) : 0; if (mem < 0) mem = 0
+  awk -v c="$1" -v m="$2" -v d="$3" -v pc="$4" -v pm="$5" -v pd="$6" -v oh="${7:-0}" 'BEGIN {
+    cpu = pc > 0 ? int(c / pc) : 0; mem = pm > 0 ? int((m - 2048) / (pm + oh)) : 0; if (mem < 0) mem = 0
     ideal = cpu < mem ? cpu : mem; if (ideal < 1) ideal = 1
     s = ideal * 2; by = cpu <= mem ? "CPU" : "memory"
     if (d != "" && pd > 0) { disk = int(d * 1024 / pd); if (disk < s) { s = disk; by = "disk" } }
@@ -93,7 +94,7 @@ case "$(get SANDBOX_MAX_TOTAL)" in
       host_disk=${P9M_HOST_DISK_GB-$(df -BG --output=avail "${docker_root:-/nonexistent}" 2>/dev/null | tail -1 | tr -dc 0-9 || true)}
       per_cpus=$(get SANDBOX_CPUS) per_mem=$(get SANDBOX_MEMORY) per_disk=$(get SANDBOX_DISK)
       read -r max ideal by < <(suggest "${P9M_HOST_CPUS:-$(nproc 2>/dev/null || echo 1)}" "$host_mb" "$host_disk" \
-        "${per_cpus:-2}" "$(size_mb "${per_mem:-4g}")" "$(size_mb "${per_disk:-20g}")")
+        "${per_cpus:-2}" "$(size_mb "${per_mem:-4g}")" "$(size_mb "${per_disk:-20g}")" "$([ "$(get DEFAULT_RUNTIME)" = kata ] && echo 200 || echo 0)")
       set_value SANDBOX_MAX_TOTAL "$max"
       if [ "$by" = disk ]; then why="as many as the disk holds at ${per_disk:-20g} each"
       else why="$ideal can use their full CPU and memory at once ($by first), twice that since most idle or sleep"; fi

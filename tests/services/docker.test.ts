@@ -46,6 +46,7 @@ import {
   listedSandboxState,
   listManagedContainers,
   getSandboxState,
+  dockerSubnets,
 } from '../../services/docker'
 import { composeDeepSleepAfter } from '../../services/sleepSettings'
 import Dockerode from 'dockerode'
@@ -184,6 +185,15 @@ describe('docker service', () => {
     expect(inspect).toHaveBeenCalledTimes(1)
   })
 
+})
+
+// The subnets Docker's networks already use: a sandbox's own /28 must not overlap one
+describe('dockerSubnets', () => {
+  it("lists every network's IPAM subnets, skipping a network without IPAM config", async () => {
+    const listNetworks = new (vi.mocked(Dockerode))().listNetworks as ReturnType<typeof vi.fn>
+    listNetworks.mockResolvedValueOnce([{ IPAM: { Config: [{ Subnet: '172.18.0.0/16' }] } }, { IPAM: null }])
+    expect(await dockerSubnets()).toEqual(['172.18.0.0/16'])
+  })
 })
 
 describe('resolveHostSandboxesDir', () => {

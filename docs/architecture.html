@@ -135,7 +135,7 @@
 
       <!-- DinD sandbox -->
       <rect class="b" x="846" y="140" width="258" height="214" rx="8"/>
-      <text class="tb" x="975" y="162" text-anchor="middle">sandbox (DinD / sysbox)</text>
+      <text class="tb" x="975" y="162" text-anchor="middle">sandbox (sysbox / kata / DinD)</text>
       <text class="ts" x="975" y="178" text-anchor="middle">own dockerd :2376 (TLS, own CA)</text>
       <rect class="b" x="862" y="192" width="104" height="40" rx="5"/>
       <text class="t" x="914" y="216" text-anchor="middle">frpc</text>
@@ -318,7 +318,7 @@
     <li><strong>Waking needs Purgatorium:</strong> while Purgatorium is down, running sandboxes keep serving web traffic, but no sandbox can be woken, and TLS TCP addresses and Docker access (through its TCP gateway) do not work.</li>
     <li><strong>Restart policy:</strong> after a wake, only inner containers with <code>restart: unless-stopped</code> or <code>always</code> start again (an accepted, documented trade-off).</li>
     <li><strong>Activity:</strong> web requests and open Docker connections keep a sandbox awake; a TLS TCP connection alone (e.g. a database client) does not, and drops when the sandbox sleeps.</li>
-    <li><strong>Isolation:</strong> the default <code>dind</code> runtime is privileged; root inside a sandbox can reach the host. <code>sysbox</code> runs without it and is used in production; both share the host's kernel, and a Kata runtime (a VM per sandbox) is on the roadmap.</li>
+    <li><strong>Isolation:</strong> <code>sysbox</code>, the default and the production runtime, runs a sandbox unprivileged but on the host's kernel. <code>dind</code>, for development only, is privileged: root inside a sandbox can reach the host. <code>kata</code> runs each sandbox in its own VM with its own kernel (needs KVM), for code you do not trust.</li>
     <li><strong>Archive size:</strong> the archive of a fresh sandbox is about 200 MB, and archives are never pruned automatically. DELETE is synchronous and can take minutes with a large volume.</li>
     <li><strong>Network limit:</strong> every running or asleep sandbox holds a Docker network; <code>SANDBOX_MAX_TOTAL</code> (default 200) keeps users within the daemon's address pools. Widen <code>default-address-pools</code> for more.</li>
   </ul>

@@ -130,7 +130,7 @@ export async function createSandboxRequest(p: Principal, body: Record<string, un
     const msg = err instanceof Error ? err.message : 'Unknown error'
     console.error('[POST /sandboxes] error:', err instanceof Error ? err.stack : err)
     if (msg.includes('already exists') || msg.includes('conflicts with an existing sandbox') || msg.includes("would take Purgatorium's own address")) return Response.json({ error: msg }, { status: 409 })
-    if (msg.includes('No free ports')) return Response.json({ error: msg }, { status: 503 })
+    if (msg.includes('No free ports') || msg.includes('No free subnet')) return Response.json({ error: msg }, { status: 503 })
     if (msg.includes('fully subnetted')) return Response.json({ error: 'No free Docker networks available — run docker network prune' }, { status: 503 })
     return Response.json({ error: msg }, { status: 500 })
   } finally {

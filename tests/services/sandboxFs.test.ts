@@ -2,7 +2,8 @@ import { describe, it, expect } from 'vitest'
 import fs from 'fs'
 import os from 'os'
 import path from 'path'
-import { readSandboxFile, readSandboxFileIfAny, writeSandboxFile } from '../../services/sandboxFs'
+import { execFileSync } from 'child_process'
+import { copySandboxDir, readSandboxFile, readSandboxFileIfAny, writeSandboxFile } from '../../services/sandboxFs'
 
 // Root in a sandbox could write its /inner and /certs (before 0.12.22): a symlink there must never lead Purgatorium,
 // which reads and writes them as root, to one of its own files
@@ -31,6 +32,40 @@ describe('readSandboxFile', () => {
     fs.mkdirSync(`${d}/certs`)
     fs.symlinkSync(path.dirname(secret), `${d}/certs/client`)
     expect(() => readSandboxFile(d, 'certs/client/environ')).toThrow('Not a folder')
+  })
+
+  // A FIFO opened for reading without O_NONBLOCK waits for a writer: Purgatorium would hang on it
+  it.runIf(symlinks)('readSandboxFile on a FIFO throws "Not a file" without blocking', () => {
+    const d = tmp()
+    fs.mkdirSync(`${d}/inner`)
+    execFileSync('mkfifo', [`${d}/inner/docker-compose.yml`])
+    expect(() => readSandboxFile(d, 'inner/docker-compose.yml')).toThrow('Not a file')
+  })
+})
+
+describe('copySandboxDir', () => {
+  // Guest root (under Kata, host root) can plant setuid files, links and FIFOs in a sandbox's directory
+  it.runIf(symlinks)('copySandboxDir copies regular files with normalized modes and skips the rest', () => {
+    const src = tmp(), dest = path.join(tmp(), 'config')
+    fs.writeFileSync(`${src}/docker-compose.yml`, 'services: {}\n')
+    fs.chmodSync(`${src}/docker-compose.yml`, 0o640)
+    fs.writeFileSync(`${src}/suid`, '#!/bin/sh\n')
+    fs.chmodSync(`${src}/suid`, 0o4755)
+    fs.mkdirSync(`${src}/certs`)
+    fs.writeFileSync(`${src}/certs/ca.pem`, 'ca')
+    fs.symlinkSync('/etc/passwd', `${src}/passwd`)
+    execFileSync('mkfifo', [`${src}/fifo`])
+    fs.mkdirSync(`${src}/ssh-host-keys`)
+    fs.writeFileSync(`${src}/ssh-host-keys/key`, 'k')
+    copySandboxDir(src, dest, ['ssh-host-keys'])
+    const mode = (p: string) => fs.statSync(path.join(dest, p)).mode & 0o7777
+    expect(mode('.')).toBe(0o700)
+    expect(fs.readFileSync(`${dest}/docker-compose.yml`, 'utf8')).toBe('services: {}\n')
+    expect(mode('docker-compose.yml')).toBe(0o600)
+    expect(mode('suid')).toBe(0o644)
+    expect(mode('certs')).toBe(0o700)
+    expect(fs.readFileSync(`${dest}/certs/ca.pem`, 'utf8')).toBe('ca')
+    expect(fs.readdirSync(dest).sort()).toEqual(['certs', 'docker-compose.yml', 'suid'])
   })
 })
 

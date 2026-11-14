@@ -41,6 +41,7 @@ import { startRegistryGc } from "./services/registryGc";
 import { resumeScans } from "./services/registryScans";
 import { notifySecret } from "./services/notifySecret";
 import { resourceDefaults } from "./services/resources";
+import { subnetPool } from "./services/subnetPool";
 
 // Supports both old-style handler.ts (handle(req,res)) and
 // new-style METHOD.ts (default(req: Request): Promise<Response>)
@@ -347,7 +348,7 @@ repoInfo();
 // Say once which runtime new sandboxes get, and why dind when sysbox would be safer
 void defaultRuntime().then(rt => {
   const auto = !process.env.DEFAULT_RUNTIME || process.env.DEFAULT_RUNTIME === "auto";
-  if (auto && rt === "dind") console.warn("[runtime] sysbox is not installed: new sandboxes run privileged (dind), which is for development only. Install sysbox on a Linux host for isolation.");
+  if (auto && rt === "dind") console.warn("[runtime] sysbox is not installed: new sandboxes run privileged (dind), which is for development only. Install sysbox on a Linux host for isolation (or Kata with scripts/install-kata.sh, on a host with KVM).");
   else console.log(`[runtime] new sandboxes run on ${rt}${auto ? " (auto)" : ""}`);
   void runtimeMissing(rt).then(missing => { if (missing) console.warn(`[runtime] new sandboxes cannot be created: ${missing}`) });
   if (!runtimeAllowed(rt)) console.warn(`[runtime] the default runtime ${rt} is not in ALLOWED_RUNTIMES: a create without a runtime is refused; set DEFAULT_RUNTIME to an allowed one`);
@@ -357,6 +358,7 @@ startRegistryGc();
 void resumeScans().catch(err => console.error("[registry] resuming scans:", err));
 raiseConnectTimeout();
 for (const w of resourceDefaults().warnings) console.warn(`[resources] ${w}`);
+for (const w of subnetPool().warnings) console.warn(`[subnets] ${w}`);
 // Sandboxes whose install directory was moved or renamed: point their mounts at the current directory; then those
 // made under another apps domain (APPS_DOMAIN set or changed): their apps under the current one
 migrateHostPaths().catch(err => console.error("[paths] migration failed:", err))

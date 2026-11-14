@@ -1,0 +1,172 @@
+# How a sandbox runs: its own compose file (the DinD container in a Kata VM, its DNS forwarder, frps, socat, Traefik
+# and Sablier labels). The stack inside comes from a template (templates/<name>/compose.yaml).
+description: "Kata Containers: each sandbox in its own VM (Cloud Hypervisor; needs KVM and Kata on a Linux host)"
+
+# The -kata image runs the dind entrypoint, which sets up TLS and the 2376 listener from /certs: no daemon_json
+
+docker_compose:
+  services:
+    sandbox:
+      image: ghcr.io/csakaszamok/foxglove:0.13.0-kata
+      container_name: ${name}
+      runtime: kata
+      # Not privileged: under Docker that passes every host device into the VM. These give guest root what dockerd
+      # needs inside the VM; the VM, not these, is the boundary to the host
+      cap_add: [ALL]
+      security_opt: [seccomp=unconfined, apparmor=unconfined, systempaths=unconfined]
+      device_cgroup_rules: ['a *:* rwm']
+      environment:
+        FRP_SERVER_ADDR: "${name}-frps"
+        FRP_SERVER_PORT: "65000"
+        FRP_TOKEN: "${frp_token}"
+        BASE_DOMAIN: "${host_domain}"
+        # Docker's embedded DNS (127.0.0.11) is unreachable from the guest: the image points resolv.conf at the dns
+        # service, which forwards to it, so the sandbox and its inner containers resolve names as under sysbox
+        DNS_SERVER: "${dns_ip}"
+      depends_on:
+        - dns
+      volumes:
+        # Read-only, and of /certs only its dockerd's own certificate: what Purgatorium reads and writes (its client
+        # keys, the inner compose file) cannot be swapped for a symlink to one of Purgatorium's files
+        - "${sandbox_dir}/certs/server:/certs/server:ro"
+        - "${sandbox_dir}/instance-name:/etc/instance/name:ro"
+        - "${sandbox_dir}/authorized_keys:/etc/instance/authorized_keys:ro"
+        - "${sandbox_dir}/ssh-host-keys:/etc/ssh/host-keys"
+        - "${sandbox_dir}/inner:/inner:ro"
+        - "${sandbox_dir}/daemon.json:/etc/docker/daemon.json:ro"
+        - docker_data:/var/lib/docker
+        # The sandbox's own files survive a deep sleep or a recreated container
+        - sandbox_opt:/opt
+        - sandbox_root:/root
+        - sandbox_home:/home
+        - sandbox_srv:/srv
+      restart: unless-stopped
+      cpus: ${cpus}
+      mem_limit: ${memory}
+      memswap_limit: ${memory}
+      # Processes and threads of the whole sandbox (its dockerd and apps too): a fork bomb in one must not use up the
+      # host's process table
+      pids_limit: 4096
+      # Its own network only: on traefik-net it reached every other sandbox's ports. Purgatorium reaches its SSH,
+      # Docker and TCP ports through frps (frpc's tcp proxies); what it needs outside, through socat
+      networks:
+        - default
+      labels:
+        p9m.managed: "true"
+        p9m.name: ${name}
+        p9m.template: ${template_name}
+        p9m.runtime: ${runtime_name}
+        p9m.compose: ${compose_source}
+        p9m.ssh: "true"
+        p9m.created_at: ${created_at}
+        p9m.deep_sleep_after: ${deep_sleep_after}
+        p9m.owner: ${owner}
+        sablier.enable: "true"
+        sablier.group: ${name}
+
+    # Forwards the sandbox's lookups to Docker's embedded DNS on this network. A fixed address (the sandbox's
+    # resolv.conf names it) in the lower half of the sandbox's own /28; Docker hands out the upper half (ip_range), so
+    # frps or socat cannot take it first
+    dns:
+      image: coredns/coredns:1.11.3
+      container_name: ${name}-dns
+      command: ["-conf", "/etc/coredns/Corefile"]
+      volumes:
+        - "${sandbox_dir}/Corefile:/etc/coredns/Corefile:ro"
+      networks:
+        default:
+          ipv4_address: "${dns_ip}"
+      restart: unless-stopped
+      labels:
+        sablier.enable: "true"
+        sablier.group: ${name}
+
+    frps:
+      image: fatedier/frps:v0.62.1
+      container_name: ${name}-frps
+      command:
+        - -c
+        - /etc/frp/frps.toml
+      volumes:
+        - "${sandbox_dir}/frps.toml:/etc/frp/frps.toml:ro"
+      networks:
+        default:
+        # Under the sandbox's name: Purgatorium's <name>:22, :2376 and :<port> (the TLS certificates name it) land on
+        # frps, which passes them through the tunnel to the sandbox
+        traefik-net:
+          aliases: ["${name}"]
+      restart: unless-stopped
+      labels:
+        sablier.enable: "true"
+        sablier.group: ${name}
+
+    socat:
+      image: alpine/socat:1.8.1.3
+      container_name: ${name}-socat
+      entrypoint: /bin/sh
+      # frps's vhost (65080) and API (65075) for Traefik and Purgatorium; for the sandbox, Purgatorium's Docker Hub and ghcr.io caches
+      # and, under their names, the registry and the UI (Traefik)
+      command: -c "trap 'exit 0' TERM; for r in 8080:${name}-frps:65080 7500:${name}-frps:65075 5000:p9m-registry-cache:5000 5001:p9m-registry-cache-ghcr:5000 80:traefik:80 443:traefik:443; do socat TCP-LISTEN:$${r%%:*},fork,reuseaddr TCP:$${r#*:} & done; wait"
+      # The frps API has a password: other sandboxes reach its port through this socat over traefik-net
+      environment:
+        FRPS_API_AUTH: "${frps_api_auth}"
+      networks:
+        default:
+          aliases: [registry-cache, "${registry_host}", "${ui_host}", "${user_host}"]
+        traefik-net:
+      restart: unless-stopped
+      depends_on:
+        - frps
+      # Healthy only once frpc inside the sandbox has registered its proxies,
+      # so Sablier does not redirect the user before the tunnel works. A stack that publishes no port has
+      # no HTTP proxy: then frpc's readiness marker (<name>.ready, stcp) online for 15 s, in case an
+      # app's proxy is still on its way (the time since the marker was first seen, in /dev/shm: empty
+      # on every start of the container).
+      healthcheck:
+        test: ["CMD-SHELL", "a=http://$$FRPS_API_AUTH@127.0.0.1:7500/api/proxy; wget -qO- $$a/http | grep -q online || { wget -qO- $$a/stcp | grep -q online && { [ -f /dev/shm/ready ] || touch /dev/shm/ready; [ $$(( $$(date +%s) - $$(stat -c %Y /dev/shm/ready) )) -ge 15 ]; }; }"]
+        # Every 10 s once up (each check is a `docker exec`: with many sandboxes, every 2 s kept dockerd busy);
+        # a broken tunnel still takes its router away within 2 minutes
+        interval: 10s
+        timeout: 2s
+        retries: 12
+        # Every 0.5 s while it starts, so its router (and its app address) shows up as soon as the tunnel does;
+        # needs Docker Engine 25, below which Purgatorium leaves start_interval out
+        start_period: 60s
+        start_interval: 500ms
+      labels:
+        sablier.enable: "true"
+        sablier.group: ${name}
+        # No allownonrunning: the router exists only while the sandbox runs, so running traffic never goes
+        # through p9m; asleep, its requests fall to p9m's catch-all (p9m-wake), which wakes it within the limits
+        traefik.enable: "true"
+        traefik.http.routers.frps-${name}.rule: "HostRegexp(`^${raw_name}-[a-z0-9-]+[.]${host_domain}$`)"
+        traefik.http.routers.frps-${name}.middlewares: access-${name}@http,sablier-${name}
+        traefik.http.middlewares.sablier-${name}.plugin.sablier.sablierUrl: http://sablier:10000
+        traefik.http.middlewares.sablier-${name}.plugin.sablier.group: ${name}
+        traefik.http.middlewares.sablier-${name}.plugin.sablier.sessionDuration: ${idle_timeout}
+        traefik.http.middlewares.sablier-${name}.plugin.sablier.dynamic.displayName: ${raw_name}
+        traefik.http.middlewares.sablier-${name}.plugin.sablier.dynamic.theme: p9m
+        traefik.http.middlewares.sablier-${name}.plugin.sablier.dynamic.refreshFrequency: 3s
+        traefik.http.routers.frps-${name}.entrypoints: web,websecure
+        # By name, not the container's address: Traefik learns a woken container's address only ~1.5 s after
+        # Sablier lets the request through, and meanwhile sent it to the stopped one's empty address (500)
+        traefik.http.services.frps-${name}.loadbalancer.server.url: http://${name}-socat:8080
+        traefik.docker.network: traefik-net
+
+  volumes:
+    docker_data:
+    sandbox_opt:
+    sandbox_root:
+    sandbox_home:
+    sandbox_srv:
+
+  networks:
+    # Its own /28 from SANDBOX_SUBNET_POOL, so the dns service can have a fixed address
+    default:
+      ipam:
+        config:
+          - subnet: "${subnet}"
+            ip_range: "${ip_range}"
+    traefik-net:
+      external: true
+

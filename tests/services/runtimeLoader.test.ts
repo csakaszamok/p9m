@@ -10,17 +10,19 @@ const servicesOf = (name: string) => loadRuntime(name, DIR).docker_compose.servi
 
 function expectSshMounts(name: string) {
   const sb = (loadRuntime(name, DIR).docker_compose.services as Record<string, { image: string; volumes: string[] }>).sandbox
-  expect(sb.image).toBe(`ghcr.io/csakaszamok/foxglove:0.12.0-${name}`)
+  expect(sb.image).toBe(`ghcr.io/csakaszamok/foxglove:0.13.0-${name}`)
   expect(sb.volumes).toEqual(expect.arrayContaining(['${sandbox_dir}/authorized_keys:/etc/instance/authorized_keys:ro', '${sandbox_dir}/ssh-host-keys:/etc/ssh/host-keys']))
   expect(sb).toMatchObject({ cpus: '${cpus}', mem_limit: '${memory}', memswap_limit: '${memory}' })
 }
 
 // On traefik-net a sandbox reached every other sandbox's ports: it is on its own network, frps there under its name
 describe('the runtimes keep a sandbox off the network the sandboxes share', () => {
-  for (const name of ['dind', 'sysbox']) {
+  for (const name of ['dind', 'kata', 'sysbox']) {
     it(name, () => {
       const s = loadRuntime(name, DIR).docker_compose.services as Record<string, { networks?: unknown; environment?: Record<string, string>; command?: string }>
       expect(s.sandbox.networks).toEqual(['default'])
+      // Kata's DNS forwarder: on the sandbox's own network only, at its fixed address
+      if (name === 'kata') expect(s.dns.networks).toEqual({ default: { ipv4_address: '${dns_ip}' } })
       expect(s.sandbox.environment?.FRP_SERVER_PORT).toBe('65000')
       expect(s.frps.networks).toEqual({ default: null, 'traefik-net': { aliases: ['${name}'] } })
       expect(s.socat.networks).toEqual({ default: { aliases: ['registry-cache', '${registry_host}', '${ui_host}', '${user_host}'] }, 'traefik-net': null })
@@ -59,6 +61,29 @@ describe('loadRuntime', () => {
     expectSshMounts('sysbox')
   })
 
+  it('loads kata: the kata runtime instead of privileged, a DNS forwarder on its own subnet, no daemon_json', () => {
+    const r = loadRuntime('kata', DIR)
+    expect(r.description).toMatch(/Kata/)
+    const s = servicesOf('kata') as Record<string, Service & { cap_add?: string[]; environment?: Record<string, string>; depends_on?: string[]; image?: string; volumes?: string[] }>
+    expect(Object.keys(s)).toEqual(['sandbox', 'dns', 'frps', 'socat'])
+    expect(s.sandbox.runtime).toBe('kata')
+    expect(s.sandbox.privileged).toBeUndefined()
+    expect(s.sandbox.cap_add).toEqual(['ALL'])
+    expect(s.sandbox.environment?.DNS_SERVER).toBe('${dns_ip}')
+    expect(s.sandbox.depends_on).toEqual(['dns'])
+    expect(s.sandbox.labels?.['p9m.runtime']).toBe('${runtime_name}')
+    expect(s.sandbox.labels?.['p9m.ssh']).toBe('true')
+    expect(s.dns.image).toBe('coredns/coredns:1.11.3')
+    expect(s.dns.volumes).toEqual(['${sandbox_dir}/Corefile:/etc/coredns/Corefile:ro'])
+    expect(s.dns.labels).toEqual({ 'sablier.enable': 'true', 'sablier.group': '${name}' })
+    expect((r.docker_compose as { networks: Record<string, unknown> }).networks).toEqual({
+      default: { ipam: { config: [{ subnet: '${subnet}', ip_range: '${ip_range}' }] } },
+      'traefik-net': { external: true },
+    })
+    expect(r.daemon_json).toBeUndefined()
+    expectSshMounts('kata')
+  })
+
   it('refuses unknown names and anything that is not a plain name', () => {
     for (const n of ['nope', '../templates/starter/compose', 'dind/../dind', '..\\dind', '', 'Dind']) {
       expect(() => loadRuntime(n, DIR), n).toThrow(`Runtime not found: ${n}`)
@@ -67,9 +92,9 @@ describe('loadRuntime', () => {
 })
 
 describe('listRuntimes', () => {
-  it('lists dind and sysbox, sorted, each with a description', () => {
+  it('lists dind, kata and sysbox, sorted, each with a description', () => {
     const list = listRuntimes(DIR)
-    expect(list.map(r => r.name)).toEqual(['dind', 'sysbox'])
+    expect(list.map(r => r.name)).toEqual(['dind', 'kata', 'sysbox'])
     for (const r of list) expect(r.description).toBeTruthy()
   })
 
@@ -90,7 +115,7 @@ describe('listRuntimes', () => {
 describe('the sandbox router reaches socat by name', () => {
   // Not by the container's address: after a wake Traefik learns that only ~1.5 s after Sablier lets the
   // request through, and meanwhile sent it to the stopped container's empty address (500 Internal Server Error)
-  it.each(['dind', 'sysbox'])('%s', name => {
+  it.each(['dind', 'kata', 'sysbox'])('%s', name => {
     const labels = servicesOf(name).socat.labels ?? {}
     expect(labels['traefik.http.services.frps-${name}.loadbalancer.server.url']).toBe('http://${name}-socat:8080')
     expect(labels['traefik.http.services.frps-${name}.loadbalancer.server.port']).toBeUndefined()
@@ -99,14 +124,14 @@ describe('the sandbox router reaches socat by name', () => {
 
 describe('the sandbox router exists only while the sandbox runs', () => {
   // Asleep, its requests fall to p9m's catch-all, which wakes it within the owner's limits
-  it.each(['dind', 'sysbox'])('%s', name => {
+  it.each(['dind', 'kata', 'sysbox'])('%s', name => {
     expect(servicesOf(name).socat.labels?.['traefik.docker.allownonrunning']).toBeUndefined()
   })
 })
 
 describe('the sandbox keeps /opt, /root, /home and /srv in named volumes', () => {
   // Without them, a deep sleep (compose down) or a removed container lost what was written there
-  it.each(['dind', 'sysbox'])('%s', name => {
+  it.each(['dind', 'kata', 'sysbox'])('%s', name => {
     const r = loadRuntime(name, DIR)
     const sb = (r.docker_compose.services as Record<string, { volumes: string[] }>).sandbox
     expect(sb.volumes).toEqual(expect.arrayContaining(['sandbox_opt:/opt', 'sandbox_root:/root', 'sandbox_home:/home', 'sandbox_srv:/srv']))

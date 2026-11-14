@@ -30,7 +30,7 @@ body:
     id: host
     attributes:
       label: Host
-      description: OS, Docker version, and the sandbox's runtime (dind or sysbox) and template
+      description: OS, Docker version, and the sandbox's runtime (sysbox, kata or dind) and template
       placeholder: Ubuntu 24.04, Docker 29.8, sysbox, starter
   - type: textarea
     id: logs

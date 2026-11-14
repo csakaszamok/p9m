@@ -5,6 +5,7 @@ import { getSandboxState } from './docker'
 import { entriesIn, listSandboxDirs } from './sandboxPaths'
 import { runtimeImages } from './networkMigration'
 import { DOCKER_LOGS } from './sandbox'
+import { kataNewEnough, kataVersion, MIN_KATA } from './kataVersion'
 import { MIN_SYSBOX, sysboxNewEnough, sysboxVersion, versionText } from './sysboxVersion'
 
 type Compose = { services?: Record<string, { image?: unknown } | undefined> }
@@ -40,13 +41,20 @@ export function withLogRotation(text: string): string | null {
   return JSON.stringify({ ...cfg, ...DOCKER_LOGS }, null, 2)
 }
 
-/** The images to move to: without the -sysbox one where the host's sysbox cannot run it, or its version is unknown. */
+/** The images to move to: without the -sysbox one where the host's sysbox cannot run it, or its version is unknown; likewise -kata. */
 async function imagesThisHostRuns(images: Record<string, string>): Promise<Record<string, string>> {
-  const version = await sysboxVersion()
-  if (version && sysboxNewEnough(version)) return images
-  const log = version ? console.warn : console.log // no version: most often a host without sysbox, nothing to warn of
-  log(`[image] sysbox ${version ? versionText(version) : 'version unknown'}: -sysbox sandboxes stay on their image, the new one needs sysbox ${versionText(MIN_SYSBOX)} or newer`)
-  const { sysbox: _sysbox, ...others } = images
+  const [sysbox, kata] = [await sysboxVersion(), await kataVersion()]
+  const others = { ...images }
+  if (!(sysbox && sysboxNewEnough(sysbox))) {
+    const log = sysbox ? console.warn : console.log // no version: most often a host without sysbox, nothing to warn of
+    log(`[image] sysbox ${sysbox ? versionText(sysbox) : 'version unknown'}: -sysbox sandboxes stay on their image, the new one needs sysbox ${versionText(MIN_SYSBOX)} or newer`)
+    delete others.sysbox
+  }
+  if (!(kata && kataNewEnough(kata))) {
+    const log = kata ? console.warn : console.log
+    log(`[image] kata ${kata ? versionText(kata) : 'version unknown'}: -kata sandboxes stay on their image, the new one needs kata ${versionText(MIN_KATA)} or newer`)
+    delete others.kata
+  }
   return others
 }
 

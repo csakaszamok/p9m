@@ -4,7 +4,7 @@ import { listRuntimes } from '../../services/runtimeLoader'
 
 export const openapi = {
   mcp: { name: 'list_runtimes' },
-  summary: 'List the runtimes new sandboxes may use (how a sandbox runs: dind, sysbox; ALLOWED_RUNTIMES)',
+  summary: 'List the runtimes new sandboxes may use (how a sandbox runs: dind, sysbox, kata; ALLOWED_RUNTIMES)',
   tags: ['templates'],
   security: [{ bearerAuth: [] }],
   responses: {
