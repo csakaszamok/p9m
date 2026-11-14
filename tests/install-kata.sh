@@ -109,3 +109,12 @@ subs=$(kata_submounts /var/lib/docker <<< "$mounts")
 # A volume that is itself an overlay at a merged-like path is still a submount when it is not overlay
 subs=$(kata_submounts /var/lib/docker <<< '/var/lib/docker/overlay2/x/merged ext4')
 [ "$subs" = /var/lib/docker/overlay2/x/merged ] && pass "a non-overlay mount at a merged path counts" || fail "merged path: $subs"
+# Docker's containerd image store mounts a running container's rootfs at <root>/rootfs/<snapshotter>/<id>: not listed;
+# a separate volumes disk next to it still is
+mounts='/var/lib/docker/rootfs/overlayfs/0123abcd overlay
+/var/lib/docker/rootfs/overlayfs/4567ef01 overlay
+/var/lib/docker/volumes ext4'
+subs=$(kata_submounts /var/lib/docker <<< "$mounts")
+[ "$subs" = /var/lib/docker/volumes ] && pass "containerd store: running containers' rootfs left out, volumes listed" || fail "containerd store: $subs"
+subs=$(kata_submounts /var/lib/docker <<< '/var/lib/docker/rootfs/overlayfs/x ext4')
+[ "$subs" = /var/lib/docker/rootfs/overlayfs/x ] && pass "a non-overlay mount under rootfs counts" || fail "rootfs non-overlay: $subs"

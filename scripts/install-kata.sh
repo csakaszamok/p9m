@@ -104,14 +104,14 @@ mount_hardened() {
 }
 
 # kata_submounts DIR: the mount points under DIR (not DIR itself), one per line, from "TARGET FSTYPE" lines on stdin
-# (findmnt -rn -o TARGET,FSTYPE). A plain self-bind of DIR would hide them. A running container's own mounts (its
-# overlay merged dir, its shm) are left out: they go with the container
+# (findmnt -rn -o TARGET,FSTYPE). A running container's own mounts are left out, as they go with the container: its
+# rootfs (overlay2/<id>/merged, or rootfs/<snapshotter>/<id> with Docker's containerd image store) and its shm
 kata_submounts() {
   local dir=$1 target fstype
   while read -r target fstype _; do
     case "$target" in "$dir"/*) ;; *) continue ;; esac
     case "$target" in
-      "$dir"/overlay2/*/merged) [ "$fstype" = overlay ] && continue ;;
+      "$dir"/overlay2/*/merged|"$dir"/rootfs/*/*) [ "$fstype" = overlay ] && continue ;;
       "$dir"/containers/*/mounts/shm) [ "$fstype" = tmpfs ] && continue ;;
     esac
     printf '%s\n' "$target"
@@ -189,33 +189,34 @@ main() {
   data_root=$(docker info --format '{{.DockerRootDir}}' 2>/dev/null || true)
   data_root=${data_root:-/var/lib/docker}
   local dirs=("$data_root" /var/lib/containerd) d unit
-  local dropin
-  dropin=$(printf '[Unit]\nRequiresMountsFor=%s' "${dirs[*]}")
+  # A folder that is a filesystem of its own, already mounted nosuid,nodev, needs no self-bind (nor the drop-in for it).
+  # FSROOT / tells it from an earlier self-bind (whose FSROOT is the folder's path on the filesystem below)
+  local bind_dirs=()
+  for d in "${dirs[@]}"; do
+    if mount_hardened "$d" && [ "$(findmnt -no TARGET --target "$d" 2>/dev/null)" = "$d" ] \
+       && [ "$(findmnt -no FSROOT --target "$d" 2>/dev/null)" = / ]; then
+      echo "== $d is a nosuid,nodev filesystem of its own: no self-bind needed"
+    else
+      bind_dirs+=("$d")
+    fi
+  done
+  local dropin=""
+  [ "${#bind_dirs[@]}" -eq 0 ] || dropin=$(printf '[Unit]\nRequiresMountsFor=%s' "${bind_dirs[*]}")
   local cfg=$KATA_DEFAULTS/runtime-rs/configuration-$hypervisor-runtime-rs.toml
 
-  # The self-bind is not recursive: a separate mount under a folder (Docker's volumes on their own disk, say) would be
-  # hidden from Docker until the next reboot, and would keep its own flags (setuid files armed) after it. Refused here,
-  # while nothing has changed and Docker still runs
+  # A separate mount under a folder (Docker's volumes on their own disk, say) keeps its own flags: one that is not
+  # nosuid,nodev would arm the setuid files a sandbox leaves there. Refused here, while nothing has changed and Docker
+  # still runs. Hardened ones are carried along by the recursive self-bind below
   _ki_step="checking the mounts under ${dirs[*]}"
   local subs s
   for d in "${dirs[@]}"; do
     subs=$(findmnt -rn -o TARGET,FSTYPE 2>/dev/null | kata_submounts "$d" || true)
-    [ -n "$subs" ] || continue
-    if ! mount_hardened "$d"; then
-      echo "install-kata: other filesystems are mounted under $d:" >&2
-      # shellcheck disable=SC2086 # findmnt -r escapes blanks: one word per mount point
-      printf '  %s\n' $subs >&2
-      echo "install-kata: a nosuid,nodev self-bind of $d would hide them from Docker. Add nosuid,nodev to the mount options" >&2
-      echo "of $d's own filesystem and of each of these in /etc/fstab, remount them (mount -o remount,nosuid,nodev DIR)," >&2
-      echo "then run this again (docs/install.md, \"Docker's volumes on a separate disk\")." >&2
-      trap - EXIT
-      exit 1
-    fi
     for s in $subs; do
       if ! mount_hardened "$s"; then
-        echo "install-kata: $s is mounted under $d without nosuid,nodev: a setuid file a Kata sandbox leaves there would" >&2
-        echo "run as root on the host. Add nosuid,nodev to its mount options in /etc/fstab, remount it" >&2
-        echo "(mount -o remount,nosuid,nodev $s), then run this again." >&2
+        echo "install-kata: $s is mounted under $d without nosuid,nodev: a setuid file a Kata sandbox left there" >&2
+        echo "would run as root on the host. If it is a disk of its own (Docker's volumes, say), add nosuid,nodev to" >&2
+        echo "its own mount options in /etc/fstab, remount it (mount -o remount,nosuid,nodev $s) and run this again." >&2
+        echo "If it belongs to a running container, stop that container and run this again." >&2
         trap - EXIT
         exit 1
       fi
@@ -240,11 +241,14 @@ main() {
       restart+=("register the kata runtime in /etc/docker/daemon.json")
     fi
   fi
-  for d in "${dirs[@]}"; do
+  for d in "${bind_dirs[@]}"; do
     grep -qxF "$d $d none bind,nosuid,nodev 0 0" /etc/fstab 2>/dev/null || restart+=("add the $d self-bind to /etc/fstab")
+  done
+  for d in "${dirs[@]}"; do
     mount_hardened "$d" || restart+=("mount $d nosuid,nodev")
   done
   for unit in docker containerd; do
+    [ -n "$dropin" ] || break
     [ "$(cat "/etc/systemd/system/$unit.service.d/kata-data-root.conf" 2>/dev/null)" = "$dropin" ] \
       || restart+=("add the RequiresMountsFor drop-in for $unit")
   done
@@ -323,7 +327,7 @@ main() {
     # nosuid,nodev self-bind, not noexec (Docker runs its layers from there)
     _ki_step="adding the self-binds to /etc/fstab"
     local line
-    for d in "${dirs[@]}"; do
+    for d in "${bind_dirs[@]}"; do
       mkdir -p "$d"
       line="$d $d none bind,nosuid,nodev 0 0"
       if ! grep -qxF "$line" /etc/fstab; then
@@ -334,18 +338,22 @@ main() {
 
     # 9. Docker and containerd start only once the self-binds are mounted (at boot too)
     _ki_step="adding the RequiresMountsFor drop-ins"
-    for unit in docker containerd; do
-      mkdir -p "/etc/systemd/system/$unit.service.d"
-      printf '%s\n' "$dropin" > "/etc/systemd/system/$unit.service.d/kata-data-root.conf"
-    done
-    _ki_done+=("wrote /etc/systemd/system/{docker,containerd}.service.d/kata-data-root.conf")
+    if [ -n "$dropin" ]; then
+      for unit in docker containerd; do
+        mkdir -p "/etc/systemd/system/$unit.service.d"
+        printf '%s\n' "$dropin" > "/etc/systemd/system/$unit.service.d/kata-data-root.conf"
+      done
+      _ki_done+=("wrote /etc/systemd/system/{docker,containerd}.service.d/kata-data-root.conf")
+    fi
     systemctl daemon-reload
 
     # 10. The self-binds now (unless already in place), then Docker again
     for d in "${dirs[@]}"; do
       _ki_step="mounting $d nosuid,nodev"
       if ! mount_hardened "$d"; then
-        mount --bind "$d" "$d"
+        # Recursive: a separate (nosuid,nodev) mount under it stays visible to Docker, with its own flags; at boot
+        # systemd mounts it on top of the fstab self-bind, as the deeper path
+        mount --rbind "$d" "$d"
         _ki_done+=("bind-mounted $d onto itself")
         mount -o remount,bind,nosuid,nodev "$d" "$d"
       fi
