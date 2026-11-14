@@ -21,8 +21,9 @@ services:
       # No default: setup.sh writes a random one into .env
       ADMIN_TOKEN: ${ADMIN_TOKEN:?ADMIN_TOKEN is not set in .env - run ./setup.sh, it fills in a random one}
       DEFAULT_RUNTIME: ${DEFAULT_RUNTIME:-auto}
-      # Runtimes new sandboxes may use (comma list); default sysbox. The privileged dind is for development only
-      # (ALLOWED_RUNTIMES=sysbox,dind, or all): root in a dind sandbox can reach the host
+      # Runtimes new sandboxes may use (comma list, or all); default sysbox. kata (a VM per sandbox) once the host is set
+      # up for it (ALLOWED_RUNTIMES=sysbox,kata). The privileged dind is for development only (ALLOWED_RUNTIMES=sysbox,dind):
+      # root in a dind sandbox can reach the host
       ALLOWED_RUNTIMES: ${ALLOWED_RUNTIMES:-sysbox}
       DEFAULT_TEMPLATE: ${DEFAULT_TEMPLATE:-starter}
       # off: never ask GitHub for the star and fork counts in the topbar

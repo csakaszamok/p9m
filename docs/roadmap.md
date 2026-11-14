@@ -3,6 +3,13 @@
 ## Open, not yet scheduled
 
 - **A gVisor runtime, for hosts without KVM.** The `kata` runtime (done: see [Runtimes](runtimes-templates.md) and [Security](security.md#the-kata-runtime-a-vm-per-sandbox)) needs `/dev/kvm`, so a plain VPS (Hetzner Cloud and similar) cannot run it. gVisor intercepts a sandbox's system calls in user space without hardware virtualization: weaker than a VM, stronger than a shared kernel. To work out: running dockerd inside it, the `docker_data` volume, and the same wiring as the other runtimes. Also open for Kata: ARM hosts (the runtime is x86_64 only today), and the isolation shown as a badge next to a sandbox's name (`dind` privileged, `sysbox` container, `kata` microVM).
+- **Kata follow-ups.** Left open by the first release of the `kata` runtime:
+  - remounting a running Kata sandbox's root filesystem view on the host (its overlay merged dir, and Kata's shared view of it) `nosuid,nodev` after each start, so it is not protected by directory permissions alone;
+  - read-only SSH host keys: Purgatorium generating a sandbox's host keys itself, so `ssh-host-keys` can be bound read-only and guest root can leave nothing in `opt/sandboxes` (today the sandbox directory's `0700` mode contains it);
+  - a long stop and start soak (hundreds of cycles, many sandboxes), and data durability after the Kata shim is killed (`SIGKILL`) during heavy writes;
+  - Kata runtime-rs issue #8583 (Docker hanging on exit after Poststop): watch for it in that soak;
+  - the image migration test in the Kata CI workflow: it is skipped until there is a `-kata` image older than the runtime's (`KATA_OLD_TAG`, `0.13.0` once `runtimes/kata.yaml` moves to a newer foxglove);
+  - deleting the `spike/kata` branch once this is merged.
 - **GPUs in sandboxes.** Today no sandbox sees a GPU. A sandbox could ask for one at create time, like CPUs and memory, and the list, the panel and the API would show which have one (a *GPU* column with the model, e.g. `RTX 4090`). It suits the sleep model: a sleeping sandbox could give its GPU back, and the next one to wake take it. To work out:
   - per runtime: `dind` needs the NVIDIA driver and `nvidia-container-toolkit` on the host, the device passed to the sandbox container and the toolkit in the foxglove image, so the inner Docker hands it on to the apps; whether and how `sysbox` (the production runtime) passes GPUs through, to check first; Kata only through VFIO, typically one GPU per VM;
   - detecting the host's GPUs at startup and in `check-host.sh` (`nvidia-smi`, Docker's runtimes);

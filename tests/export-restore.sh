@@ -63,5 +63,5 @@ else
   printf '#!/bin/sh\n[ "${1:-}" = -u ] && echo 0 || exec /usr/bin/id "$@"\n' > "$tmp/bin/id" && chmod +x "$tmp/bin/id"
   fixture "$tmp/b"
   DOCKER_LOG="$tmp/b.log" PATH="$tmp/bin:$PATH" sh "$tmp/b/restore.sh" >/dev/null 2>"$tmp/b.err" || fail "restore as root: $(cat "$tmp/b.err")"
-  grep -q 'warning: running as root; restored files are stripped of setuid/setgid and device nodes' "$tmp/b.err" && pass "as root: warned" || fail "as root, no warning: $(cat "$tmp/b.err")"
+  grep -q "warning: running as root: the bind folders' files keep the owners and permissions they had in the sandbox" "$tmp/b.err" && pass "as root: warned" || fail "as root, no warning: $(cat "$tmp/b.err")"
 fi

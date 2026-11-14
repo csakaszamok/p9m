@@ -14,7 +14,8 @@ find "$1" \( -type b -o -type c \) -exec sh -c 'for f; do r=$(stat -c %t:%T "$f"
 EOF
 )
 if [ "$(id -u)" = 0 ]; then
-  echo "warning: running as root; restored files are stripped of setuid/setgid and device nodes" >&2
+  # Not that root is needed for the strip below (it runs for any user): as root, tar keeps the export's owners and modes
+  echo "warning: running as root: the bind folders' files keep the owners and permissions they had in the sandbox (setuid/setgid bits and device nodes are stripped after each extract either way)" >&2
 fi
 
 if command -v sha256sum >/dev/null 2>&1; then
