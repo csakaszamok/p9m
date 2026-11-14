@@ -78,7 +78,7 @@ Then sign in at `http://p9m.<HOST_DOMAIN>` (by default `http://p9m.lvh.me`). Rat
 Purgatorium is for a team's apps and agents' deployments that should be up at a URL, cheaply, on your own server. For other jobs other tools fit better:
 
 - **Production that must scale and stay up** → a cloud PaaS, or [Coolify](https://coolify.io) / [Dokploy](https://dokploy.com) on your own servers
-- **Untrusted code from strangers** → a microVM sandbox such as [E2B](https://e2b.dev) or Docker Sandboxes (until Purgatorium has a Kata runtime)
+- **Untrusted code from strangers** → a microVM sandbox such as [E2B](https://e2b.dev) or Docker Sandboxes (or Purgatorium's `kata` runtime on a host with KVM)
 - **Writing code in a cloud IDE** → [Coder](https://coder.com) or GitHub Codespaces
 - **An agent running short scripts from an SDK** → E2B or [Daytona](https://daytona.io)
 
@@ -88,7 +88,7 @@ More in [how it compares](https://csakaszamok.github.io/p9m/latest/comparison/).
 
 **[csakaszamok.github.io/p9m](https://csakaszamok.github.io/p9m/latest/)**: [tutorials](https://csakaszamok.github.io/p9m/latest/tutorials/), [install](https://csakaszamok.github.io/p9m/latest/install/), [configuration](https://csakaszamok.github.io/p9m/latest/configuration/), [let your agent deploy](https://csakaszamok.github.io/p9m/latest/agents/), [MCP](https://csakaszamok.github.io/p9m/latest/mcp/), [API](https://csakaszamok.github.io/p9m/latest/api/), and [`llms-full.txt`](https://csakaszamok.github.io/p9m/latest/llms-full.txt) for agents.
 
-> **Security:** sandboxes run under [sysbox](https://github.com/nestybox/sysbox), without a privileged container; install it on the server. The privileged `dind` runtime is for development only (Docker Desktop, a laptop) and is not allowed unless `ALLOWED_RUNTIMES` says so. Web apps in a sandbox open only for its owner unless labelled otherwise ([details](https://csakaszamok.github.io/p9m/latest/security/)).
+> **Security:** sandboxes run under [sysbox](https://github.com/nestybox/sysbox), without a privileged container; install it on the server. For code you do not trust, the opt-in `kata` runtime runs each sandbox in its own VM (needs a host with KVM). The privileged `dind` runtime is for development only (Docker Desktop, a laptop) and is not allowed unless `ALLOWED_RUNTIMES` says so. Web apps in a sandbox open only for its owner unless labelled otherwise ([details](https://csakaszamok.github.io/p9m/latest/security/)).
 
 [Contributing](CONTRIBUTING.md) · [Security issues](SECURITY.md) · [AGPL-3.0](LICENSE)
 

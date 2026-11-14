@@ -70,7 +70,7 @@ These come up in the same searches ("sandbox", "dev environment", "AI agent"), b
 
 ## Where Purgatorium is weaker
 
-1. **Isolation is not yet a boundary against hostile code.** The `dind` runtime runs the sandbox `privileged`: root inside a sandbox can escape to the host. That is fine for colleagues and their own agents, not for strangers. The `sysbox` runtime removes `privileged` and is used in production, but still shares the host's kernel; a **Kata Containers** runtime, a lightweight VM with its own kernel per sandbox, is on the [roadmap](roadmap.md).
+1. **Isolation is not yet a boundary against hostile code.** The `dind` runtime runs the sandbox `privileged`: root inside a sandbox can escape to the host. That is fine for colleagues and their own agents, not for strangers. The `sysbox` runtime removes `privileged` and is used in production, but still shares the host's kernel. The **`kata`** runtime puts each sandbox in a lightweight VM with its own kernel, but needs a host with KVM (not a plain VPS), is x86_64 only, and leaves a residual risk on the host ([Security](security.md#the-kata-runtime-a-vm-per-sandbox)).
 2. **One host for now.** No multi-host scheduling and no warm pool; a new sandbox takes about 10 seconds once its images are pulled (the first one on a new server a minute or two), a wake from deep sleep about 30. **Kubernetes support** is on the roadmap.
 3. **Sleep stops the containers.** On wake the stack restarts by its restart policies; what was only in memory is gone.
 4. **Missing pieces:** no teams yet (a sandbox has one owner), no hard disk quota (only a warning above a disk limit; CPU and memory limits exist), no egress rules, no SDK (a REST API with an [OpenAPI document](api.md#openapi-and-clients) to generate a client from, the Docker CLI and [agent-guide.md](agent-guide.md)).
@@ -79,7 +79,7 @@ These come up in the same searches ("sandbox", "dev environment", "AI agent"), b
 ## When to choose something else
 
 - **Production that must scale and stay up without you** → a cloud PaaS, or Coolify / Dokploy on your own servers.
-- **Untrusted code from strangers** (public sign-up) → a microVM sandbox (E2B, Docker Sandboxes, Northflank), until Purgatorium has a Kata runtime.
+- **Untrusted code from strangers** (public sign-up) → Purgatorium's `kata` runtime on a KVM host, or a microVM sandbox service (E2B, Docker Sandboxes, Northflank) where you have no KVM.
 - **Writing code in a cloud IDE** → Coder or Codespaces.
 - **An agent running short scripts from an SDK** → E2B, Daytona (as a service) or agent-sandbox.
 - **Coding agents for a large engineering team, with policies per process** → Coder (its agent features beyond Tasks are partly paid).

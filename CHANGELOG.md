@@ -4,6 +4,16 @@ All notable changes are listed here. Versions follow [semantic versioning](https
 
 ## [Unreleased]
 
+### Added
+
+- **A `kata` runtime: a VM per sandbox**, for code you do not trust. Each sandbox runs in a Kata Containers microVM (Cloud Hypervisor) with its own kernel, unprivileged on the host, with the inner Docker, persistence and live CPU and memory changes as under `sysbox`. It is opt-in (`kata` in `ALLOWED_RUNTIMES`), needs a host with KVM, and `sudo scripts/install-kata.sh` sets the host up; all runtimes now use foxglove 0.13.0 ([docs](https://csakaszamok.github.io/p9m/latest/runtimes-templates/))
+- **`SANDBOX_SUBNET_POOL`** gives each Kata sandbox its own `/28` network (default `10.213.0.0/16`); a malformed value falls back to the default with a startup warning, and an exhausted pool is a 503 ([docs](https://csakaszamok.github.io/p9m/latest/configuration/))
+- **`check-host.sh` checks Kata**: kernel, KVM, the registered runtime and its version, the hardened configuration, the `nosuid,nodev` data root, directory modes, device nodes left in volumes, and a test run ([docs](https://csakaszamok.github.io/p9m/latest/install/#kata-containers-the-microvm-runtime))
+
+### Security
+
+- **Host-side hardening for every runtime.** Archives copy regular files only, with no device nodes and no SSH host keys, in a `0700` directory; a clone's unpack drops device nodes other than whiteouts; export-restore strips setuid and setgid bits and device nodes and warns when run as root. A Kata sandbox gets a read-write host folder only on a `nosuid,nodev` mount ([docs](https://csakaszamok.github.io/p9m/latest/security/#the-kata-runtime-a-vm-per-sandbox))
+
 ## [0.20.1] - 2026-11-10
 
 Upgrading from 0.20.0: `docker compose pull && docker compose up -d` where `.env` has `P9M_VERSION=0.20`; otherwise first download the new `docker-compose.yml` from `https://github.com/csakaszamok/p9m/releases/latest/download/docker-compose.yml`, which names this version.
