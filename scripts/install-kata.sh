@@ -103,6 +103,21 @@ mount_hardened() {
   grep -qx nosuid <<< "$opts" && grep -qx nodev <<< "$opts"
 }
 
+# kata_submounts DIR: the mount points under DIR (not DIR itself), one per line, from "TARGET FSTYPE" lines on stdin
+# (findmnt -rn -o TARGET,FSTYPE). A plain self-bind of DIR would hide them. A running container's own mounts (its
+# overlay merged dir, its shm) are left out: they go with the container
+kata_submounts() {
+  local dir=$1 target fstype
+  while read -r target fstype _; do
+    case "$target" in "$dir"/*) ;; *) continue ;; esac
+    case "$target" in
+      "$dir"/overlay2/*/merged) [ "$fstype" = overlay ] && continue ;;
+      "$dir"/containers/*/mounts/shm) [ "$fstype" = tmpfs ] && continue ;;
+    esac
+    printf '%s\n' "$target"
+  done
+}
+
 # State for the EXIT trap: what this run changed, the step it is on, whether it stopped Docker
 _ki_dl="" _ki_stopped=false _ki_step=""
 _ki_done=()
@@ -161,7 +176,9 @@ main() {
   if [ -n "$missing" ]; then
     if command -v apt-get >/dev/null; then
       # shellcheck disable=SC2086 # one word per package
-      apt-get update -qq && apt-get install -y -qq $missing >/dev/null
+      if ! { apt-get update -qq && apt-get install -y -qq $missing >/dev/null; }; then
+        echo "install-kata: apt-get could not install$missing: install them, then run this again" >&2; exit 1
+      fi
     else
       echo "install-kata: install$missing first" >&2; exit 1
     fi
@@ -175,6 +192,35 @@ main() {
   local dropin
   dropin=$(printf '[Unit]\nRequiresMountsFor=%s' "${dirs[*]}")
   local cfg=$KATA_DEFAULTS/runtime-rs/configuration-$hypervisor-runtime-rs.toml
+
+  # The self-bind is not recursive: a separate mount under a folder (Docker's volumes on their own disk, say) would be
+  # hidden from Docker until the next reboot, and would keep its own flags (setuid files armed) after it. Refused here,
+  # while nothing has changed and Docker still runs
+  _ki_step="checking the mounts under ${dirs[*]}"
+  local subs s
+  for d in "${dirs[@]}"; do
+    subs=$(findmnt -rn -o TARGET,FSTYPE 2>/dev/null | kata_submounts "$d" || true)
+    [ -n "$subs" ] || continue
+    if ! mount_hardened "$d"; then
+      echo "install-kata: other filesystems are mounted under $d:" >&2
+      # shellcheck disable=SC2086 # findmnt -r escapes blanks: one word per mount point
+      printf '  %s\n' $subs >&2
+      echo "install-kata: a nosuid,nodev self-bind of $d would hide them from Docker. Add nosuid,nodev to the mount options" >&2
+      echo "of $d's own filesystem and of each of these in /etc/fstab, remount them (mount -o remount,nosuid,nodev DIR)," >&2
+      echo "then run this again (docs/install.md, \"Docker's volumes on a separate disk\")." >&2
+      trap - EXIT
+      exit 1
+    fi
+    for s in $subs; do
+      if ! mount_hardened "$s"; then
+        echo "install-kata: $s is mounted under $d without nosuid,nodev: a setuid file a Kata sandbox leaves there would" >&2
+        echo "run as root on the host. Add nosuid,nodev to its mount options in /etc/fstab, remount it" >&2
+        echo "(mount -o remount,nosuid,nodev $s), then run this again." >&2
+        trap - EXIT
+        exit 1
+      fi
+    done
+  done
 
   # What needs Docker restarted, worked out before anything changes
   _ki_step="checking what is already in place"
@@ -204,7 +250,8 @@ main() {
   done
   if [ "${#restart[@]}" -gt 0 ] && ! $yes; then
     local running
-    running=$(docker ps -q 2>/dev/null | wc -l)
+    # || true: with Docker stopped (a re-run after a failed start) docker ps fails, and pipefail would end the script
+    running=$(docker ps -q 2>/dev/null | wc -l || true)
     if [ "$running" -gt 0 ]; then
       echo "install-kata: Docker has to be restarted to:" >&2
       printf '  - %s\n' "${restart[@]}" >&2
@@ -311,6 +358,12 @@ main() {
   else
     echo "== Docker's runtime, data root mounts and drop-ins are already in place: Docker keeps running"
   fi
+  # Where they exist, volumes and overlay2 must be hardened too (a separate mount keeps its own flags)
+  _ki_step="checking that volumes and overlay2 are nosuid,nodev"
+  for d in "$data_root/volumes" "$data_root/overlay2"; do
+    [ -d "$d" ] || continue
+    mount_hardened "$d" || { echo "install-kata: $d is not mounted nosuid,nodev" >&2; exit 1; }
+  done
   _ki_step="checking Docker's runtimes"
   docker info --format '{{json .Runtimes}}' | jq -e 'has("kata")' >/dev/null \
     || { echo "install-kata: Docker does not list the kata runtime" >&2; exit 1; }

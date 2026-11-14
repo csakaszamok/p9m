@@ -91,3 +91,21 @@ kata_private_run_dir "$tmp/tmpfiles.d/kata-containers.conf" "$tmp/run/kata-conta
 [ "$(stat -c %a "$tmp/run/kata-containers")" = 750 ] && pass "/run/kata-containers is 0750 now" || fail "mode $(stat -c %a "$tmp/run/kata-containers")"
 kata_private_run_dir "$tmp/tmpfiles.d/kata-containers.conf" "$tmp/run/new"
 [ "$(stat -c %a "$tmp/run/new")" = 750 ] && pass "made with 0750 when missing" || fail "missing dir: mode $(stat -c %a "$tmp/run/new")"
+
+# The mounts under Docker's data root a plain self-bind would hide: a running container's own mounts (overlay merged
+# dirs, shm) do not count, nor the data root itself, nor a sibling whose name only starts the same
+mounts='/ ext4
+/var/lib/docker ext4
+/var/lib/docker-old ext4
+/var/lib/docker/overlay2/abc123/merged overlay
+/var/lib/docker/containers/abc123/mounts/shm tmpfs
+/var/lib/docker/volumes xfs
+/var/lib/docker/overlay2 ext4
+/var/lib/containerd ext4'
+subs=$(kata_submounts /var/lib/docker <<< "$mounts")
+[ "$subs" = "$(printf '/var/lib/docker/volumes\n/var/lib/docker/overlay2')" ] \
+  && pass "submounts: a separate volumes and overlay2 found, the containers' own mounts left out" || fail "submounts: $subs"
+[ -z "$(kata_submounts /var/lib/containerd <<< "$mounts")" ] && pass "no submounts under /var/lib/containerd" || fail "containerd submounts"
+# A volume that is itself an overlay at a merged-like path is still a submount when it is not overlay
+subs=$(kata_submounts /var/lib/docker <<< '/var/lib/docker/overlay2/x/merged ext4')
+[ "$subs" = /var/lib/docker/overlay2/x/merged ] && pass "a non-overlay mount at a merged path counts" || fail "merged path: $subs"

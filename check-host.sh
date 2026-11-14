@@ -51,8 +51,10 @@ mount_hardened() {
 # The runtimes .env allows (empty: sysbox only; all: every one). The Kata checks run only where Kata is meant to be used.
 allowed=$(env_get ALLOWED_RUNTIMES | tr 'A-Z' 'a-z' | tr -d ' ')
 default_runtime=$(env_get DEFAULT_RUNTIME | tr 'A-Z' 'a-z' | tr -d ' ')
-sysbox_allowed=false kata_wanted=false
+sysbox_allowed=false kata_allowed=false kata_wanted=false
 [[ -z "$allowed" || ",$allowed," == *",sysbox,"* || ",$allowed," == *",all,"* ]] && sysbox_allowed=true
+[[ ",$allowed," == *",kata,"* || ",$allowed," == *",all,"* ]] && kata_allowed=true
+# DEFAULT_RUNTIME=kata alone does not allow it (every create is refused then), but it says Kata is meant to be used
 [[ ",$allowed," == *",kata,"* || "$default_runtime" == kata ]] && kata_wanted=true
 
 section "System"
@@ -107,6 +109,8 @@ fi
 if $docker_ok; then
   section "Sandbox runtime"
   runtimes=$(docker info --format '{{range $k, $v := .Runtimes}}{{$k}} {{end}}' 2>/dev/null)
+  # ALLOWED_RUNTIMES=all allows Kata wherever Docker has it: then its host checks apply too
+  [[ ",$allowed," == *",all,"* && " $runtimes " == *" kata "* ]] && kata_wanted=true
   dind_allowed=false
   [[ ",$allowed," == *",dind,"* || ",$allowed," == *",all,"* ]] && dind_allowed=true
   if [[ " $runtimes " != *" sysbox-runc "* ]]; then
@@ -145,6 +149,10 @@ if $docker_ok; then
     section "Kata"
     root=$(docker info --format '{{.DockerRootDir}}' 2>/dev/null)
     root=${root:-/var/lib/docker}
+    if [ "$default_runtime" = kata ] && ! $kata_allowed; then
+      warn "DEFAULT_RUNTIME=kata, but ALLOWED_RUNTIMES=${allowed:-(empty: sysbox only)} does not allow kata: every create without a runtime is refused" \
+           "add kata to ALLOWED_RUNTIMES (e.g. ALLOWED_RUNTIMES=kata); DEFAULT_RUNTIME only picks the default among the allowed ones"
+    fi
     if [ -e /dev/kvm ]; then ok "/dev/kvm is present"
     else fail "no /dev/kvm: Kata runs each sandbox in a VM and needs KVM" "use a dedicated server, or a VM whose provider enables nested virtualization"; fi
 
@@ -191,9 +199,12 @@ if $docker_ok; then
     fi
 
     # virtiofsd writes as host root: setuid files and device nodes a sandbox leaves on Docker's data root must be inert
-    for d in "$root" /var/lib/containerd; do
+    # volumes and overlay2 too: a separately mounted one keeps its own flags, whatever the data root's are
+    for d in "$root" "$root/volumes" "$root/overlay2" /var/lib/containerd; do
       [ -d "$d" ] || continue
       if mount_hardened "$d"; then ok "$d is mounted nosuid,nodev"
+      elif [ "$(findmnt -no TARGET --target "$d" 2>/dev/null)" = "$d" ] && [ "$d" != "$root" ] && [ "$d" != /var/lib/containerd ]; then
+        fail "$d is its own mount, not nosuid,nodev: a setuid file from a Kata sandbox would run as root on the host" "add nosuid,nodev to its mount options in /etc/fstab, then remount it (mount -o remount,nosuid,nodev $d)"
       else fail "$d is not mounted nosuid,nodev: a setuid file from a Kata sandbox would run as root on the host" "run scripts/install-kata.sh (a self-bind in /etc/fstab: $d $d none bind,nosuid,nodev 0 0)"; fi
     done
     # A running sandbox's rootfs is mounted without nosuid: only root may reach it
@@ -239,7 +250,7 @@ if $docker_ok; then
       if mount_hardened "$abs"; then ok "$abs is mounted nosuid,nodev"
       else
         case "$d" in
-          opt/*) warn "$abs is not mounted nosuid,nodev: sandbox files kept there keep their setuid bits" "a self-bind in /etc/fstab: $abs $abs none bind,nosuid,nodev 0 0" ;;
+          opt/*) warn "$abs is not mounted nosuid,nodev: sandbox files kept there keep their setuid bits (new sandbox and archive directories are 0700, so only root reaches them)" "a self-bind in /etc/fstab: $abs $abs none bind,nosuid,nodev 0 0" ;;
           *) warn "HOST_MOUNT_ROOTS $abs is not mounted nosuid,nodev: Kata sandboxes get its folders read-only only" "for read-write, a self-bind in /etc/fstab: $abs $abs none bind,nosuid,nodev 0 0" ;;
         esac
       fi
