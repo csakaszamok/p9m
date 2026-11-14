@@ -17,6 +17,9 @@ describe('allocateSubnet', () => {
   it('ignores malformed entries', () => {
     expect(allocateSubnet('10.213.0.0/16', ['bogus', ''])?.subnet).toBe('10.213.0.0/28')
   })
+  it('allocates nothing from a pool wider than /16 (a bounded search)', () => {
+    expect(allocateSubnet('10.0.0.0/8', [])).toBeNull()
+  })
   it('returns null when the pool is exhausted', () => {
     expect(allocateSubnet('10.213.0.0/28', ['10.213.0.0/28'])).toBeNull()
   })
@@ -43,8 +46,16 @@ describe('subnetPool', () => {
     for (const bad of ['nonsense', '10.0.0.0/30']) {
       const r = subnetPool({ SANDBOX_SUBNET_POOL: bad })
       expect(r.pool).toBe('10.213.0.0/16')
-      expect(r.warnings).toEqual([`SANDBOX_SUBNET_POOL "${bad}" is not an IPv4 CIDR of /28 or larger; using 10.213.0.0/16`])
+      expect(r.warnings).toEqual([`SANDBOX_SUBNET_POOL "${bad}" is not an IPv4 CIDR between /16 and /28; using 10.213.0.0/16`])
     }
+  })
+  it('treats a pool wider than /16 as invalid, so allocation stays bounded', () => {
+    for (const wide of ['10.0.0.0/8', '0.0.0.0/0', '172.16.0.0/12']) {
+      const r = subnetPool({ SANDBOX_SUBNET_POOL: wide })
+      expect(r.pool).toBe('10.213.0.0/16')
+      expect(r.warnings).toEqual([`SANDBOX_SUBNET_POOL "${wide}" is not an IPv4 CIDR between /16 and /28; using 10.213.0.0/16`])
+    }
+    expect(subnetPool({ SANDBOX_SUBNET_POOL: '10.50.0.0/16' })).toEqual({ pool: '10.50.0.0/16', warnings: [] })
   })
 })
 

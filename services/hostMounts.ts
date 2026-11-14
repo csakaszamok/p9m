@@ -201,7 +201,11 @@ export async function addMount(name: string, status: string, input: unknown, dep
   if (typeof mount === 'string') throw new MountError(mount, 400)
   // Guest root of a Kata VM reaches a read-write folder through virtiofsd as host root and could leave setuid-root files there: only nosuid,nodev on the host defuses that
   if (!mount.readonly && isKata(text)) {
-    const options = await (deps.mountOptions ?? hostMountOptions)(mount.host)
+    let options: string[]
+    try { options = await (deps.mountOptions ?? hostMountOptions)(mount.host) } catch (err) {
+      // A missing host folder lands here too (--mount does not create it): what Docker said, not "Command failed: …"
+      throw new MountError(`could not read the mount options of ${mount.host} on the host (does the folder exist?): ${dockerWords(err)}`, 400)
+    }
     if (!options.includes('nosuid') || !options.includes('nodev')) {
       throw new MountError('A Kata sandbox gets a read-write host folder only where the host mounts it nosuid,nodev; mount it read-only', 400)
     }

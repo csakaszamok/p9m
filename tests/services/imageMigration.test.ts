@@ -19,6 +19,7 @@ import { withCurrentImage, withLogRotation, migrateSandboxImage } from '../../se
 import { composeUp, composeCreate } from '../../services/compose'
 import { getSandboxState } from '../../services/docker'
 import { DOCKER_LOGS } from '../../services/sandbox'
+import { withIsolatedNetwork } from '../../services/networkMigration'
 
 const images = { kata: 'ghcr.io/csakaszamok/foxglove:0.12.0-kata', sysbox: 'ghcr.io/csakaszamok/foxglove:0.12.0-sysbox', dind: 'ghcr.io/csakaszamok/foxglove:0.12.0-dind' }
 const compose = (image: string) => yaml.dump({ services: { sandbox: { image, container_name: 'x', labels: { 'p9m.managed': 'true' } }, frps: { image: 'fatedier/frps:v0.62.1' } } }, { lineWidth: -1 })
@@ -36,6 +37,43 @@ describe('withCurrentImage', () => {
     expect(withCurrentImage(compose('ghcr.io/csakaszamok/foxglove:0.13.0-sysbox'), images)).toBeNull()
     expect(withCurrentImage(compose('example.com/mine:1.0.0-sysbox'), images)).toBeNull()
     expect(withCurrentImage(compose('ghcr.io/csakaszamok/foxglove:0.11.0-other'), images)).toBeNull()
+  })
+})
+
+// The startup migrations run over every sandbox's compose file: a real rendered kata compose must come through them
+// with only its image moved (imageMigration), and untouched by the network migration (its frps is on traefik-net)
+describe('a rendered runtimes/kata.yaml through the startup migrations', () => {
+  const vars: Record<string, string> = {
+    name: 'p9m-k1', raw_name: 'k1', runtime_name: 'kata', template_name: 'starter', compose_source: 'template',
+    created_at: '2026-11-14T00:00:00.000Z', sandbox_dir: '/opt/p9m/opt/sandboxes/admin/p9m-k1', host_domain: 'lvh.me',
+    frp_token: 'tok', frps_api_auth: 'p9m:pw', registry_host: 'registry.lvh.me', ui_host: 'console.lvh.me',
+    user_host: 'console.lvh.me', idle_timeout: '30m', deep_sleep_after: '7d', owner: '"admin"', cpus: '2', memory: '4g',
+    subnet: '10.213.0.0/28', ip_range: '10.213.0.8/29', dns_ip: '10.213.0.2',
+  }
+  // As services/sandbox.ts renders it (applyVarsText): ${key} replaced, a $ in a value doubled
+  const rendered = () => {
+    const runtime = yaml.load(fs.readFileSync(path.join(__dirname, '../../runtimes/kata.yaml'), 'utf8')) as { docker_compose: unknown }
+    let text = yaml.dump(runtime.docker_compose, { lineWidth: -1 })
+    for (const [k, v] of Object.entries(vars)) text = text.split(`\${${k}}`).join(v.replace(/\$/g, '$$$$'))
+    return text
+  }
+
+  it('renders every variable (no ${...} left)', () => {
+    expect(rendered()).not.toMatch(/\$\{\w+\}/)
+  })
+
+  it('withCurrentImage moves only the image', () => {
+    const text = rendered()
+    const before = yaml.load(text) as { services: { sandbox: { image: string } } }
+    const newer = 'ghcr.io/csakaszamok/foxglove:9.9.9-kata'
+    const out = withCurrentImage(text, { ...images, kata: newer })
+    expect(out).not.toBeNull()
+    before.services.sandbox.image = newer
+    expect(yaml.load(out!)).toEqual(before)
+  })
+
+  it('withIsolatedNetwork leaves it alone', () => {
+    expect(withIsolatedNetwork(rendered(), 'p9m-k1', { registryHost: 'registry.lvh.me', uiHost: 'console.lvh.me', images })).toBeNull()
   })
 })
 

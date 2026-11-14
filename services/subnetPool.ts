@@ -6,6 +6,11 @@ export const DEFAULT_SUBNET_POOL = '10.213.0.0/16'
 
 const BLOCK = 16
 
+/** The widest pool: a /16 holds 4096 blocks; a wider one would make the first-free search loop up to 2^28 times. */
+const WIDEST = 16
+
+const usable = (p: { prefix: number } | null) => !!p && p.prefix >= WIDEST && p.prefix <= 28
+
 function mask(prefix: number): number {
   return prefix === 0 ? 0 : (~0 << (32 - prefix)) >>> 0
 }
@@ -30,8 +35,8 @@ export function subnetPool(env: NodeJS.ProcessEnv = process.env): { pool: string
   const raw = env.SANDBOX_SUBNET_POOL
   if (raw === undefined || raw.trim() === '') return { pool: DEFAULT_SUBNET_POOL, warnings: [] }
   const p = parseCidr(raw)
-  if (!p || p.prefix > 28) {
-    return { pool: DEFAULT_SUBNET_POOL, warnings: [`SANDBOX_SUBNET_POOL "${raw}" is not an IPv4 CIDR of /28 or larger; using ${DEFAULT_SUBNET_POOL}`] }
+  if (!p || !usable(p)) {
+    return { pool: DEFAULT_SUBNET_POOL, warnings: [`SANDBOX_SUBNET_POOL "${raw}" is not an IPv4 CIDR between /16 and /28; using ${DEFAULT_SUBNET_POOL}`] }
   }
   return { pool: `${toIp(p.base)}/${p.prefix}`, warnings: [] }
 }
@@ -48,7 +53,7 @@ export function cidrOverlaps(a: string, b: string): boolean {
 /** Picks the first /28 in the pool that overlaps nothing in used, or null when the pool is full. */
 export function allocateSubnet(pool: string, used: string[]): SubnetBlock | null {
   const p = parseCidr(pool)
-  if (!p || p.prefix > 28) return null
+  if (!p || !usable(p)) return null
   const count = 2 ** (28 - p.prefix)
   for (let i = 0; i < count; i++) {
     const base = (p.base + i * BLOCK) >>> 0
