@@ -22,7 +22,7 @@ All runtimes have the same wiring (FRP tunnel, Traefik route, Sablier sleep/wake
 
 **The `kata` runtime** (`runtimes/kata.yaml`) runs the sandbox in a microVM: Kata 4.3.1 or newer (runtime-rs) with Cloud Hypervisor, and the image `ghcr.io/csakaszamok/foxglove:0.13.0-kata`. Things that differ from `sysbox`:
 
-- The sandbox container is not privileged (no `cap_add: ALL`, no unconfined seccomp or AppArmor): the VM is the boundary.
+- The sandbox container is not `privileged`, but inside the guest it has all capabilities and unconfined seccomp, AppArmor and systempaths (like `dind`, so the inner Docker works): the VM is the boundary, not the container's own restrictions.
 - Docker's embedded DNS cannot be reached from inside a Kata guest, so each Kata sandbox gets a small CoreDNS sidecar (`<name>-dns`, `coredns/coredns:1.11.3`) at a fixed address on the sandbox's own network. That network is a `/28` taken from `SANDBOX_SUBNET_POOL` ([Configuration](configuration.md)); when the pool is used up, creating a Kata sandbox fails with a 503.
 - Each awake Kata sandbox costs about 160 to 200 MiB for the VM monitor on top of its memory limit. With `DEFAULT_RUNTIME=kata`, the suggested `SANDBOX_MAX_TOTAL` counts 200 MiB per sandbox for it.
 - Resources change live: `docker update` grows CPU and memory at once. Lowering memory takes effect in the guest's cgroup straight away, but the host gets the RAM back at the next sleep and wake.

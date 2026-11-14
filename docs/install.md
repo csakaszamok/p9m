@@ -74,10 +74,10 @@ Each sandbox's files (compose file, certificates, tunnel config) live in `opt/sa
 For code you do not trust, the `kata` runtime puts each sandbox in its own VM ([Security](security.md#the-kata-runtime-a-vm-per-sandbox)). It is optional and off by default. What it needs:
 
 - **A host with KVM** (`/dev/kvm`), x86_64, kernel 5.8 or newer: a bare-metal server, or a cloud VM with nested virtualization. A plain VPS such as Hetzner Cloud has no KVM and cannot run it; there, use sysbox.
-- **Kata 4.3.1** with Cloud Hypervisor (or QEMU), set up for Purgatorium. Do not install Kata by hand: run the script from the repository (replace `main` with your release's tag, such as `v0.21.0`, to get the version that matches); it changes the host:
+- **Kata 4.3.1** with Cloud Hypervisor (or QEMU), set up for Purgatorium. Do not install Kata by hand: run the script from the release (from a clone, `sudo scripts/install-kata.sh` is the same); it changes the host:
 
 ```bash
-curl -fsSLO https://raw.githubusercontent.com/csakaszamok/p9m/main/scripts/install-kata.sh
+curl -fsSLO https://github.com/csakaszamok/p9m/releases/latest/download/install-kata.sh
 less install-kata.sh
 sudo bash install-kata.sh            # --hypervisor clh|qemu (default clh), --yes to allow stopping running containers
 ```
