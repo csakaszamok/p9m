@@ -4,9 +4,12 @@ let installed = ['runc']
 vi.mock('../../services/docker', () => ({ dockerRuntimes: vi.fn(async () => installed) }))
 let sysbox: number[] | null = [0, 7, 1]
 vi.mock('../../services/sysboxVersion', async importActual => ({ ...await importActual<typeof import('../../services/sysboxVersion')>(), sysboxVersion: vi.fn(async () => sysbox) }))
+let kata: number[] | null = [4, 3, 1]
+vi.mock('../../services/kataVersion', async importActual => ({ ...await importActual<typeof import('../../services/kataVersion')>(), kataVersion: vi.fn(async () => kata) }))
+vi.stubEnv('RUNTIMES_DIR', './runtimes')
 const { defaultRuntime, runtimeMissing, runtimeAllowed, allowedRuntimes, _resetDefaultRuntime } = await import('../../services/defaultRuntime')
 
-beforeEach(() => { _resetDefaultRuntime(); installed = ['runc'] })
+beforeEach(() => { _resetDefaultRuntime(); installed = ['runc']; kata = [4, 3, 1] })
 
 describe('defaultRuntime', () => {
   it('auto (the default): sysbox where the host has sysbox-runc, dind otherwise when allowed', async () => {
@@ -38,6 +41,25 @@ describe('runtimeMissing', () => {
     expect(await runtimeMissing('dind')).toBeNull()
     _resetDefaultRuntime(); installed = ['runc', 'sysbox-runc']
     expect(await runtimeMissing('sysbox')).toBeNull()
+  })
+})
+
+describe('runtimeMissing: kata and others', () => {
+  it('kata without a kata runtime in Docker says how to install it', async () => {
+    expect(await runtimeMissing('kata')).toMatch(/Kata is not installed.*scripts\/install-kata\.sh/)
+  })
+  it('kata older than 4.3.1 is too old; an unknown version does not refuse', async () => {
+    installed = ['runc', 'kata']
+    kata = [4, 2, 0]
+    expect(await runtimeMissing('kata')).toMatch(/too old.*4\.3\.1/)
+    kata = null
+    expect(await runtimeMissing('kata')).toBeNull()
+    kata = [4, 3, 1]
+    expect(await runtimeMissing('kata')).toBeNull()
+  })
+  it('dind (no OCI runtime) and an unknown runtime are not missing', async () => {
+    expect(await runtimeMissing('dind')).toBeNull()
+    expect(await runtimeMissing('nope')).toBeNull()
   })
 })
 

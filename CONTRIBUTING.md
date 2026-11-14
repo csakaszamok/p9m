@@ -37,7 +37,7 @@ A pull request should add or update tests for what it changes.
 
 Each release series has its own branch, `release/<major>.<minor>` (`release/0.3`, `release/0.4`, …); there is no separate development branch.
 
-- **New features** go to the newest series' branch, the `release/*` with the highest number (now `release/0.20`), through a pull request from a feature branch. When you open the pull request on GitHub, change its base from `main` to that branch.
+- **New features** go to the newest series' branch, the `release/*` with the highest number (now `release/0.21`), through a pull request from a feature branch. When you open the pull request on GitHub, change its base from `main` to that branch.
 - **Fixes for a released series** go to its branch (e.g. `release/0.3`), and that branch is then merged into each newer one, so no fix is lost going forward.
 - **A release** is a version bump (`package.json`, the two image defaults in `docker-compose.yml` and `server.json`, checked by `scripts/check-release-version.sh`) and a `[x.y.z]` section in `CHANGELOG.md` on the series' branch, then a `vx.y.z` tag on it. The tag builds and publishes the image as `x.y.z` and `x.y`; `latest` only for the highest version, so a fix for an older series does not move it back. The same workflow publishes a release of the newest series to the MCP Registry (`server.json`, signed in with GitHub's OIDC token, no one logs in); by hand, from `main`: `mcp-publisher login github` as csakaszamok, then `mcp-publisher publish`.
 - **`main`** is the newest release: it is updated when a release of the newest series is made. Pull requests do not go to `main`.

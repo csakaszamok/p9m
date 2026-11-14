@@ -37,7 +37,7 @@ const defaultDeps: Deps = {
   server: () => serverLimit(),
   resources: async live => {
     try {
-      const [{ usageOf }, { limitsOf }, { diskOf, diskDefault }, { hostResources }, { capacity, dockerDiskFree }, { resourceDefaults }] = await Promise.all([import('./usageSampler'), import('./resourceSettings'), import('./diskUsage'), import('./docker'), import('./capacity'), import('./resources')])
+      const [{ usageOf }, { limitsOf }, { diskOf, diskDefault }, { hostResources }, { capacity, dockerDiskFree, KATA_VMM_OVERHEAD }, { resourceDefaults }, { defaultRuntime }] = await Promise.all([import('./usageSampler'), import('./resourceSettings'), import('./diskUsage'), import('./docker'), import('./capacity'), import('./resources'), import('./defaultRuntime')])
       const host = await hostResources()
       const running = live.filter(s => s.status === 'running' && s.name)
       const r: Resources = { cpu: { used: 0, reserved: 0, host: host.cpus }, memory: { used: 0, reserved: 0, host: host.memory }, disk: { used: 0, over: 0 } }
@@ -50,7 +50,7 @@ const defaultDeps: Deps = {
       r.cpu.used = Math.round(r.cpu.used * 100) / 100
       // The disk for sandboxes: what is free, and what theirs already take
       const free = await dockerDiskFree()
-      r.capacity = capacity({ ...host, disk: free === null ? null : free + r.disk.used }, { ...resourceDefaults().limits, disk: diskDefault().bytes })
+      r.capacity = capacity({ ...host, disk: free === null ? null : free + r.disk.used }, { ...resourceDefaults().limits, disk: diskDefault().bytes }, await defaultRuntime() === 'kata' ? KATA_VMM_OVERHEAD : 0)
       return r
     } catch { return null }
   },

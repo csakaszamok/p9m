@@ -1,0 +1,206 @@
+name: Kata
+
+# The kata runtime end to end on a Linux host with KVM: installs Kata with scripts/install-kata.sh (Cloud Hypervisor,
+# and QEMU as the fallback), starts the stack with DEFAULT_RUNTIME=kata and runs a new sandbox, the host hardening
+# checks and the end-to-end scripts against it. GitHub's ubuntu-24.04 runners expose /dev/kvm.
+on:
+  workflow_dispatch:
+  pull_request:
+  push:
+    branches:
+      - main
+      - 'release/**'
+
+env:
+  HAS_DOCKERHUB: ${{ secrets.DOCKERHUB_TOKEN != '' }}
+  P9M_TOKEN: abc123
+
+jobs:
+  e2e:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        # clh is the supported hypervisor; qemu is the fallback install-kata.sh offers
+        hypervisor: [clh, qemu]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      # Docker Hub's pull limit for anonymous pulls is shared by GitHub's runners (429 on the base image);
+      # logged in it is far higher. Skipped without the secret (e.g. a pull request from a fork).
+      - name: Log in to Docker Hub
+        if: env.HAS_DOCKERHUB == 'true'
+        uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Install Kata (${{ matrix.hypervisor }})
+        run: |
+          # The runner's /dev/kvm is root-only until this rule opens it
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules && sudo udevadm trigger --name-match=kvm
+          ls -l /dev/kvm
+          # --yes: the runner's containers (none that matter) may be stopped while Docker restarts
+          sudo bash scripts/install-kata.sh --hypervisor ${{ matrix.hypervisor }} --yes
+          docker info --format '{{json .Runtimes}}' | jq -e 'has("kata")'
+
+      - name: Start the stack (DEFAULT_RUNTIME=kata)
+        run: |
+          cat > .env <<EOF
+          ADMIN_TOKEN=$P9M_TOKEN
+          DEFAULT_RUNTIME=kata
+          ALLOWED_RUNTIMES=kata
+          # deep-sleep.sh waits for the check, every 15 s here instead of the default
+          DEEP_SLEEP_CHECK_INTERVAL=15s
+          HOST_ADDRESS=localhost
+          SESSION_SECRET=$(head -c 32 /dev/urandom | od -An -tx1 | tr -d ' \n')
+          ADMIN_PASSWORD=$(head -c 12 /dev/urandom | od -An -tx1 | tr -d ' \n')
+          # The scripts open the hello app without signing in (the default is owner since 0.12.12: a sign-in redirect)
+          APPS_ACCESS_DEFAULT=public
+          ADMIN_LOGIN=on
+          # The image from this checkout (p9m and p9m-init), not the released one: the release compose file has no build.
+          # Its hostname not its ID, as a server had: Purgatorium must find its own container anyway
+          COMPOSE_FILE=docker-compose.yml:docker-compose.dev.yml:tests/compose/hostname-not-id.yml
+          EOF
+          docker compose build
+          docker compose up -d --wait
+
+      # Without the version -kata sandboxes would silently stay on their old image, and new ones could not be made
+      - name: Purgatorium reads the host's Kata version
+        run: |
+          docker info --format '{{json .Runtimes}}'
+          # Docker's runtime list leaves out a runtimeType: the shim is where install-kata.sh links it
+          shim=$(readlink -f /usr/local/bin/containerd-shim-kata-v2)
+          file "$shim"
+          # The raw output the parser (services/kataVersion.ts: the first x.y.z) reads
+          "$shim" --version
+          docker compose exec -T p9m node_modules/.bin/tsx -e "import('./services/kataVersion').then(async m => { const v = await m.kataVersion(); console.log('kata', v); process.exit(v && m.kataNewEnough(v) ? 0 : 1) })"
+
+      - name: check-host.sh's Kata section passes
+        run: |
+          out=$(bash check-host.sh localhost 2>&1 || true)
+          echo "$out"
+          # Only the Kata section must be clean: the runner is no server (ports, DNS, disk) for the other sections
+          kata=$(echo "$out" | sed 's/\x1b\[[0-9;]*m//g' | awk '/^Kata$/ { on = 1; next } on && /^[^ ]/ { on = 0 } on')
+          [ -n "$kata" ] || { echo "no Kata section in check-host.sh's output"; exit 1; }
+          ! echo "$kata" | grep -q '✘'
+
+      - name: A sandbox runs on kata, not privileged, its DNS forwarder at its address
+        run: |
+          name="sb$(head -c 3 /dev/urandom | od -An -tx1 | tr -d ' \n')"
+          full=$(curl -sf -X POST -H "Content-Type: application/json" -H "Authorization: Bearer $P9M_TOKEN" \
+            -d "{\"name\":\"$name\"}" http://localhost:8081/sandboxes | jq -r .name)
+          trap 'curl -sf -X DELETE -H "Authorization: Bearer $P9M_TOKEN" "http://localhost:8081/sandboxes/$full" >/dev/null || true' EXIT
+          docker inspect -f 'runtime={{.HostConfig.Runtime}} privileged={{.HostConfig.Privileged}}' "$full"
+          [ "$(docker inspect -f '{{.HostConfig.Runtime}}' "$full")" = kata ]
+          [ "$(docker inspect -f '{{.HostConfig.Privileged}}' "$full")" = false ]
+          # The address the compose file gave the dns service, as the sandbox was told it (DNS_SERVER)
+          dns_ip=$(docker inspect -f '{{range .Config.Env}}{{println .}}{{end}}' "$full" | sed -n 's/^DNS_SERVER=//p')
+          dns_at=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "$full-dns")
+          echo "dns_ip=$dns_ip $full-dns: $(docker inspect -f '{{.State.Status}}' "$full-dns") at $dns_at"
+          [ -n "$dns_ip" ] && [ "$dns_at" = "$dns_ip" ]
+          [ "$(docker inspect -f '{{.State.Running}}' "$full-dns")" = true ]
+          for i in $(seq 1 60); do
+            curl -s -m 5 -H "Host: $name-inner-http-echo-port5678.lvh.me" http://localhost/ | grep -q hello && exit 0
+            sleep 3
+          done
+          echo "the app inside the sandbox never answered"; exit 1
+
+      # virtiofsd writes what guest root writes as host root: device nodes and setuid files must be inert on the host
+      - name: The host is hardened (nosuid,nodev data root, no device nodes from a sandbox)
+        run: |
+          opts=$(findmnt -no OPTIONS --target /var/lib/docker)
+          echo "/var/lib/docker: $opts"
+          echo "$opts" | tr , '\n' | grep -qx nosuid
+          echo "$opts" | tr , '\n' | grep -qx nodev
+          name="hd$(head -c 3 /dev/urandom | od -An -tx1 | tr -d ' \n')"
+          full=$(curl -sf -X POST -H "Content-Type: application/json" -H "Authorization: Bearer $P9M_TOKEN" \
+            -d "{\"name\":\"$name\",\"create_inner_stack\":false}" http://localhost:8081/sandboxes | jq -r .name)
+          trap 'curl -sf -X DELETE -H "Authorization: Bearer $P9M_TOKEN" "http://localhost:8081/sandboxes/$full" >/dev/null || true' EXIT
+          for i in $(seq 1 60); do docker exec "$full" true 2>/dev/null && break; sleep 2; done
+          # Not /tmp: the dind entrypoint mounts a tmpfs there, in the guest's memory, where a device node never reaches
+          # the host. The shared paths are the rootfs and the volumes (here /opt), both through virtiofsd
+          docker exec "$full" grep -E ' (/|/tmp|/opt) ' /proc/mounts
+          # The rootfs and the volume must really be the virtiofs shares, or the refusals below prove nothing
+          for f in / /opt; do
+            fstype=$(docker exec "$full" awk -v m="$f" '$2 == m { t = $3 } END { print t }' /proc/mounts)
+            [ "$fstype" = virtiofs ] || { echo "$f in the guest is $fstype, not virtiofs"; exit 1; }
+          done
+          # virtiofsd (--modcaps=-mknod) must refuse it, not anything else failing
+          for f in /x /opt/x; do
+            if out=$(docker exec "$full" mknod "$f" b 8 0 2>&1); then
+              echo "guest root made a block device node at $f, on a path the host shares"; docker exec "$full" ls -l "$f"; exit 1
+            fi
+            echo "mknod $f: $out"
+            echo "$out" | grep -q 'Operation not permitted' || { echo "mknod at $f failed, but not with EPERM"; exit 1; }
+          done
+          # Positive control: in the guest's own memory (tmpfs) guest root may make one, so the refusal above is virtiofsd's
+          docker exec "$full" mknod /tmp/x b 8 0
+          docker exec "$full" ls -l /tmp/x
+          echo "mknod /tmp/x (guest tmpfs): made, as expected"
+          # ssh-host-keys is bound read-write from opt/sandboxes, outside the nosuid data root: guest root can leave a
+          # host-root setuid file there and chmod the folder, but the sandbox directory (0700) keeps other host users out
+          keys=$(docker inspect -f '{{range .Mounts}}{{if eq .Destination "/etc/ssh/host-keys"}}{{.Source}}{{end}}{{end}}' "$full")
+          [ -n "$keys" ] || { echo "no /etc/ssh/host-keys bind on $full"; exit 1; }
+          sudo stat -c '%a %U %n' "$(dirname "$keys")" "$keys"
+          [ "$(sudo stat -c %a "$(dirname "$keys")")" = 700 ] || { echo "the sandbox directory is not 0700"; exit 1; }
+          # The guest's binaries are musl: a host binary, copied in on the host and made setuid by the guest
+          sudo cp /usr/bin/id "$keys/suidid"
+          docker exec "$full" sh -c 'chmod 755 /etc/ssh/host-keys && chmod 4755 /etc/ssh/host-keys/suidid'
+          sudo stat -c '%A %U %n' "$keys/suidid"
+          r=$(sudo setpriv --reuid=65534 --regid=65534 --clear-groups stat "$keys/suidid" 2>&1 || true)
+          echo "an unprivileged host user: $r"
+          echo "$r" | grep -q 'Permission denied' || { echo "an unprivileged host user reached the guest's setuid file"; exit 1; }
+          # Purgatorium's own check for a read-write host folder (services/hostMounts.ts) sees both flags
+          docker compose exec -T p9m node_modules/.bin/tsx -e "import('./services/hostMounts').then(async m => { const o = await m.hostMountOptions('/var/lib/docker'); console.log('hostMountOptions', o); process.exit(o.includes('nosuid') && o.includes('nodev') ? 0 : 1) })"
+
+      - name: tests/new-sandbox.sh (made as the UI makes it; running in the list and its details, not restarting)
+        run: bash tests/new-sandbox.sh
+
+      - name: tests/browser.sh (the New sandbox dialog in a real browser)
+        run: P9M_PASSWORD=$(grep '^ADMIN_PASSWORD=' .env | cut -d= -f2-) bash tests/browser.sh
+
+      - name: tests/sablier-wake.sh
+        run: bash tests/sablier-wake.sh
+
+      - name: tests/archive.sh
+        # The archive under opt/ is written by root (Purgatorium runs in a container)
+        run: sudo -E bash tests/archive.sh
+
+      - name: tests/image-migration.sh (a running sandbox moves to the runtime's image)
+        env:
+          # The older -kata tag the sandbox is put back on. 0.13.0-kata is the first -kata image, so there is none
+          # yet: set it to 0.13.0 once runtimes/kata.yaml moves to a newer foxglove
+          KATA_OLD_TAG: ''
+        run: |
+          if [ -z "$KATA_OLD_TAG" ]; then
+            echo "::notice::skipped: no -kata image older than the runtime's to migrate from"
+            exit 0
+          fi
+          OLD_TAG=$KATA_OLD_TAG bash tests/image-migration.sh
+
+      - name: tests/app-streaming.sh (Server-Sent Events and chunked streams reach the client as they are written)
+        run: bash tests/app-streaming.sh
+
+      - name: tests/clone-sandbox.sh (a sandbox copied to a new one, its inner Docker's data included)
+        run: bash tests/clone-sandbox.sh
+
+      - name: tests/export-app.sh (a sandbox's app restored on a plain Docker)
+        run: bash tests/export-app.sh
+
+      - name: tests/deep-sleep.sh (idle, asleep, deep sleep, woken by one request)
+        run: bash tests/deep-sleep.sh
+
+      - name: tests/isolation.sh (one sandbox's apps cannot reach another's)
+        run: bash tests/isolation.sh
+
+      - name: Logs
+        if: failure()
+        run: |
+          docker compose logs --no-color --tail=200
+          for c in $(docker ps -a --filter label=p9m.managed=true --format '{{.Names}}'); do
+            echo "=== $c"; docker logs --tail=100 "$c" 2>&1
+          done
+          docker ps -a
+          sudo journalctl -u containerd -u docker --no-pager | tail -300

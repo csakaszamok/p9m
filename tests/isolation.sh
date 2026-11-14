@@ -45,9 +45,9 @@ echo "=== Sandbox isolation integration test ==="
 info "[1/3] Creating $FA (no inner stack) and $FB (with inner stack)..."
 curl -sf -X POST -H "Content-Type: application/json" -H "Authorization: Bearer $P9M_TOKEN" -d "{\"name\":\"$A\",\"create_inner_stack\":false}" \
   "$P9M_API/sandboxes" >/dev/null || fail "create $FA failed"
-# The starter's app, public: the checks open it without signing in (an app's default level is owner since 0.12.12)
-B_COMPOSE='services:\n  http-echo:\n    image: hashicorp/http-echo:latest\n    container_name: http-echo\n    command: [\"-text=hello ${name}\"]\n    ports: [\"5678:5678\"]\n    labels:\n      p9m.access: public\n'
-curl -sf -X POST -H "Content-Type: application/json" -H "Authorization: Bearer $P9M_TOKEN" -d "{\"name\":\"$B\",\"template\":\"empty\",\"compose\":\"$B_COMPOSE\"}" \
+# The starter's app (http-echo on 5678; a create takes no compose text any more). The checks open it without signing
+# in: run the stack with APPS_ACCESS_DEFAULT=public (an app's default level is owner since 0.12.12)
+curl -sf -X POST -H "Content-Type: application/json" -H "Authorization: Bearer $P9M_TOKEN" -d "{\"name\":\"$B\"}" \
   "$P9M_API/sandboxes" >/dev/null || fail "create $FB failed"
 ECHO_HOST="$B-inner-http-echo-port5678.$HOST_DOMAIN"
 for i in $(seq 1 40); do

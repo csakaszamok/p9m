@@ -4,7 +4,7 @@ version: 2
 updates:
   - package-ecosystem: npm
     directory: /
-    target-branch: release/0.20
+    target-branch: release/0.21
     schedule: { interval: weekly }
     groups:
       # One PR for the minor and patch updates; majors one by one
@@ -20,16 +20,16 @@ updates:
         update-types: [version-update:semver-major]
   - package-ecosystem: github-actions
     directory: /
-    target-branch: release/0.20
+    target-branch: release/0.21
     schedule: { interval: weekly }
     groups:
       actions:
         patterns: ['*']
   - package-ecosystem: docker
     directory: /
-    target-branch: release/0.20
+    target-branch: release/0.21
     schedule: { interval: weekly }
   - package-ecosystem: pip
     directory: /docs
-    target-branch: release/0.20
+    target-branch: release/0.21
     schedule: { interval: monthly }

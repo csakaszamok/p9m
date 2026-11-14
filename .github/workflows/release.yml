@@ -112,7 +112,7 @@ jobs:
           ' CHANGELOG.md > notes.md
           # The install files of this release: the compose file, the scripts, and env.example (no leading dot in an asset name)
           mkdir dist
-          cp docker-compose.yml check-host.sh dist/
+          cp docker-compose.yml check-host.sh scripts/install-kata.sh dist/
           cp .env.example dist/env.example
           sed "s/^P9M_RELEASE=.*/P9M_RELEASE=$TAG/" setup.sh > dist/setup.sh
           grep -q "^P9M_RELEASE=$TAG\$" dist/setup.sh
@@ -124,7 +124,7 @@ jobs:
           TAG: ${{ github.ref_name }}
         run: |
           assets=$(gh release view "$TAG" --json assets -q '.assets[].name')
-          for f in check-host.sh docker-compose.yml setup.sh env.example; do
+          for f in check-host.sh install-kata.sh docker-compose.yml setup.sh env.example; do
             echo "$assets" | grep -qx "$f" || { echo "missing release asset: $f"; exit 1; }
           done
 

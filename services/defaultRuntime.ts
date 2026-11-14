@@ -1,4 +1,6 @@
 import { dockerRuntimes } from './docker'
+import { kataNewEnough, kataVersion, MIN_KATA } from './kataVersion'
+import { loadRuntime } from './runtimeLoader'
 import { MIN_SYSBOX, sysboxNewEnough, sysboxVersion, versionText } from './sysboxVersion'
 
 /** sysbox needs this OCI runtime on the host (Linux only; not in Docker Desktop) */
@@ -20,14 +22,33 @@ export async function defaultRuntime(env: NodeJS.ProcessEnv = process.env): Prom
   return (await hostRuntimes()).includes(SYSBOX_RUNC) || !runtimeAllowed('dind', env) ? 'sysbox' : 'dind'
 }
 
-/** Why this runtime cannot run on this host, or null: sysbox without sysbox-runc, or too old for the sandbox image. */
+/** The OCI runtime a runtime's sandbox service asks Docker for (sysbox-runc, kata), or null: none (dind) or an unknown runtime. */
+function ociRuntimeOf(name: string): string | null {
+  try {
+    const services = loadRuntime(name).docker_compose.services as Record<string, { runtime?: unknown }> | undefined
+    const runtime = services?.sandbox?.runtime
+    return typeof runtime === 'string' ? runtime : null
+  } catch { return null }
+}
+
+/** Why this runtime cannot run on this host, or null: its OCI runtime is not in Docker, or its version is too old for the sandbox image. */
 export async function runtimeMissing(name: string): Promise<string | null> {
-  if (name !== 'sysbox') return null
-  if ((await hostRuntimes()).includes(SYSBOX_RUNC)) {
+  const oci = ociRuntimeOf(name)
+  if (!oci) return null
+  if (!(await hostRuntimes()).includes(oci)) {
+    if (name === 'sysbox') return 'sysbox is not installed on this host (no sysbox-runc runtime in Docker): install sysbox (the privileged dind runtime is for development only: ALLOWED_RUNTIMES=sysbox,dind)'
+    if (name === 'kata') return 'Kata is not installed on this host (no kata runtime in Docker): run scripts/install-kata.sh (needs KVM)'
+    return `${name} is not installed on this host (no ${oci} runtime in Docker)`
+  }
+  if (name === 'sysbox') {
     const version = await sysboxVersion()
     return version && !sysboxNewEnough(version) ? `sysbox ${versionText(version)} on this host is too old: the sandbox image needs ${versionText(MIN_SYSBOX)} or newer, upgrade sysbox` : null
   }
-  return 'sysbox is not installed on this host (no sysbox-runc runtime in Docker): install sysbox (the privileged dind runtime is for development only: ALLOWED_RUNTIMES=sysbox,dind)'
+  if (name === 'kata') {
+    const version = await kataVersion()
+    return version && !kataNewEnough(version) ? `kata ${versionText(version)} on this host is too old: the sandbox image needs ${versionText(MIN_KATA)} or newer, upgrade Kata` : null
+  }
+  return null
 }
 
 /** Without ALLOWED_RUNTIMES: only sysbox. The privileged dind is for development (a laptop, Docker Desktop) */
