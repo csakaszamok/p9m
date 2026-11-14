@@ -4,6 +4,10 @@ All notable changes are listed here. Versions follow [semantic versioning](https
 
 ## [Unreleased]
 
+## [0.21.0] - 2026-11-14
+
+Upgrading from 0.20.x: download the new `docker-compose.yml` from `https://github.com/csakaszamok/p9m/releases/latest/download/docker-compose.yml` (it passes `SANDBOX_SUBNET_POOL`; a `P9M_VERSION` in `.env` must say `0.21`) and `docker compose pull && docker compose up -d`. The sandboxes move to the sandbox image foxglove 0.13.0 at that start: running ones restart (their apps with `restart: unless-stopped` come back), sleeping ones get it when they wake. Nothing changes on the host unless you want the `kata` runtime: then run `sudo ./install-kata.sh` (a file of this release) and add `kata` to `ALLOWED_RUNTIMES`. From 0.19.x: also read 0.20.0's note.
+
 ### Added
 
 - **A `kata` runtime: a VM per sandbox**, for code you do not trust. Each sandbox runs in a Kata Containers microVM (Cloud Hypervisor) with its own kernel, unprivileged on the host, with the inner Docker, persistence and live CPU and memory changes as under `sysbox`. It is opt-in (`kata` in `ALLOWED_RUNTIMES`), needs a host with KVM, and `sudo scripts/install-kata.sh` sets the host up; all runtimes now use foxglove 0.13.0 ([docs](https://csakaszamok.github.io/p9m/latest/runtimes-templates/))
