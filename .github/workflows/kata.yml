@@ -123,11 +123,36 @@ jobs:
           # Not /tmp: the dind entrypoint mounts a tmpfs there, in the guest's memory, where a device node never reaches
           # the host. The shared paths are the rootfs and the volumes (here /opt), both through virtiofsd
           docker exec "$full" grep -E ' (/|/tmp|/opt) ' /proc/mounts
+          # The rootfs and the volume must really be the virtiofs shares, or the refusals below prove nothing
+          for f in / /opt; do
+            fstype=$(docker exec "$full" awk -v m="$f" '$2 == m { t = $3 } END { print t }' /proc/mounts)
+            [ "$fstype" = virtiofs ] || { echo "$f in the guest is $fstype, not virtiofs"; exit 1; }
+          done
+          # virtiofsd (--modcaps=-mknod) must refuse it, not anything else failing
           for f in /x /opt/x; do
-            if docker exec "$full" mknod "$f" b 8 0; then
+            if out=$(docker exec "$full" mknod "$f" b 8 0 2>&1); then
               echo "guest root made a block device node at $f, on a path the host shares"; docker exec "$full" ls -l "$f"; exit 1
             fi
+            echo "mknod $f: $out"
+            echo "$out" | grep -q 'Operation not permitted' || { echo "mknod at $f failed, but not with EPERM"; exit 1; }
           done
+          # Positive control: in the guest's own memory (tmpfs) guest root may make one, so the refusal above is virtiofsd's
+          docker exec "$full" mknod /tmp/x b 8 0
+          docker exec "$full" ls -l /tmp/x
+          echo "mknod /tmp/x (guest tmpfs): made, as expected"
+          # ssh-host-keys is bound read-write from opt/sandboxes, outside the nosuid data root: guest root can leave a
+          # host-root setuid file there and chmod the folder, but the sandbox directory (0700) keeps other host users out
+          keys=$(docker inspect -f '{{range .Mounts}}{{if eq .Destination "/etc/ssh/host-keys"}}{{.Source}}{{end}}{{end}}' "$full")
+          [ -n "$keys" ] || { echo "no /etc/ssh/host-keys bind on $full"; exit 1; }
+          sudo stat -c '%a %U %n' "$(dirname "$keys")" "$keys"
+          [ "$(sudo stat -c %a "$(dirname "$keys")")" = 700 ] || { echo "the sandbox directory is not 0700"; exit 1; }
+          # The guest's binaries are musl: a host binary, copied in on the host and made setuid by the guest
+          sudo cp /usr/bin/id "$keys/suidid"
+          docker exec "$full" sh -c 'chmod 755 /etc/ssh/host-keys && chmod 4755 /etc/ssh/host-keys/suidid'
+          sudo stat -c '%A %U %n' "$keys/suidid"
+          r=$(sudo setpriv --reuid=65534 --regid=65534 --clear-groups stat "$keys/suidid" 2>&1 || true)
+          echo "an unprivileged host user: $r"
+          echo "$r" | grep -q 'Permission denied' || { echo "an unprivileged host user reached the guest's setuid file"; exit 1; }
           # Purgatorium's own check for a read-write host folder (services/hostMounts.ts) sees both flags
           docker compose exec -T p9m node_modules/.bin/tsx -e "import('./services/hostMounts').then(async m => { const o = await m.hostMountOptions('/var/lib/docker'); console.log('hostMountOptions', o); process.exit(o.includes('nosuid') && o.includes('nodev') ? 0 : 1) })"
 

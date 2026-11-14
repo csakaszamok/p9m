@@ -505,6 +505,19 @@ describe('sandbox service', () => {
     expect(order).toEqual(['keys', 'up'])
   }, 60000)
 
+  it('makes the sandbox directory 0700 before anything is written into it', async () => {
+    // Kata: the guest can chmod the bound ssh-host-keys dir but not its parent, so a setuid file planted there stays
+    // out of reach of unprivileged host users
+    vi.mocked(fs.mkdirSync).mockClear()
+    await sandboxService.createSandbox('mode1', false)
+    const calls = vi.mocked(fs.mkdirSync).mock.calls
+    const own = calls.findIndex(c => c[0] === '/opt/sandboxes/admin/p9m-mode1')
+    expect(own).toBeGreaterThanOrEqual(0)
+    expect(calls[own][1]).toEqual(expect.objectContaining({ mode: 0o700 }))
+    const firstInside = calls.findIndex(c => String(c[0]).startsWith('/opt/sandboxes/admin/p9m-mode1/'))
+    expect(own).toBeLessThan(firstInside)
+  }, 60000)
+
   it('refuses to create with an unreadable SSH key store before writing anything for the sandbox', async () => {
     const { sshKeysOf } = await import('../../services/sshKeys')
     vi.mocked(sshKeysOf).mockImplementationOnce(() => { throw new SyntaxError('Unexpected token n in JSON') })

@@ -300,6 +300,10 @@ export const sandboxService = {
     timer.lap('certificates')
     const createdAt = new Date().toISOString()
 
+    // 0700: under Kata the guest writes the bound ssh-host-keys dir as host root and can chmod it, but not this
+    // parent, so a setuid file it plants there stays out of reach of unprivileged host users
+    fs.mkdirSync(path.dirname(dir), { recursive: true })
+    fs.mkdirSync(dir, { mode: 0o700 })
     const serverCertsDir = `${dir}/certs/server`
     const clientCertsDir = `${dir}/certs/client`
     fs.mkdirSync(serverCertsDir, { recursive: true })
