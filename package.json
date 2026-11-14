@@ -14,7 +14,7 @@
     "js-yaml": "^4.1.0",
     "node-forge": "^1.4.3",
     "openid-client": "^6.8.9",
-    "ws": "^8.22.1"
+    "ws": "^8.22.2"
   },
   "devDependencies": {
     "@types/dockerode": "^4.0.2",
