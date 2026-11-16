@@ -4,6 +4,14 @@ All notable changes are listed here. Versions follow [semantic versioning](https
 
 ## [Unreleased]
 
+## [0.21.1] - 2026-11-16
+
+Upgrading from 0.21.0: `docker compose pull && docker compose up -d` where `.env` has `P9M_VERSION=0.21`; otherwise first download the new `docker-compose.yml` from `https://github.com/csakaszamok/p9m/releases/latest/download/docker-compose.yml`, which names this version.
+
+### Fixed
+
+- **Adding a host folder with a comma or a backslash in its path** was refused with "without .. or $", which named neither; the message now lists every character a host or target path may not have.
+
 ## [0.21.0] - 2026-11-14
 
 Upgrading from 0.20.x: download the new `docker-compose.yml` from `https://github.com/csakaszamok/p9m/releases/latest/download/docker-compose.yml` (it passes `SANDBOX_SUBNET_POOL`; a `P9M_VERSION` in `.env` must say `0.21`) and `docker compose pull && docker compose up -d`. The sandboxes move to the sandbox image foxglove 0.13.0 at that start: running ones restart (their apps with `restart: unless-stopped` come back), sleeping ones get it when they wake. Nothing changes on the host unless you want the `kata` runtime: then run `sudo ./install-kata.sh` (a file of this release) and add `kata` to `ALLOWED_RUNTIMES`. From 0.19.x: also read 0.20.0's note.

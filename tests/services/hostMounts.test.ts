@@ -65,6 +65,11 @@ describe('validateMount', () => {
     expect(validateMount({}, ctx())).toMatch(/host/)
     expect(validateMount('x', ctx())).toMatch(/JSON object/)
   })
+  it('names every character it refuses in a path, so a comma or a backslash is not a mystery', () => {
+    for (const body of [{ host: '/srv/shared/a,b' }, { host: '/srv/shared/a\\b' }, { host: '/srv/shared', target: '/mnt/a,b' }]) {
+      expect(validateMount(body, ctx())).toMatch(/\$, a comma, a backslash or a control character/)
+    }
+  })
   it('refuses a target that is relative, /, has .., or is taken', () => {
     expect(validateMount({ host: '/srv/shared', target: 'mnt/x' }, ctx())).toMatch(/absolute/)
     expect(validateMount({ host: '/srv/shared', target: '/' }, ctx())).toMatch(/not \//)
