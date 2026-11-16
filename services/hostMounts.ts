@@ -109,12 +109,12 @@ export function validateMount(body: unknown, ctx: { roots: string[]; existing: H
   const b = body as Record<string, unknown>
   if (b.host === undefined) return 'host is required: the host folder to mount'
   const host = cleanPath(b.host)
-  if (!host) return 'host must be an absolute path, without .. or $'
+  if (!host) return 'host must be an absolute path, without .., $, a comma, a backslash or a control character'
   if (!underRoot(host, ctx.roots)) return `${host} is not under HOST_MOUNT_ROOTS (${ctx.roots.join(', ')})`
   const defaultTarget = b.target === undefined || b.target === ''
   if (defaultTarget && host === '/') return 'give a target for the host folder /'
   const target = defaultTarget ? `/mnt/${path.posix.basename(host)}` : cleanPath(b.target)
-  if (!target) return 'target must be an absolute path, without .. or $'
+  if (!target) return 'target must be an absolute path, without .., $, a comma, a backslash or a control character'
   if (target === '/') return 'target: not / itself'
   const system = SYSTEM_DIRS.find(d => within(target, d))
   if (system) return `target: ${system} is a system directory of the sandbox container`
