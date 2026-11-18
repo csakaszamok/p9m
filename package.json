@@ -13,8 +13,8 @@
     "dockerode": "^5.0.1",
     "js-yaml": "^4.1.0",
     "node-forge": "^1.4.3",
-    "openid-client": "^6.8.9",
-    "ws": "^8.22.1"
+    "openid-client": "^6.9.0",
+    "ws": "^8.23.0"
   },
   "devDependencies": {
     "@types/dockerode": "^4.0.2",
