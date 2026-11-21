@@ -16,6 +16,7 @@ OUT_DIR=${OUT_DIR:-./kata-durability-out}
 mkdir -p "$OUT_DIR"
 OUT_DIR=$(cd "$OUT_DIR" && pwd)
 export KATA_SEEN=$OUT_DIR/seen.txt
+# shellcheck source=tests/kata/lib.sh
 . "$(dirname "$0")/kata/lib.sh"
 node "$KATA_DIR/report.mjs" validate
 : >"$KATA_SEEN"
@@ -65,9 +66,9 @@ for r in $(seq 1 "$KILLS"); do
   [ ! -d "/proc/$shim" ] || finding durability.kill-hang "$r" "round $r: the shim (pid $shim) is still there 10 s after SIGKILL"
 
   # The killed VM's own processes (by PID: the restarted VM has the same ID) must go within 30 s
-  left_hv= left_fs=
+  left_hv='' left_fs=''
   for _ in $(seq 1 30); do
-    left_hv= left_fs=
+    left_hv='' left_fs=''
     for p in $vm; do
       [ -d "/proc/$p" ] || continue
       case $(ps -o args= -p "$p" | awk '{ n = split($1, a, "/"); print a[n] }') in
@@ -94,7 +95,7 @@ for r in $(seq 1 "$KILLS"); do
 
   sb=$(timeout 300 docker exec "$n" sh /srv/kata/verify.sh /srv/dur || true)
   inner=$(timeout 300 docker exec "$n" docker run --rm -v durdata:/data -v /srv/kata:/k:ro alpine sh /k/verify.sh /data || true)
-  [ -n "$sb" ] && [ -n "$inner" ] || finding durability.inner-docker-down "$r" "round $r: the check could not run in $n (sandbox: [$sb], inner: [$inner])"
+  if [ -z "$sb" ] || [ -z "$inner" ]; then finding durability.inner-docker-down "$r" "round $r: the check could not run in $n (sandbox: [$sb], inner: [$inner])"; fi
   check "$r" "the sandbox's /srv" "$sb"; c_sb=$checked
   check "$r" "the inner volume" "$inner"; c_in=$checked
 

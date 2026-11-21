@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 # Shared helpers of the Kata soak and durability tests (tests/kata-soak.sh, tests/kata-durability.sh), sourced by
 # both. They run on the Kata host itself, next to a running stack (kata-soak.yml starts one), with sudo for the
 # journal and Docker's netns directory. Every Docker and API call has a time limit: a dead shim can leave Docker
@@ -30,8 +31,9 @@ make_sandbox() {
 remove_sandbox() {
   local n=$1
   api -m 300 -X DELETE "$API/sandboxes/$n" >/dev/null 2>&1 || true
-  local ids; ids=$(timeout 30 docker ps -aq --filter "name=^$n(-dns|-frps|-socat)?\$" 2>/dev/null || true)
-  [ -z "$ids" ] || timeout 60 docker rm -f $ids >/dev/null 2>&1 || true
+  local ids=()
+  mapfile -t ids < <(timeout 30 docker ps -aq --filter "name=^$n(-dns|-frps|-socat)?\$" 2>/dev/null || true)
+  [ "${#ids[@]}" = 0 ] || timeout 60 docker rm -f "${ids[@]}" >/dev/null 2>&1 || true
 }
 
 container_id() { timeout 30 docker inspect -f '{{.Id}}' "$1"; }
@@ -53,6 +55,7 @@ vm_pids() {
   ps -eo pid=,args= | awk -v id="$1" -v re="$2" 'index($0, id) { n = split($2, a, "/"); if (a[n] ~ re) print $1 }'
 }
 
+# shellcheck disable=SC2034 # used by kata-soak.sh
 METRICS_HEADER='cycle,phase,sandboxes,shims,hypervisors,virtiofsd,mounts,links,netns,mem_avail_kb,disk_used_kb'
 DOCKER_ROOT=
 
@@ -76,8 +79,8 @@ wait_ready() {
 
 # app_answers <raw name>: the starter app says hello within a minute
 app_answers() {
-  local i
-  for i in $(seq 1 12); do
+  local _
+  for _ in $(seq 1 12); do
     curl -sk -L --noproxy '*' -m 5 -H "Host: $1-inner-http-echo-port5678.$HOST_DOMAIN" "$APP_BASE/" 2>/dev/null | grep -q hello && return 0
     sleep 5
   done
@@ -91,7 +94,7 @@ diagnose() {
   id=$(container_id "$n" 2>/dev/null || true)
   {
     echo "=== $n ($tag), container ${id:-unknown}"
-    [ -z "$id" ] || { echo "--- its VM's processes"; ps -eo pid,etimes,args | grep -F -- "$id" | grep -v grep || true; }
+    [ -z "$id" ] || { echo "--- its VM's processes"; pgrep -af -- "$id" || true; }
     echo "--- docker ps"; timeout 30 docker ps -a --filter "name=$n" || echo "(docker ps did not answer)"
     echo "--- docker inspect"; timeout 30 docker inspect "$n" || echo "(docker inspect did not answer)"
     echo "--- containerd and docker journal"; sudo journalctl -u containerd -u docker --no-pager 2>/dev/null | tail -200

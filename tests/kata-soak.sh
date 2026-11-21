@@ -16,6 +16,7 @@ OUT_DIR=${OUT_DIR:-./kata-soak-out}
 mkdir -p "$OUT_DIR"
 OUT_DIR=$(cd "$OUT_DIR" && pwd)
 export METRICS=$OUT_DIR/metrics.csv DURATIONS=$OUT_DIR/durations.csv KATA_SEEN=$OUT_DIR/seen.txt
+# shellcheck source=tests/kata/lib.sh
 . "$(dirname "$0")/kata/lib.sh"
 node "$KATA_DIR/report.mjs" validate
 echo "$METRICS_HEADER" >"$METRICS"; echo 'cycle,sandbox,op,ms' >"$DURATIONS"; : >"$KATA_SEEN"

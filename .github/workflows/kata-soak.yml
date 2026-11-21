@@ -47,7 +47,7 @@ jobs:
 
       # Before hours of Kata: the scripts lint clean, and the writer and its check behave under busybox
       - name: shellcheck
-        run: shellcheck tests/kata/*.sh tests/kata-soak.sh tests/kata-durability.sh
+        run: shellcheck -x tests/kata/*.sh tests/kata-soak.sh tests/kata-durability.sh
 
       - name: The durability writer and check under busybox
         if: matrix.test == 'durability'
@@ -92,6 +92,7 @@ jobs:
       - name: Logs
         if: failure()
         run: |
+          [ -f .env ] || { echo 'the stack was never started'; exit 0; }
           docker compose logs --no-color --tail=200
           for c in $(docker ps -a --filter label=p9m.managed=true --format '{{.Names}}'); do
             echo "=== $c"; docker logs --tail=100 "$c" 2>&1
