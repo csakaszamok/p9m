@@ -1,0 +1,100 @@
+name: Kata soak
+
+# The kata runtime over time, on a GitHub runner with KVM: tests/kata-soak.sh stops and starts a few sandboxes
+# hundreds of times and samples the host for leaks, hangs (Kata runtime-rs #8583) and slowdown;
+# tests/kata-durability.sh kills a sandbox's Kata shim during synced writes and checks it comes back with every
+# committed file. Each test on its own runner per hypervisor, so one's failure neither skips nor pollutes the other.
+# Findings listed in tests/kata-known-issues.txt are warnings. Weekly, and by hand with larger or smaller numbers.
+on:
+  workflow_dispatch:
+    inputs:
+      hypervisor:
+        description: Hypervisors to run on
+        type: choice
+        options: [both, clh, qemu]
+        default: both
+      sandboxes:
+        description: Soak sandboxes (empty = the script's default)
+        default: ''
+      cycles:
+        description: Soak stop/start cycles (empty = the script's default)
+        default: ''
+      kills:
+        description: Durability shim kills (empty = the script's default)
+        default: ''
+  schedule:
+    - cron: '0 2 * * 0'
+  # Temporary, while the branch calibrates the defaults: removed before it is merged
+  push:
+    branches:
+      - feat/kata-soak
+
+env:
+  P9M_TOKEN: abc123
+
+jobs:
+  run:
+    name: ${{ matrix.test }} (${{ matrix.hypervisor }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 330
+    strategy:
+      fail-fast: false
+      matrix:
+        hypervisor: ${{ fromJSON(inputs.hypervisor == 'clh' && '["clh"]' || inputs.hypervisor == 'qemu' && '["qemu"]' || '["clh","qemu"]') }}
+        test: [durability, soak]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # Before hours of Kata: the scripts lint clean, and the writer and its check behave under busybox
+      - name: shellcheck
+        run: shellcheck tests/kata/*.sh tests/kata-soak.sh tests/kata-durability.sh
+
+      - name: The durability writer and check under busybox
+        if: matrix.test == 'durability'
+        run: |
+          docker run --rm -v "$PWD/tests/kata:/k:ro" alpine sh -euc '
+            d=/tmp/d
+            sh /k/writer.sh $d & w=$!; sleep 5; kill $w; wait $w || true
+            out=$(sh /k/verify.sh $d); echo "$out"; echo "$out" | grep -q "^OK [1-9]"
+            printf "f99999 abc" >> $d/manifest
+            sh /k/verify.sh $d | tail -1 | grep -q "^OK [1-9]"
+            printf X | dd of=$d/f1 bs=1 seek=10 conv=notrunc 2>/dev/null; rm $d/f2
+            out=$(sh /k/verify.sh $d || true); echo "$out"
+            echo "$out" | grep -qx "CORRUPT f1"; echo "$out" | grep -qx "LOST f2"
+            ! sh /k/verify.sh $d >/dev/null
+            sh /k/writer.sh $d & w=$!; sleep 2; kill $w; wait $w || true
+            ! grep -q f99999 $d/manifest
+            echo "writer and verify: OK"'
+
+      - name: Kata and the stack (${{ matrix.hypervisor }})
+        uses: ./.github/actions/kata-stack
+        with:
+          hypervisor: ${{ matrix.hypervisor }}
+          p9m-token: ${{ env.P9M_TOKEN }}
+          dockerhub-username: ${{ secrets.DOCKERHUB_USERNAME }}
+          dockerhub-token: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: tests/kata-${{ matrix.test }}.sh
+        env:
+          SANDBOXES: ${{ inputs.sandboxes }}
+          CYCLES: ${{ inputs.cycles }}
+          KILLS: ${{ inputs.kills }}
+        run: bash tests/kata-${{ matrix.test }}.sh
+
+      - name: Metrics and diagnostics
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: kata-${{ matrix.test }}-${{ matrix.hypervisor }}
+          path: kata-${{ matrix.test }}-out/
+          if-no-files-found: ignore
+
+      - name: Logs
+        if: failure()
+        run: |
+          docker compose logs --no-color --tail=200
+          for c in $(docker ps -a --filter label=p9m.managed=true --format '{{.Names}}'); do
+            echo "=== $c"; docker logs --tail=100 "$c" 2>&1
+          done
+          docker ps -a
+          sudo journalctl -u containerd -u docker --no-pager | tail -300
