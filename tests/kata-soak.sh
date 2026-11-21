@@ -81,7 +81,7 @@ step() {
   local op=$1 c=$2 n
   for n in "${names[@]}"; do
     (
-      t0=$(now_ms)
+      t0=$(now_ms) id0=$(container_id "$n" 2>/dev/null || true)
       rc=0; api -X POST "$API/sandboxes/$n/$op" >/dev/null 2>"$work/$n.err" || rc=$?
       if [ "$rc" = 28 ]; then echo hang >"$work/$n.res"; exit 0; fi
       if [ "$rc" != 0 ]; then echo "failed: the API answered with an error (curl $rc)" >"$work/$n.res"; exit 0; fi
@@ -92,6 +92,8 @@ step() {
         wait_ready "$n" "$left" || { echo "failed: not running with its inner Docker within ${STEP_TIMEOUT}s" >"$work/$n.res"; exit 0; }
       fi
       echo "$c,$n,$op,$(( $(now_ms) - t0 ))" >>"$DURATIONS"
+      # Started, but as new containers: Purgatorium recreated them after the start failed (a stale Kata socket)
+      if [ "$op" = start ] && [ "$(container_id "$n" 2>/dev/null || true)" != "$id0" ]; then echo recreated >"$work/$n.res"; exit 0; fi
       echo ok >"$work/$n.res"
     ) &
   done
@@ -100,6 +102,7 @@ step() {
     res=$(cat "$work/$n.res" 2>/dev/null || echo "failed: no result")
     case $res in
       ok) ;;
+      recreated) finding soak.start-recreated "$n" "c$c-start" "cycle $c: the start of $n failed and Purgatorium recreated its containers (Kata's shim failed on a socket an earlier VM left, Kata #14014)" ;;
       hang) finding "soak.$op-hang" "$n" "c$c-$op" "cycle $c: $op of $n did not finish within ${STEP_TIMEOUT}s ($(cat "$work/$n.err" 2>/dev/null))"; drop "$n" ;;
       *) if [ "$op" = start ]; then
            again=$(start_again "$n" "c$c")
