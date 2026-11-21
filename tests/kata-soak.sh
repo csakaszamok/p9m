@@ -111,7 +111,16 @@ ms_stats() { # ms_stats <cycle> <op>: p50/max of that cycle's durations, in seco
 
 for c in $(seq 1 "$CYCLES"); do
   step stop "$c"
-  echo "$c,-,settle,$(settle_stopped 30)" >>"$DURATIONS"
+  settled=$(settle_stopped 30)
+  if [ "$settled" -ge 30000 ]; then
+    # A VM still there 30 s after Docker reported its container exited: what it is, then up to STEP_TIMEOUT more.
+    # Gone by then is a slow exit; still there is an orphan, which the stopped sample shows
+    host_diagnose "slow-exit-c$c" >/dev/null
+    settled=$(( settled + $(settle_stopped "$STEP_TIMEOUT") ))
+    [ "$settled" -ge $(( (30 + STEP_TIMEOUT) * 1000 )) ] ||
+      finding soak.slow-vm-exit - "c$c" "cycle $c: a Kata VM took $((settled / 1000)) s to go after Docker reported its container exited (diagnostics/host-slow-exit-c$c.txt)"
+  fi
+  echo "$c,-,settle,$settled" >>"$DURATIONS"
   host_sample "$c" stopped "${#names[@]}"
   step start "$c"
   if [ $((c % 10)) = 0 ]; then

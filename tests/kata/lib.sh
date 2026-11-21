@@ -83,6 +83,7 @@ host_diagnose() {
   mkdir -p "$OUT_DIR/diagnostics"
   {
     echo "=== host ($1)"
+    echo "--- Kata processes (pid, seconds running, command)"; ps -eo pid=,etimes=,args= | awk '{ n = split($3, a, "/"); if (a[n] ~ /^(containerd-shim-kata-v2|cloud-hypervisor|qemu-system-.*|virtiofsd)$/) print }' | cut -c1-300
     echo "--- lsns -t net"; sudo lsns -t net 2>&1 || true
     echo "--- nsfs mounts"; awk '$3 == "nsfs"' /proc/mounts
     echo "--- /var/run/docker/netns"; sudo ls -la /var/run/docker/netns 2>&1 || true
