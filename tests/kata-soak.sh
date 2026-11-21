@@ -98,7 +98,9 @@ step() {
 rules() {
   local id msg
   while IFS=$'\t' read -r id msg; do
-    [ -n "$id" ] && finding "$id" - rules "$msg"
+    [ -n "$id" ] || continue
+    [ -n "${reported[$id]:-}" ] || host_diagnose "${id#soak.}"
+    finding "$id" - rules "$msg"
   done < <(node "$KATA_DIR/soakRules.mjs" "$METRICS" "$DURATIONS")
 }
 

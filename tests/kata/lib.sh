@@ -56,15 +56,39 @@ vm_pids() {
 }
 
 # shellcheck disable=SC2034 # used by kata-soak.sh
-METRICS_HEADER='cycle,phase,sandboxes,shims,hypervisors,virtiofsd,mounts,links,netns,mem_avail_kb,disk_used_kb'
+METRICS_HEADER='cycle,phase,sandboxes,shims,hypervisors,virtiofsd,mounts,links,netns,mem_avail_kb,disk_used_kb,netns_files'
 DOCKER_ROOT=
+
+# The network namespaces the kernel holds: those a process is in, and those kept by an nsfs bind mount (Docker's
+# /var/run/docker/netns, ip netns), each counted once by its inode
+net_namespaces() {
+  {
+    sudo find /proc/[0-9]*/ns/net -maxdepth 0 -printf '%l\n' 2>/dev/null | sed -n 's/^net:\[\([0-9]*\)\]$/\1/p'
+    awk '$3 == "nsfs" { print $2 }' /proc/mounts | while read -r p; do sudo stat -L -c %i "$p" 2>/dev/null; done
+  } | sort -u | wc -l
+}
+
+# The files under Docker's and ip's netns directories (a file whose namespace is gone counts here, not above)
+netns_files() { echo $(( $(sudo ls /var/run/netns 2>/dev/null | wc -l) + $(sudo ls /var/run/docker/netns 2>/dev/null | wc -l) )); }
 
 # host_sample <cycle> <phase> <sandboxes>: one row of $METRICS, host-wide
 host_sample() {
   [ -n "$DOCKER_ROOT" ] || DOCKER_ROOT=$(timeout 30 docker info -f '{{.DockerRootDir}}')
   local all; all=$(_procs)
-  local netns=$(( $(ip netns list 2>/dev/null | wc -l) + $(sudo ls /var/run/docker/netns 2>/dev/null | wc -l) ))
-  echo "$1,$2,$3,$(_count "$RE_SHIM" <<<"$all"),$(_count "$RE_HV" <<<"$all"),$(_count "$RE_FS" <<<"$all"),$(wc -l </proc/mounts),$(ip -o link | wc -l),$netns,$(awk '/^MemAvailable:/ { print $2 }' /proc/meminfo),$(df -k --output=used "$DOCKER_ROOT" | tail -1 | tr -d ' ')" >>"$METRICS"
+  echo "$1,$2,$3,$(_count "$RE_SHIM" <<<"$all"),$(_count "$RE_HV" <<<"$all"),$(_count "$RE_FS" <<<"$all"),$(wc -l </proc/mounts),$(ip -o link 2>/dev/null | wc -l),$(net_namespaces),$(awk '/^MemAvailable:/ { print $2 }' /proc/meminfo),$(df -k --output=used "$DOCKER_ROOT" | tail -1 | tr -d ' '),$(netns_files)" >>"$METRICS"
+}
+
+# host_diagnose <tag>: the host's namespaces, nsfs mounts, netns files and links, when a host-wide rule fails
+host_diagnose() {
+  mkdir -p "$OUT_DIR/diagnostics"
+  {
+    echo "=== host ($1)"
+    echo "--- lsns -t net"; sudo lsns -t net 2>&1 || true
+    echo "--- nsfs mounts"; awk '$3 == "nsfs"' /proc/mounts
+    echo "--- /var/run/docker/netns"; sudo ls -la /var/run/docker/netns 2>&1 || true
+    echo "--- /var/run/netns"; sudo ls -la /var/run/netns 2>&1 || true
+    echo "--- ip -d link"; ip -d link 2>&1 | tail -150
+  } 2>&1 | tee "$OUT_DIR/diagnostics/host-$1.txt"
 }
 
 # wait_ready <name> <seconds>: running, and its inner dockerd answers
