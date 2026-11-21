@@ -16,7 +16,7 @@ import { loadRuntime } from './runtimeLoader'
 import { appEntriesOffline, appHostsFromCompose } from './appUrls'
 import { waitForTunnels } from './tunnelWait'
 import { appLinks, appLinksForView, frpsDomains, rememberedApps } from './appLinks'
-import { primeSablierSession, cancelSablierPrime, markWoken, markCreating, creatingDone, isCreating } from './wake'
+import { primeSablierSession, cancelSablierPrime, sablierStopDone, markWoken, markCreating, creatingDone, isCreating } from './wake'
 import { writeAuthorizedKeys, createGeneratedKey } from './sandboxSsh'
 import { sshKeysOf } from './sshKeys'
 import { resourceDefaults, memoryForCompose, type Limits } from './resources'
@@ -481,8 +481,10 @@ export const sandboxService = {
     await this.getSandbox(name)
     // The session probe of its last start must not reach its router once it is stopped: Sablier would start it again
     await cancelSablierPrime(name)
-    await composeStop(`${dirOf(name)}/docker-compose.yml`)
-    removeDynamicConfig(name)
+    try {
+      await composeStop(`${dirOf(name)}/docker-compose.yml`)
+      removeDynamicConfig(name)
+    } finally { sablierStopDone(name) }
   },
 
   /**
@@ -521,7 +523,7 @@ export const sandboxService = {
     if (sandbox.status !== 'running') return this.startSandbox(name)
     markWoken(name) // while it restarts, its address reaches p9m: a waiting page
     await cancelSablierPrime(name)
-    await composeStop(`${dirOf(name)}/docker-compose.yml`)
+    try { await composeStop(`${dirOf(name)}/docker-compose.yml`) } finally { sablierStopDone(name) }
     await composeStart(`${dirOf(name)}/docker-compose.yml`)
     markWoken(name)
     openSleepSession(name)

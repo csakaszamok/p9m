@@ -24,7 +24,7 @@ vi.mock('../../services/compose', () => ({
 // markCreating as the real one: a name being created is refused a second time until creatingDone
 const creating = vi.hoisted(() => new Set<string>())
 vi.mock('../../services/wake', () => ({
-  primeSablierSession: vi.fn(async () => {}), markWoken: vi.fn(), cancelSablierPrime: vi.fn(async () => {}),
+  primeSablierSession: vi.fn(async () => {}), markWoken: vi.fn(), cancelSablierPrime: vi.fn(async () => {}), sablierStopDone: vi.fn(),
   markCreating: vi.fn((n: string) => creating.has(n) ? false : (creating.add(n), true)),
   creatingDone: vi.fn((n: string) => { creating.delete(n) }),
   isCreating: vi.fn((n: string) => creating.has(n)),
@@ -83,7 +83,7 @@ vi.stubEnv('ARCHIVE_DIR', '/opt/archive')
 import { sandboxService, daemonJson, COREFILE } from '../../services/sandbox'
 const realFs = await vi.importActual<typeof import('fs')>('fs')
 import { listManagedContainers, dockerSubnets } from '../../services/docker'
-import { primeSablierSession, cancelSablierPrime } from '../../services/wake'
+import { primeSablierSession, cancelSablierPrime, sablierStopDone } from '../../services/wake'
 import { writeAuthorizedKeys } from '../../services/sandboxSsh'
 import { composeUp, composeUpInner, composeDown, composeStart, composeStop } from '../../services/compose'
 import { listProjectVolumes, exportVolume, removeVolume, stopProjectContainers, removeProjectContainers } from '../../services/project'
@@ -954,6 +954,20 @@ describe('startSandbox and the limits', () => {
     await sandboxService.stopSandbox('p9m-x')
     expect(cancelSablierPrime).toHaveBeenCalledWith('p9m-x')
     expect(vi.mocked(cancelSablierPrime).mock.invocationCallOrder[0]).toBeLessThan(vi.mocked(composeStop).mock.invocationCallOrder[0])
+    spy.mockRestore()
+  })
+
+  it('a stop lets session probes run again once its containers are stopped, or the stop failed', async () => {
+    const spy = vi.spyOn(sandboxService, 'getSandbox')
+    spy.mockResolvedValue({ name: 'p9m-x', owner: 'u@x', status: 'running' } as never)
+    vi.mocked(sablierStopDone).mockClear()
+    await sandboxService.stopSandbox('p9m-x')
+    expect(sablierStopDone).toHaveBeenCalledWith('p9m-x')
+    expect(vi.mocked(composeStop).mock.invocationCallOrder.at(-1)!).toBeLessThan(vi.mocked(sablierStopDone).mock.invocationCallOrder[0])
+    vi.mocked(sablierStopDone).mockClear()
+    vi.mocked(composeStop).mockRejectedValueOnce(new Error('boom'))
+    await expect(sandboxService.stopSandbox('p9m-x')).rejects.toThrow('boom')
+    expect(sablierStopDone).toHaveBeenCalledWith('p9m-x')
     spy.mockRestore()
   })
 

@@ -60,6 +60,9 @@ for r in $(seq 1 "$KILLS"); do
   shim=$(vm_pids "$id" "$RE_SHIM" | head -1)
   vm=$(vm_pids "$id" "$RE_HV"; vm_pids "$id" "$RE_FS")
   [ -n "$shim" ] || { finding durability.kill-hang "$r" "round $r: no Kata shim found for $n"; continue; }
+  # Without the VM's own processes the orphan check below would check nothing
+  [ -n "$(vm_pids "$id" "$RE_HV")" ] && [ -n "$(vm_pids "$id" "$RE_FS")" ] ||
+    { finding durability.vm-not-found "$r" "round $r: no hypervisor or virtiofsd found with $n's container ID"; continue; }
   t0=$(date +%s)
   sudo kill -9 "$shim" || true
   for _ in $(seq 1 10); do [ -d "/proc/$shim" ] || break; sleep 1; done

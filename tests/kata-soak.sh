@@ -56,6 +56,7 @@ drop() {
 # Images and caches in place before the baseline: one sandbox made and deleted
 warm=$(make_sandbox "ksw$run") || { finding soak.create-failed - create "the warm-up sandbox could not be made"; }
 [ -z "${warm:-}" ] || { wait_ready "$warm" 600 || true; remove_sandbox "$warm"; }
+settle_stopped "$STEP_TIMEOUT" >/dev/null || true # the warm-up's VM gone before the baseline
 sleep 10
 host_sample 0 baseline 0
 disk_snapshot base
@@ -140,14 +141,14 @@ ms_stats() { # ms_stats <cycle> <op>: p50/max of that cycle's durations, in seco
 
 for c in $(seq 1 "$CYCLES"); do
   step stop "$c"
-  settled=$(settle_stopped 30)
-  if [ "$settled" -ge 30000 ]; then
+  if ! settled=$(settle_stopped 30); then
     # A VM still there 30 s after Docker reported its container exited: what it is, then up to STEP_TIMEOUT more.
     # Gone by then is a slow exit; still there is an orphan, which the stopped sample shows
     host_diagnose "slow-exit-c$c" >/dev/null
-    settled=$(( settled + $(settle_stopped "$STEP_TIMEOUT") ))
-    [ "$settled" -ge $(( (30 + STEP_TIMEOUT) * 1000 )) ] ||
-      finding soak.slow-vm-exit - "c$c" "cycle $c: a Kata VM took $((settled / 1000)) s to go after Docker reported its container exited (diagnostics/host-slow-exit-c$c.txt)"
+    if more=$(settle_stopped "$STEP_TIMEOUT"); then
+      finding soak.slow-vm-exit - "c$c" "cycle $c: a Kata VM took $(( (settled + more) / 1000 )) s to go after Docker reported its container exited (diagnostics/host-slow-exit-c$c.txt)"
+    fi
+    settled=$(( settled + more ))
   fi
   echo "$c,-,settle,$settled" >>"$DURATIONS"
   host_sample "$c" stopped "${#names[@]}"
@@ -164,6 +165,9 @@ done
 
 for n in "${names[@]}"; do remove_sandbox "$n"; done
 names=() raws=()
+# The deleted sandboxes' VMs gone (one still there is an orphan, which the final sample shows), then the host's
+# network settles
+settle_stopped "$STEP_TIMEOUT" >/dev/null || true
 sleep 10
 host_sample $((CYCLES + 1)) final 0
 disk_snapshot final

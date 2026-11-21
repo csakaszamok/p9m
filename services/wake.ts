@@ -103,22 +103,28 @@ export function requestViaTraefik(hostHeader: string, method: string, path: stri
 const primeGeneration = new Map<string, number>()
 /** Per sandbox: the probe requests in flight, which a stop waits for */
 const primeInFlight = new Map<string, Set<Promise<unknown>>>()
+/** Sandboxes being stopped: a probe that begins meanwhile (a terminal's keep-alive, say) sends nothing */
+const stopping = new Set<string>()
 
 /**
  * Ends the sandbox's session probes (primeSablierSession) before it is stopped, and waits for a request of theirs
  * in flight: a probe request that reaches its router once it is stopped makes Sablier start it again.
  */
 export async function cancelSablierPrime(name: string): Promise<void> {
+  stopping.add(name)
   primeGeneration.set(name, (primeGeneration.get(name) ?? 0) + 1)
   await Promise.allSettled([...(primeInFlight.get(name) ?? [])])
 }
+
+/** The stop that called cancelSablierPrime is over (its containers stopped, or it failed): probes may run again. */
+export function sablierStopDone(name: string): void { stopping.delete(name) }
 
 /** Opens (or renews) the sandbox's Sablier session; false if it could not within `attempts`, or it was stopped. */
 export async function primeSablierSession(name: string, attempts = 30, delayMs = 1000): Promise<boolean> {
   const raw = rawNameOf(name) ?? name
   const host = `${raw}-p9m-wake.${appsDomain()}`
   const generation = primeGeneration.get(name) ?? 0
-  const stopped = () => (primeGeneration.get(name) ?? 0) !== generation
+  const stopped = () => stopping.has(name) || (primeGeneration.get(name) ?? 0) !== generation
   for (let i = 0; i < attempts; i++) {
     if (stopped()) return false
     const inFlight = primeInFlight.get(name) ?? new Set<Promise<unknown>>()

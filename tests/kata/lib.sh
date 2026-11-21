@@ -120,17 +120,17 @@ disk_growth() {
 }
 
 # settle_stopped <seconds>: wait until no Kata process is left on the host (a VM may still be shutting down when
-# Docker already reports its container exited); prints how long it took, in ms. A process still there afterwards
-# is an orphan, and the next sample shows it
+# Docker already reports its container exited); prints how long it waited, in ms, and fails if one is still there
+# after <seconds> (an orphan, unless it goes later: the next sample shows it)
 settle_stopped() {
-  local t0; t0=$(now_ms)
-  local until=$(( $(date +%s) + $1 )) all
-  while [ "$(date +%s)" -lt "$until" ]; do
+  local t0 all; t0=$(now_ms)
+  while :; do
     all=$(_procs)
-    [ "$(_count "$RE_SHIM" <<<"$all")$(_count "$RE_HV" <<<"$all")$(_count "$RE_FS" <<<"$all")" = 000 ] && break
+    [ "$(_count "$RE_SHIM" <<<"$all")$(_count "$RE_HV" <<<"$all")$(_count "$RE_FS" <<<"$all")" = 000 ] &&
+      { echo $(( $(now_ms) - t0 )); return 0; }
+    [ $(( $(now_ms) - t0 )) -lt $(( $1 * 1000 )) ] || { echo $(( $(now_ms) - t0 )); return 1; }
     sleep 1
   done
-  echo $(( $(now_ms) - t0 ))
 }
 
 # wait_ready <name> <seconds>: running, and its inner dockerd answers

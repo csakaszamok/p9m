@@ -55,7 +55,7 @@ vi.mock('node:https', async () => {
   return { default: { get, request: get }, get, request: get }
 })
 
-import { findSandboxDirByHost, wakeByHost, movedAppHost, primeSablierSession, cancelSablierPrime } from '../../services/wake'
+import { findSandboxDirByHost, wakeByHost, movedAppHost, primeSablierSession, cancelSablierPrime, sablierStopDone } from '../../services/wake'
 import { composeUp, composeStart } from '../../services/compose'
 import { listManagedContainers } from '../../services/docker'
 
@@ -321,8 +321,18 @@ describe('primeSablierSession and a stop', () => {
     httpAnswers = []
   })
 
+  it('a probe that begins while the stop goes on sends nothing', { timeout: 10000 }, async () => {
+    await cancelSablierPrime('p9m-st4')
+    httpCalls.length = 0
+    httpAnswers = [] // its router still there: a request would open a session, and Sablier would start it again
+    expect(await primeSablierSession('p9m-st4', 3, 10)).toBe(false)
+    expect(httpCalls).toHaveLength(0)
+    sablierStopDone('p9m-st4')
+  })
+
   it('a start after the stop opens the session again', { timeout: 10000 }, async () => {
     await cancelSablierPrime('p9m-st3')
+    sablierStopDone('p9m-st3')
     httpAnswers = [] // frps answers 404: through the sandbox router
     expect(await primeSablierSession('p9m-st3', 3, 10)).toBe(true)
   })
