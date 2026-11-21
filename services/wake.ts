@@ -99,20 +99,45 @@ export function requestViaTraefik(hostHeader: string, method: string, path: stri
   })
 }
 
-/** Opens (or renews) the sandbox's Sablier session; false if it could not within `attempts`. */
+/** Per sandbox: raised by a stop, so the session probes of its earlier starts give up (cancelSablierPrime) */
+const primeGeneration = new Map<string, number>()
+/** Per sandbox: the probe requests in flight, which a stop waits for */
+const primeInFlight = new Map<string, Set<Promise<unknown>>>()
+
+/**
+ * Ends the sandbox's session probes (primeSablierSession) before it is stopped, and waits for a request of theirs
+ * in flight: a probe request that reaches its router once it is stopped makes Sablier start it again.
+ */
+export async function cancelSablierPrime(name: string): Promise<void> {
+  primeGeneration.set(name, (primeGeneration.get(name) ?? 0) + 1)
+  await Promise.allSettled([...(primeInFlight.get(name) ?? [])])
+}
+
+/** Opens (or renews) the sandbox's Sablier session; false if it could not within `attempts`, or it was stopped. */
 export async function primeSablierSession(name: string, attempts = 30, delayMs = 1000): Promise<boolean> {
   const raw = rawNameOf(name) ?? name
   const host = `${raw}-p9m-wake.${appsDomain()}`
+  const generation = primeGeneration.get(name) ?? 0
+  const stopped = () => (primeGeneration.get(name) ?? 0) !== generation
   for (let i = 0; i < attempts; i++) {
+    if (stopped()) return false
+    const inFlight = primeInFlight.get(name) ?? new Set<Promise<unknown>>()
+    primeInFlight.set(name, inFlight)
+    const request = getViaTraefik(host)
+    inFlight.add(request)
     try {
       // Through the sandbox router the request passes Sablier (session opened) and
       // then frps, which answers 404 for this made-up host — so only our own
       // catch-all page (router not picked up yet) or a Traefik error means retry.
-      const { status, body } = await getViaTraefik(host)
+      const { status, body } = await request
       if (!body.includes(WAKE_PAGE_MARKER) && status !== 502 && status !== 503 && (status < 300 || status >= 400)) return true
-    } catch { /* traefik briefly unreachable: retry */ }
+    } catch { /* traefik briefly unreachable: retry */ } finally {
+      inFlight.delete(request)
+      if (!inFlight.size) primeInFlight.delete(name)
+    }
     if (i + 1 < attempts) await new Promise<void>(r => setTimeout(r, delayMs))
   }
+  if (stopped()) return false
   // A single try is a keep-alive ping, repeated soon: one miss is not worth a line
   if (attempts > 1) console.error(`[wake] ${name}: could not open a Sablier session; it will not sleep until its next request`)
   return false

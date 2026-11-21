@@ -24,7 +24,7 @@ vi.mock('../../services/compose', () => ({
 // markCreating as the real one: a name being created is refused a second time until creatingDone
 const creating = vi.hoisted(() => new Set<string>())
 vi.mock('../../services/wake', () => ({
-  primeSablierSession: vi.fn(async () => {}), markWoken: vi.fn(),
+  primeSablierSession: vi.fn(async () => {}), markWoken: vi.fn(), cancelSablierPrime: vi.fn(async () => {}),
   markCreating: vi.fn((n: string) => creating.has(n) ? false : (creating.add(n), true)),
   creatingDone: vi.fn((n: string) => { creating.delete(n) }),
   isCreating: vi.fn((n: string) => creating.has(n)),
@@ -83,7 +83,7 @@ vi.stubEnv('ARCHIVE_DIR', '/opt/archive')
 import { sandboxService, daemonJson, COREFILE } from '../../services/sandbox'
 const realFs = await vi.importActual<typeof import('fs')>('fs')
 import { listManagedContainers, dockerSubnets } from '../../services/docker'
-import { primeSablierSession } from '../../services/wake'
+import { primeSablierSession, cancelSablierPrime } from '../../services/wake'
 import { writeAuthorizedKeys } from '../../services/sandboxSsh'
 import { composeUp, composeUpInner, composeDown, composeStart, composeStop } from '../../services/compose'
 import { listProjectVolumes, exportVolume, removeVolume, stopProjectContainers, removeProjectContainers } from '../../services/project'
@@ -341,6 +341,15 @@ describe('sandbox service', () => {
     const socat = (yaml.load(written('p9m-fa1', 'docker-compose.yml')!) as { services: { socat: { environment: Record<string, string>; healthcheck: { test: string[] } } } }).services.socat
     expect(socat.environment.FRPS_API_AUTH).toBe(`${auth![1]}:${auth![2]}`)
     expect(socat.healthcheck.test[1]).toContain('http://$$FRPS_API_AUTH@127.0.0.1:7500/')
+  }, 60000)
+
+  // Docker keeps a container's log without end unless told otherwise: every start of a sandbox adds its dockerd's lines
+  it("rotates the logs of every container of a new sandbox on the host", async () => {
+    vi.mocked(fs.writeFileSync).mockClear()
+    await sandboxService.createSandbox('lg1', false)
+    const services = (yaml.load(written('p9m-lg1', 'docker-compose.yml')!) as { services: Record<string, { logging?: unknown }> }).services
+    expect(Object.keys(services).length).toBeGreaterThan(1)
+    for (const s of Object.values(services)) expect(s.logging).toEqual({ driver: 'json-file', options: { 'max-size': '10m', 'max-file': '3' } })
   }, 60000)
 
   // Docker Engine 25+: socat is checked every 0.5 s while it starts, so the router shows up sooner
@@ -934,6 +943,17 @@ describe('startSandbox and the limits', () => {
     expect(composeStop).toHaveBeenCalledWith('/opt/sandboxes/admin/p9m-shop/docker-compose.yml')
     expect(composeStart).toHaveBeenCalledWith('/opt/sandboxes/admin/p9m-x/docker-compose.yml')
     expect(vi.mocked(composeStop).mock.invocationCallOrder[0]).toBeLessThan(vi.mocked(composeStart).mock.invocationCallOrder[0])
+    spy.mockRestore()
+  })
+
+  // The session probe of its last start must not wake it again through Sablier once it is stopped
+  it('a stop ends the Sablier session probe before it stops the containers', async () => {
+    const spy = vi.spyOn(sandboxService, 'getSandbox')
+    spy.mockResolvedValueOnce({ name: 'p9m-x', owner: 'u@x', status: 'running' } as never)
+    vi.mocked(cancelSablierPrime).mockClear()
+    await sandboxService.stopSandbox('p9m-x')
+    expect(cancelSablierPrime).toHaveBeenCalledWith('p9m-x')
+    expect(vi.mocked(cancelSablierPrime).mock.invocationCallOrder[0]).toBeLessThan(vi.mocked(composeStop).mock.invocationCallOrder[0])
     spy.mockRestore()
   })
 

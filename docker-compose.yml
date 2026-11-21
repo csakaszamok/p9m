@@ -1,3 +1,10 @@
+# Every container's log rotated: Docker keeps one without end unless told otherwise (the registry caches log each pull)
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: 10m
+    max-file: "3"
+
 services:
   p9m:
     # The released image: it carries the templates, runtimes and the files p9m-init installs.
@@ -136,6 +143,7 @@ services:
       traefik.http.routers.p9m-wake.service: p9m
       traefik.http.middlewares.wake-path.replacepath.path: "/wake"
     restart: unless-stopped
+    logging: *logging
     healthcheck:
       test: ["CMD-SHELL", "test -f /app/data/registry-auth.crt && test -f /app/data/registry-notify.secret"]
       interval: 2s
@@ -181,6 +189,7 @@ services:
       traefik.http.services.registry.loadbalancer.server.port: 5000
       traefik.docker.network: traefik-net
     restart: unless-stopped
+    logging: *logging
     depends_on:
       p9m:
         condition: service_healthy
@@ -226,6 +235,7 @@ services:
           - ${USER_HOST:-sbx.${HOST_DOMAIN:-lvh.me}}
       sablier-net: {}
     restart: unless-stopped
+    logging: *logging
     # Its error-page middleware is in dynamic/errors.yml, which p9m-init writes; restarted when a new release
     # recreates p9m-init.
     depends_on:
@@ -256,10 +266,12 @@ services:
     networks:
       - sablier-net
     restart: unless-stopped
+    logging: *logging
 
   registry-cache:
     image: registry:3.1.2
     restart: unless-stopped
+    logging: *logging
     environment:
       REGISTRY_PROXY_REMOTEURL: https://registry-1.docker.io
       # How long a downloaded image stays, counted from its first download (using it does not extend it); 0 = for ever
@@ -276,6 +288,7 @@ services:
   registry-cache-ghcr:
     image: registry:3.1.2
     restart: unless-stopped
+    logging: *logging
     environment:
       REGISTRY_PROXY_REMOTEURL: https://ghcr.io
       REGISTRY_PROXY_TTL: ${REGISTRY_CACHE_TTL:-720h}
