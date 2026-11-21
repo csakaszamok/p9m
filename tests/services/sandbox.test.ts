@@ -343,6 +343,15 @@ describe('sandbox service', () => {
     expect(socat.healthcheck.test[1]).toContain('http://$$FRPS_API_AUTH@127.0.0.1:7500/')
   }, 60000)
 
+  // Docker keeps a container's log without end unless told otherwise: every start of a sandbox adds its dockerd's lines
+  it("rotates the logs of every container of a new sandbox on the host", async () => {
+    vi.mocked(fs.writeFileSync).mockClear()
+    await sandboxService.createSandbox('lg1', false)
+    const services = (yaml.load(written('p9m-lg1', 'docker-compose.yml')!) as { services: Record<string, { logging?: unknown }> }).services
+    expect(Object.keys(services).length).toBeGreaterThan(1)
+    for (const s of Object.values(services)) expect(s.logging).toEqual({ driver: 'json-file', options: { 'max-size': '10m', 'max-file': '3' } })
+  }, 60000)
+
   // Docker Engine 25+: socat is checked every 0.5 s while it starts, so the router shows up sooner
   it("keeps socat's start_interval on an engine that takes it", async () => {
     vi.mocked(fs.writeFileSync).mockClear()

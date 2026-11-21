@@ -33,6 +33,7 @@ import { ownHostTaken, uiHost } from './uiHost'
 import { userHost } from './userHost'
 import { listProjectVolumes, exportVolume, removeVolume, stopProjectContainers, removeProjectContainers } from './project'
 import { allocateSubnet, subnetsInCompose, subnetPool, type SubnetBlock } from './subnetPool'
+import { LOG_ROTATION, withLogLimits } from './logMigration'
 
 /** CoreDNS's config for a runtime with a dns service (Kata): everything to Docker's embedded DNS, briefly cached. */
 export const COREFILE = '.:53 {\n  forward . 127.0.0.11\n  cache 5\n  errors\n}\n'
@@ -147,7 +148,7 @@ function openSleepSession(name: string): void {
 }
 
 /** The sandbox's containers' logs, rotated: an app that logs without end must not fill the sandbox's disk. */
-export const DOCKER_LOGS = { 'log-driver': 'json-file', 'log-opts': { 'max-size': '10m', 'max-file': '3' } }
+export const DOCKER_LOGS = { 'log-driver': 'json-file', 'log-opts': LOG_ROTATION }
 
 /** The sandbox's dockerd settings: the Docker Hub cache as its mirror, the ghcr.io cache (pulled by name: dockerd
  * mirrors only Docker Hub) and the p9m registry as insecure registries (plain http, or reached through Traefik on the
@@ -360,7 +361,8 @@ export const sandboxService = {
     }
 
     // start_interval (a router sooner) needs Docker Engine 25: taken out below it, or compose refuses the file
-    const runtimeCompose = (await startIntervalSupported()) ? runtime.docker_compose : withoutStartInterval(runtime.docker_compose)
+    // Every container's log rotated on the host (withLogLimits)
+    const runtimeCompose = withLogLimits((await startIntervalSupported()) ? runtime.docker_compose : withoutStartInterval(runtime.docker_compose))
     const writeCompose = () => fs.writeFileSync(`${dir}/docker-compose.yml`, applyVars(runtimeCompose, vars))
     if (needsSubnet) {
       await subnetLock(async () => {

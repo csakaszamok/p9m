@@ -4,6 +4,10 @@ All notable changes are listed here. Versions follow [semantic versioning](https
 
 ## [Unreleased]
 
+### Fixed
+
+- **A sandbox's container logs grew without limit on the host:** only the sandbox's own Docker rotated its containers' logs, so the host kept every line its sandbox, DNS, frps and socat containers wrote, and every start of a sandbox added its dockerd's. Each now keeps at most 3 × 10 MB, as do Purgatorium's own containers in `docker-compose.yml`. Sandboxes made before get the limit when Purgatorium starts: a running one's containers are recreated (it restarts once, its data stays), an asleep one's are recreated stopped.
+
 ## [0.21.1] - 2026-11-16
 
 Upgrading from 0.21.0: `docker compose pull && docker compose up -d` where `.env` has `P9M_VERSION=0.21`; otherwise first download the new `docker-compose.yml` from `https://github.com/csakaszamok/p9m/releases/latest/download/docker-compose.yml`, which names this version.
