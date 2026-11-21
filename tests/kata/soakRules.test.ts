@@ -52,6 +52,15 @@ describe('evaluate', () => {
   it('mounts jumping ±8 around a flat level do not', () => {
     expect(evaluate(rows(60, r => { r.mounts += r.cycle % 2 ? 8 : -8 }), starts(60))).toEqual([])
   })
+  // Measured on a clh runner: stopped samples catch the sidecars' links mid-teardown, 21 to 41 around a floor of 21
+  it('interfaces spiking above a flat floor, more often late than early, do not fail', () => {
+    const spikes = (r: Row) => { if (r.phase === 'stopped') r.links += (r.cycle > 40 ? r.cycle % 3 !== 0 : r.cycle % 3 === 0) ? 12 : 0 }
+    expect(evaluate(rows(60, spikes), starts(60))).toEqual([])
+  })
+  it('a floor that rises fails, however noisy the samples above it', () => {
+    const leak = (r: Row) => { if (r.phase === 'stopped') r.links += (r.cycle > 40 ? 6 : 0) + (r.cycle % 2 ? 10 : 0) }
+    expect(ids(evaluate(rows(60, leak), starts(60)))).toEqual(['soak.link-growth'])
+  })
   it('growth before a full second window exists is not judged yet', () => {
     expect(evaluate(rows(45, r => { r.mounts += 5 * r.cycle }), starts(45))).toEqual([])
   })

@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 // The Kata soak's pass rules over its host samples (tests/kata-soak.sh writes them). Counts are judged sample by
 // sample: a shim, hypervisor or virtiofsd left while the sandboxes are stopped, or a VM missing while they run. Slow
-// leaks and slowdown are judged from medians of windows after the warm-up (never single samples), so the runner's
-// noise does not fail a run. At most one failure per ID: its earliest cycle. Node 18+, no packages.
+// leaks and slowdown are judged from windows after the warm-up (never single samples): mounts, links and namespaces
+// by the window's lowest sample, memory, disk and start times by its median or p95, so the runner's noise does not
+// fail a run. At most one failure per ID: its earliest cycle. Node 18+, no packages.
 //
 //   node tests/kata/soakRules.mjs <metrics.csv> <durations.csv>    prints "<id>\t<message>" per failure, exit 0
 //
@@ -48,8 +49,11 @@ export function evaluate(metrics, durations, opts = {}) {
     const early = stopped.slice(o.warmup, o.warmup + o.window), late = stopped.slice(-o.window)
     const at = late[late.length - 1].cycle
     const delta = k => median(late.map(r => r[k])) - median(early.map(r => r[k]))
+    // Mounts, links and namespaces by their floor: a stopped sample can catch a sidecar's still being torn down (links
+    // swung from 21 to 41 on a clh runner), while a leak raises every sample, the lowest too
+    const floor = k => Math.min(...late.map(r => r[k])) - Math.min(...early.map(r => r[k]))
     for (const [k, tol, id] of [['mounts', o.mountsTol, 'soak.mount-growth'], ['links', o.linksTol, 'soak.link-growth'], ['netns', o.netnsTol, 'soak.netns-growth']])
-      if (delta(k) > tol) fail(id, at, `${k} with the sandboxes stopped grew by ${delta(k)} (median of cycles ${late[0].cycle}-${at} against ${early[0].cycle}-${early[early.length - 1].cycle}; tolerance ${tol})`)
+      if (floor(k) > tol) fail(id, at, `${k} with the sandboxes stopped grew by ${floor(k)} (lowest of cycles ${late[0].cycle}-${at} against ${early[0].cycle}-${early[early.length - 1].cycle}; tolerance ${tol})`)
     const memEarly = median(early.map(r => r.mem_avail_kb))
     if (-delta('mem_avail_kb') > o.memDeclineShare * memEarly)
       fail('soak.mem-decline', at, `available memory with the sandboxes stopped fell by ${Math.round(-delta('mem_avail_kb') / 1024)} MiB (${Math.round(-100 * delta('mem_avail_kb') / memEarly)} %, tolerance ${o.memDeclineShare * 100} %)`)
