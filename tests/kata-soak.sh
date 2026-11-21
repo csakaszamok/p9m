@@ -111,6 +111,7 @@ ms_stats() { # ms_stats <cycle> <op>: p50/max of that cycle's durations, in seco
 
 for c in $(seq 1 "$CYCLES"); do
   step stop "$c"
+  echo "$c,-,settle,$(settle_stopped 30)" >>"$DURATIONS"
   host_sample "$c" stopped "${#names[@]}"
   step start "$c"
   if [ $((c % 10)) = 0 ]; then

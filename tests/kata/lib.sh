@@ -86,9 +86,23 @@ host_diagnose() {
     echo "--- lsns -t net"; sudo lsns -t net 2>&1 || true
     echo "--- nsfs mounts"; awk '$3 == "nsfs"' /proc/mounts
     echo "--- /var/run/docker/netns"; sudo ls -la /var/run/docker/netns 2>&1 || true
-    echo "--- /var/run/netns"; sudo ls -la /var/run/netns 2>&1 || true
+    echo "--- /var/run/netns"; sudo ls -la /var/run/netns 2>&1 | tail -40 || true
     echo "--- ip -d link"; ip -d link 2>&1 | tail -150
   } 2>&1 | tee "$OUT_DIR/diagnostics/host-$1.txt"
+}
+
+# settle_stopped <seconds>: wait until no Kata process is left on the host (a VM may still be shutting down when
+# Docker already reports its container exited); prints how long it took, in ms. A process still there afterwards
+# is an orphan, and the next sample shows it
+settle_stopped() {
+  local t0; t0=$(now_ms)
+  local until=$(( $(date +%s) + $1 )) all
+  while [ "$(date +%s)" -lt "$until" ]; do
+    all=$(_procs)
+    [ "$(_count "$RE_SHIM" <<<"$all")$(_count "$RE_HV" <<<"$all")$(_count "$RE_FS" <<<"$all")" = 000 ] && break
+    sleep 1
+  done
+  echo $(( $(now_ms) - t0 ))
 }
 
 # wait_ready <name> <seconds>: running, and its inner dockerd answers
@@ -121,6 +135,8 @@ diagnose() {
     [ -z "$id" ] || { echo "--- its VM's processes"; pgrep -af -- "$id" || true; }
     echo "--- docker ps"; timeout 30 docker ps -a --filter "name=$n" || echo "(docker ps did not answer)"
     echo "--- docker inspect"; timeout 30 docker inspect "$n" || echo "(docker inspect did not answer)"
+    echo "--- inner containers"; timeout 30 docker exec "$n" docker ps -a 2>&1 || echo "(the inner Docker did not answer)"
+    echo "--- frps proxies"; timeout 20 docker exec "$n-socat" sh -c 'for t in http tcp stcp; do wget -qO- "http://$FRPS_API_AUTH@127.0.0.1:7500/api/proxy/$t"; echo; done' 2>&1 || true
     echo "--- containerd and docker journal"; sudo journalctl -u containerd -u docker --no-pager 2>/dev/null | tail -200
   } 2>&1 | tee "$OUT_DIR/diagnostics/$n-$tag.txt"
 }
