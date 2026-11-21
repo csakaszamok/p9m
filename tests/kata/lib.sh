@@ -92,6 +92,22 @@ host_diagnose() {
   } 2>&1 | tee "$OUT_DIR/diagnostics/host-$1.txt"
 }
 
+# disk_snapshot <tag>: KiB per directory, four levels down, where a run can leave files on the host's disk
+# (Docker's data and volumes, containerd, the journal, Kata), to $OUT_DIR/diagnostics/du-<tag>.txt
+disk_snapshot() {
+  mkdir -p "$OUT_DIR/diagnostics"
+  sudo du -xk -d 4 /var /tmp /root /home /srv /etc /opt/kata 2>/dev/null | LC_ALL=C sort -t $'\t' -k2,2 >"$OUT_DIR/diagnostics/du-$1.txt" || true
+}
+
+# disk_growth <from tag> <to tag>: the directories that grew most between two snapshots, and the journal's size
+disk_growth() {
+  local d=$OUT_DIR/diagnostics
+  echo "--- disk growth from $1 to $2 (KiB, directory)"
+  LC_ALL=C join -t $'\t' -1 2 -2 2 -a 2 -e 0 -o 1.1,2.1,0 "$d/du-$1.txt" "$d/du-$2.txt" |
+    awk -F'\t' '{ g = $2 - $1; if (g >= 1024) print g "\t" $3 }' | sort -rn | head -30
+  echo "--- journal"; journalctl --disk-usage 2>&1 || true
+}
+
 # settle_stopped <seconds>: wait until no Kata process is left on the host (a VM may still be shutting down when
 # Docker already reports its container exited); prints how long it took, in ms. A process still there afterwards
 # is an orphan, and the next sample shows it

@@ -51,6 +51,7 @@ warm=$(make_sandbox "ksw$run") || { finding soak.create-failed - create "the war
 [ -z "${warm:-}" ] || { wait_ready "$warm" 600 || true; remove_sandbox "$warm"; }
 sleep 10
 host_sample 0 baseline 0
+disk_snapshot base
 
 for i in $(seq 1 "$SANDBOXES"); do
   raw="ks$run$i"
@@ -99,7 +100,11 @@ rules() {
   local id msg
   while IFS=$'\t' read -r id msg; do
     [ -n "$id" ] || continue
-    [ -n "${reported[$id]:-}" ] || host_diagnose "${id#soak.}"
+    if [ -z "${reported[$id]:-}" ]; then
+      host_diagnose "${id#soak.}"
+      # What grew on disk since the baseline, by directory
+      [ "$id" != soak.disk-growth ] || { disk_snapshot disk-growth; disk_growth base disk-growth | tee -a "$OUT_DIR/diagnostics/host-disk-growth.txt"; }
+    fi
     finding "$id" - rules "$msg"
   done < <(node "$KATA_DIR/soakRules.mjs" "$METRICS" "$DURATIONS")
 }
@@ -137,6 +142,8 @@ for n in "${names[@]}"; do remove_sandbox "$n"; done
 names=() raws=()
 sleep 10
 host_sample $((CYCLES + 1)) final 0
+disk_snapshot final
+disk_growth base final >"$OUT_DIR/diagnostics/disk-final.txt"
 rules
 node "$KATA_DIR/report.mjs" unseen soak
 echo "soak: done, $CYCLES cycles; known findings: $(paste -sd' ' "$KATA_SEEN")"
