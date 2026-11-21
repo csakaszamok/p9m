@@ -136,8 +136,9 @@ diagnose() {
     echo "--- docker ps"; timeout 30 docker ps -a --filter "name=$n" || echo "(docker ps did not answer)"
     echo "--- docker inspect"; timeout 30 docker inspect "$n" || echo "(docker inspect did not answer)"
     echo "--- inner containers"; timeout 30 docker exec "$n" docker ps -a 2>&1 || echo "(the inner Docker did not answer)"
+    echo "--- frps proxies"
     # shellcheck disable=SC2016 # $FRPS_API_AUTH expands inside the socat container
-    echo "--- frps proxies"; timeout 20 docker exec "$n-socat" sh -c 'for t in http tcp stcp; do wget -qO- "http://$FRPS_API_AUTH@127.0.0.1:7500/api/proxy/$t"; echo; done' 2>&1 || true
+    timeout 20 docker exec "$n-socat" sh -c 'for t in http tcp stcp; do wget -qO- "http://$FRPS_API_AUTH@127.0.0.1:7500/api/proxy/$t"; echo; done' 2>&1 || true
     echo "--- containerd and docker journal"; sudo journalctl -u containerd -u docker --no-pager 2>/dev/null | tail -200
   } 2>&1 | tee "$OUT_DIR/diagnostics/$n-$tag.txt"
 }
