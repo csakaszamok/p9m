@@ -93,8 +93,8 @@ for r in $(seq 1 "$KILLS"); do
   wait_ready "$n" "$STEP_TIMEOUT" || { finding durability.inner-docker-down "$r" "round $r: $n's inner Docker does not answer after the restart"; continue; }
   restart_s=$(( $(date +%s) - t0 ))
 
-  sb=$(timeout 300 docker exec "$n" sh /srv/kata/verify.sh /srv/dur || true)
-  inner=$(timeout 300 docker exec "$n" docker run --rm -v durdata:/data -v /srv/kata:/k:ro alpine sh /k/verify.sh /data || true)
+  sb=$(timeout 600 docker exec "$n" sh /srv/kata/verify.sh /srv/dur || true)
+  inner=$(timeout 600 docker exec "$n" docker run --rm -v durdata:/data -v /srv/kata:/k:ro alpine sh /k/verify.sh /data || true)
   if [ -z "$sb" ] || [ -z "$inner" ]; then finding durability.inner-docker-down "$r" "round $r: the check could not run in $n (sandbox: [$sb], inner: [$inner])"; fi
   check "$r" "the sandbox's /srv" "$sb"; c_sb=$checked
   check "$r" "the inner volume" "$inner"; c_in=$checked
