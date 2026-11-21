@@ -24,10 +24,6 @@ on:
         default: ''
   schedule:
     - cron: '0 2 * * 0'
-  # Temporary, while the branch calibrates the defaults: removed before it is merged
-  push:
-    branches:
-      - feat/kata-soak
 
 env:
   P9M_TOKEN: abc123

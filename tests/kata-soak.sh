@@ -8,6 +8,13 @@
 #
 # On a Kata host with a running stack (DEFAULT_RUNTIME=kata; kata-soak.yml starts one), with docker access and sudo:
 #   P9M_TOKEN=… [SANDBOXES=6] [CYCLES=200] [STEP_TIMEOUT=120] [OUT_DIR=./kata-soak-out] bash tests/kata-soak.sh
+#
+# Measured on ubuntu-24.04 runners with Kata 4.3.1, 6 sandboxes and 200 cycles (2026-11-21; clh / qemu): about 2h20 /
+# 2h05; a start p50 31 / 28 s, p95 33-36 / 30-31 s (late against early 1.09x / 1.03x, tolerance 2x); a stop p95 6.3 /
+# 6.1 s; with the sandboxes stopped the floor of mounts, links and netns flat (stopped samples 44-50, 22-26, 8-10;
+# tolerances 10, 4, 2); available memory down 0.7 / 0.5 % (tolerance 10 %); disk use up 37 / 36 MiB, the sandboxes'
+# own volumes (tolerance 500 MiB); the host back at its baseline after the delete. One soak.start-recreated (Kata
+# #14014) in each run, about once in 1200 starts.
 set -euo pipefail
 : "${P9M_TOKEN:?set P9M_TOKEN to the ADMIN_TOKEN of the stack}"
 API=${P9M_API:-http://localhost:8081}
