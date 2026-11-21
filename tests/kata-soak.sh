@@ -64,6 +64,18 @@ for n in "${names[@]}"; do
 done
 echo "soak: ${#names[@]} sandboxes, $CYCLES cycles, step timeout ${STEP_TIMEOUT}s"
 
+# start_again <name> <tag>: after a failed start, what Kata left of that VM in /run/kata, then one more start: whether
+# the sandbox can still be woken or stays broken (a stale shim-monitor.sock fails every later start, Kata #14014)
+start_again() {
+  local n=$1 id
+  id=$(container_id "$n" 2>/dev/null || true)
+  mkdir -p "$OUT_DIR/diagnostics"
+  { echo "=== /run/kata/$id after the failed start"; sudo ls -la "/run/kata/$id" 2>&1; } >"$OUT_DIR/diagnostics/$n-$2-run-kata.txt"
+  if api -X POST "$API/sandboxes/$n/start" >/dev/null 2>&1 && wait_ready "$n" "$STEP_TIMEOUT"; then
+    echo "a second start worked"
+  else echo "a second start failed too"; fi
+}
+
 # step <stop|start> <cycle>: every sandbox at once, one result file each (ok, hang, or failed: <why>)
 step() {
   local op=$1 c=$2 n
@@ -89,7 +101,9 @@ step() {
     case $res in
       ok) ;;
       hang) finding "soak.$op-hang" "$n" "c$c-$op" "cycle $c: $op of $n did not finish within ${STEP_TIMEOUT}s ($(cat "$work/$n.err" 2>/dev/null))"; drop "$n" ;;
-      *) if [ "$op" = start ]; then finding soak.start-failed "$n" "c$c-start" "cycle $c: $n ${res#failed: }"; drop "$n"
+      *) if [ "$op" = start ]; then
+           again=$(start_again "$n" "c$c")
+           finding soak.start-failed "$n" "c$c-start" "cycle $c: $n ${res#failed: }; $again"; drop "$n"
          else finding soak.stop-hang "$n" "c$c-stop" "cycle $c: stop of $n ${res#failed: }"; drop "$n"; fi ;;
     esac
   done
