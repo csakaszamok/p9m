@@ -71,11 +71,22 @@ net_namespaces() {
 # The files under Docker's and ip's netns directories (a file whose namespace is gone counts here, not above)
 netns_files() { echo $(( $(sudo ls /var/run/netns 2>/dev/null | wc -l) + $(sudo ls /var/run/docker/netns 2>/dev/null | wc -l) )); }
 
+# disk_used: KiB used on Docker's disk, less the logs: the journal and /var/log (assumed on the same disk, as on a
+# GitHub runner) and the containers' json logs. Their size is set by the host's rotation, not left behind by a VM:
+# every start of a sandbox logs about 0.5 MB, which over hundreds of cycles would pass the growth tolerance
+disk_used() {
+  local used logs clogs
+  used=$(df -k --output=used "$DOCKER_ROOT" | tail -1 | tr -d ' ')
+  logs=$(sudo du -sxk /var/log 2>/dev/null | cut -f1)
+  clogs=$(sudo find "$DOCKER_ROOT/containers" -name '*-json.log*' -printf '%k\n' 2>/dev/null | awk '{ s += $1 } END { print s + 0 }')
+  echo $(( used - ${logs:-0} - clogs ))
+}
+
 # host_sample <cycle> <phase> <sandboxes>: one row of $METRICS, host-wide
 host_sample() {
   [ -n "$DOCKER_ROOT" ] || DOCKER_ROOT=$(timeout 30 docker info -f '{{.DockerRootDir}}')
   local all; all=$(_procs)
-  echo "$1,$2,$3,$(_count "$RE_SHIM" <<<"$all"),$(_count "$RE_HV" <<<"$all"),$(_count "$RE_FS" <<<"$all"),$(wc -l </proc/mounts),$(ip -o link 2>/dev/null | wc -l),$(net_namespaces),$(awk '/^MemAvailable:/ { print $2 }' /proc/meminfo),$(df -k --output=used "$DOCKER_ROOT" | tail -1 | tr -d ' '),$(netns_files)" >>"$METRICS"
+  echo "$1,$2,$3,$(_count "$RE_SHIM" <<<"$all"),$(_count "$RE_HV" <<<"$all"),$(_count "$RE_FS" <<<"$all"),$(wc -l </proc/mounts),$(ip -o link 2>/dev/null | wc -l),$(net_namespaces),$(awk '/^MemAvailable:/ { print $2 }' /proc/meminfo),$(disk_used),$(netns_files)" >>"$METRICS"
 }
 
 # host_diagnose <tag>: the host's namespaces, nsfs mounts, netns files and links, when a host-wide rule fails
