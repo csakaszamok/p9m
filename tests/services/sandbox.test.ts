@@ -24,7 +24,7 @@ vi.mock('../../services/compose', () => ({
 // markCreating as the real one: a name being created is refused a second time until creatingDone
 const creating = vi.hoisted(() => new Set<string>())
 vi.mock('../../services/wake', () => ({
-  primeSablierSession: vi.fn(async () => {}), markWoken: vi.fn(),
+  primeSablierSession: vi.fn(async () => {}), markWoken: vi.fn(), cancelSablierPrime: vi.fn(async () => {}),
   markCreating: vi.fn((n: string) => creating.has(n) ? false : (creating.add(n), true)),
   creatingDone: vi.fn((n: string) => { creating.delete(n) }),
   isCreating: vi.fn((n: string) => creating.has(n)),
@@ -83,7 +83,7 @@ vi.stubEnv('ARCHIVE_DIR', '/opt/archive')
 import { sandboxService, daemonJson, COREFILE } from '../../services/sandbox'
 const realFs = await vi.importActual<typeof import('fs')>('fs')
 import { listManagedContainers, dockerSubnets } from '../../services/docker'
-import { primeSablierSession } from '../../services/wake'
+import { primeSablierSession, cancelSablierPrime } from '../../services/wake'
 import { writeAuthorizedKeys } from '../../services/sandboxSsh'
 import { composeUp, composeUpInner, composeDown, composeStart, composeStop } from '../../services/compose'
 import { listProjectVolumes, exportVolume, removeVolume, stopProjectContainers, removeProjectContainers } from '../../services/project'
@@ -943,6 +943,17 @@ describe('startSandbox and the limits', () => {
     expect(composeStop).toHaveBeenCalledWith('/opt/sandboxes/admin/p9m-shop/docker-compose.yml')
     expect(composeStart).toHaveBeenCalledWith('/opt/sandboxes/admin/p9m-x/docker-compose.yml')
     expect(vi.mocked(composeStop).mock.invocationCallOrder[0]).toBeLessThan(vi.mocked(composeStart).mock.invocationCallOrder[0])
+    spy.mockRestore()
+  })
+
+  // The session probe of its last start must not wake it again through Sablier once it is stopped
+  it('a stop ends the Sablier session probe before it stops the containers', async () => {
+    const spy = vi.spyOn(sandboxService, 'getSandbox')
+    spy.mockResolvedValueOnce({ name: 'p9m-x', owner: 'u@x', status: 'running' } as never)
+    vi.mocked(cancelSablierPrime).mockClear()
+    await sandboxService.stopSandbox('p9m-x')
+    expect(cancelSablierPrime).toHaveBeenCalledWith('p9m-x')
+    expect(vi.mocked(cancelSablierPrime).mock.invocationCallOrder[0]).toBeLessThan(vi.mocked(composeStop).mock.invocationCallOrder[0])
     spy.mockRestore()
   })
 

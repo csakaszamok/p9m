@@ -7,7 +7,7 @@ All notable changes are listed here. Versions follow [semantic versioning](https
 ### Fixed
 
 - **A Kata sandbox could fail to start or wake for good:** Kata runtime-rs's shim sometimes fails on a socket that an earlier VM of the same container left behind (`failed to create shim task: ttrpc: closed`; Kata [#14014](https://github.com/kata-containers/kata-containers/issues/14014), [#14103](https://github.com/kata-containers/kata-containers/issues/14103)), and then every later start of that container fails the same way. Purgatorium now recreates the sandbox's containers when that happens, as it already did when sysbox refused a start; its data stays.
-- **A sandbox's container logs grew without limit on the host:** only the sandbox's own Docker rotated its containers' logs, so the host kept every line its sandbox, DNS, frps and socat containers wrote, and every start of a sandbox added its dockerd's. Each now keeps at most 3 × 10 MB, as do Purgatorium's own containers in `docker-compose.yml`. Sandboxes made before get the limit when Purgatorium starts: a running one's containers are recreated (it restarts once, its data stays), an asleep one's are recreated stopped.
+- **A sandbox's container logs grew without limit on the host:** only the sandbox's own Docker rotated its containers' logs, so the host kept every line its sandbox, DNS, frps and socat containers wrote, and every start of a sandbox added its dockerd's. Each now keeps at most 3 Ã— 10 MB, as do Purgatorium's own containers in `docker-compose.yml`. Sandboxes made before get the limit when Purgatorium starts: a running one's containers are recreated (it restarts once, its data stays), an asleep one's are recreated stopped.
 
 ## [0.21.1] - 2026-11-16
 
