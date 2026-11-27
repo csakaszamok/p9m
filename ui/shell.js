@@ -39,7 +39,8 @@
   doc.addEventListener('click', e => { if (menu && !menu.hidden && !e.target.closest('.account')) setMenu(false) })
   doc.addEventListener('keydown', e => {
     if (e.key !== 'Escape') return
-    if (menu && !menu.hidden) { setMenu(false); accountBtn.focus() } else if (body.classList.contains('rail-open')) closeRail()
+    // Handled here: preventDefault tells app.js (the drawer) that this Esc is used
+    if (menu && !menu.hidden) { e.preventDefault(); setMenu(false); accountBtn.focus() } else if (body.classList.contains('rail-open')) { e.preventDefault(); closeRail() }
   })
 
   doc.querySelector('[data-filter-text]')?.addEventListener('keydown', e => {

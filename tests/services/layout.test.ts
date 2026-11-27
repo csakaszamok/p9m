@@ -156,3 +156,20 @@ describe('sleep settings fields', () => {
     }
   })
 })
+
+describe('the sandbox page', () => {
+  it('details open in a closable drawer, hidden until a sandbox is chosen', () => {
+    expect(SANDBOX_VIEW_BODY).toMatch(/<aside class="drawer" data-drawer hidden/)
+    expect(SANDBOX_VIEW_BODY).toMatch(/<button type="button" class="drawer-close" data-drawer-close aria-label="Close details">/)
+    expect(SANDBOX_VIEW_BODY).toContain('<div class="panel" data-panel>')
+    expect(SANDBOX_VIEW_BODY).not.toContain('Select a sandbox')
+  })
+  it('the free-text filter is the app bar search, the status filter stays in the toolbar', () => {
+    vi.stubEnv('USER_PREFS_FILE', path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'prefs-')), 'user-prefs.json'))
+    expect(SANDBOX_VIEW_BODY).not.toContain('data-filter-text')
+    expect(SANDBOX_VIEW_BODY).toMatch(/<div class="list-toolbar">[\s\S]*data-filter-status/)
+    const html = renderPage({ title: 'x', view: 'mine', session: user, body: SANDBOX_VIEW_BODY })
+    expect(html.match(/data-filter-text/g)).toHaveLength(1)
+    vi.unstubAllEnvs()
+  })
+})

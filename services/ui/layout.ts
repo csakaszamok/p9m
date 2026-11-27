@@ -272,18 +272,14 @@ export const OVERVIEW_BODY = `
 export const SANDBOX_VIEW_BODY = `
 <section class="split">
   <div class="list">
-    <div class="list-head">
-      <h1 data-title></h1>
-      <div class="filters" data-filters hidden>
-        <input type="search" placeholder="Filter…" aria-label="Filter" data-filter-text>
-        <select data-filter-status aria-label="Status"><option value="">All statuses</option><option value="running">running</option><option value="exited">asleep</option><option value="deep_sleep">deep sleep</option></select>
-      </div>
-      <span class="muted quota" data-quota></span>
+    <div class="list-head"><h1 data-title></h1><span class="muted quota" data-quota></span></div>
+    <div class="list-toolbar">
       <button class="primary" data-new>+ New sandbox</button>
+      <span class="filters" data-filters hidden><select data-filter-status aria-label="Status"><option value="">All statuses</option><option value="running">running</option><option value="exited">asleep</option><option value="deep_sleep">deep sleep</option></select></span>
     </div>
     <table class="grid"><thead data-head></thead><tbody data-rows><tr><td class="muted">Loading…</td></tr></tbody></table>
   </div>
-  <aside class="panel" data-panel><p class="muted">Select a sandbox to see its details.</p></aside>
+  <aside class="drawer" data-drawer hidden aria-label="Sandbox details"><button type="button" class="drawer-close" data-drawer-close aria-label="Close details">✕</button><div class="panel" data-panel></div></aside>
 </section>
 <dialog data-new-dialog class="wide">
   <form method="dialog" data-new-form>
