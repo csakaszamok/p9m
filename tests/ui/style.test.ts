@@ -29,6 +29,12 @@ describe('style.css', () => {
   it('reduced motion still stops the embers', () => {
     expect(css).toMatch(/prefers-reduced-motion: reduce\)\s*\{\s*\.status::before/)
   })
+  // In the drawer seven tabs did not fit: the last one was cut off behind a bare scrollbar
+  it('the details tabs wrap onto a second row instead of scrolling', () => {
+    const tabs = /\n\.tabs \{([^}]*)\}/.exec(css)?.[1] ?? ''
+    expect(tabs).toMatch(/flex-wrap: wrap/)
+    expect(tabs).not.toMatch(/overflow-x: auto/)
+  })
   // Moved off screen is not enough: Tab would walk through links nobody sees
   it('the closed slide-in menu is out of the keyboard order too', () => {
     const narrow = /@media \(max-width: 800px\) \{([\s\S]*?)\n\}/.exec(css)?.[1] ?? ''
