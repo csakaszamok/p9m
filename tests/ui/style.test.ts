@@ -29,4 +29,10 @@ describe('style.css', () => {
   it('reduced motion still stops the embers', () => {
     expect(css).toMatch(/prefers-reduced-motion: reduce\)\s*\{\s*\.status::before/)
   })
+  // Moved off screen is not enough: Tab would walk through links nobody sees
+  it('the closed slide-in menu is out of the keyboard order too', () => {
+    const narrow = /@media \(max-width: 800px\) \{([\s\S]*?)\n\}/.exec(css)?.[1] ?? ''
+    expect(narrow).toMatch(/\.rail \{[^}]*visibility: hidden/)
+    expect(narrow).toMatch(/body\.rail-open \.rail \{[^}]*visibility: visible/)
+  })
 })

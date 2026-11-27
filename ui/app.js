@@ -489,7 +489,7 @@ function setCrumb(name) {
 function openDrawer(name) {
   $('[data-drawer]').hidden = false
   $('.split').classList.add('has-drawer')
-  setCrumb(name)
+  if ($('[data-crumb-name]')?.textContent !== shortName(name)) setCrumb(name)
 }
 function closeDrawer() {
   selected = null
@@ -896,7 +896,8 @@ async function submitNew(ev) {
   } catch (e) {
     pending.delete(full)
     renderRows()
-    closeDrawer()
+    // Moved on to another sandbox meanwhile: its drawer stays
+    if (selected === full) closeDrawer()
     const dlg = $('[data-new-dialog]')
     const err = $('[data-new-error]')
     // Opened again meanwhile for another sandbox: say what failed, leave what is being typed alone
@@ -940,7 +941,7 @@ function initSandboxes() {
   $('[data-crumb-root]')?.addEventListener('click', e => { if (!$('[data-drawer]').hidden) { e.preventDefault(); closeDrawer() } })
   // Esc closes the drawer, but not while a dialog is open or when the account menu or the rail used it (ui/shell.js)
   document.addEventListener('keydown', e => {
-    if (e.key !== 'Escape' || e.defaultPrevented || $('[data-drawer]').hidden || document.querySelector('dialog[open]')) return
+    if (e.key !== 'Escape' || e.defaultPrevented || $('[data-drawer]').hidden || document.querySelector('dialog[open]') || P9mShell.typing(e.target)) return
     closeDrawer()
   })
   $('[data-rows]').addEventListener('click', e => { const tr = e.target.closest('tr[data-name]'); if (tr) showPanel(tr.dataset.name) })
@@ -996,7 +997,16 @@ function initSandboxes() {
   $('[data-new-name]').addEventListener('click', suggestName)
   initSwapDialog()
   loadList().then(() => { if (view === 'mine') wakeFromLink() })
-  setInterval(async () => { await loadList(); if (selected && !pending.has(selected) && !busy.has(selected)) showPanel(selected) }, 5000)
+  setInterval(async () => {
+    await loadList()
+    // Archived elsewhere: say so once, as after Archive here, instead of asking for it (404) every 5 s
+    if (P9mPanel.vanished(selected, sandboxes, pending) && !busy.has(selected)) {
+      $('[data-panel]').innerHTML = `<p class="muted">${esc(shortName(selected))} is archived.</p>`
+      selected = null; renderedName = null; renderedJSON = null; setCrumb(null); renderRows()
+      return
+    }
+    if (selected && !pending.has(selected) && !busy.has(selected)) showPanel(selected)
+  }, 5000)
 }
 
 // ---------- running limit: choose what sleeps ----------

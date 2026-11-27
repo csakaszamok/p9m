@@ -9,7 +9,15 @@
     return `/?q=${encodeURIComponent(q)}`
   }
 
-  const api = { searchTarget }
+  /** Keys typed into a field are the field's: Esc there must not close the drawer (and lose what was typed). */
+  function typing(el) {
+    if (!el) return false
+    if (el.isContentEditable) return true
+    if (el.tagName === 'TEXTAREA' || el.tagName === 'SELECT') return true
+    return el.tagName === 'INPUT' && !['checkbox', 'radio', 'button', 'submit', 'reset', 'file', 'range', 'color'].includes(el.type)
+  }
+
+  const api = { searchTarget, typing }
   if (typeof module !== 'undefined' && module.exports) { module.exports = api; return }
   root.P9mShell = api
 

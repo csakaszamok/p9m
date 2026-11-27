@@ -261,8 +261,8 @@ body.login .confirm-line .user-code { margin: 0 }
 }
 /* Narrow screens: the rail slides in over the page; the drawer covers the list */
 @media (max-width: 800px) {
-  .rail { position: fixed; left: 0; top: 48px; z-index: 35; transform: translateX(-100%); transition: transform .15s; box-shadow: 0 8px 28px rgba(0,0,0,.25) }
-  body.rail-open .rail { transform: none }
+  .rail { position: fixed; left: 0; top: 48px; z-index: 35; transform: translateX(-100%); visibility: hidden; transition: transform .15s, visibility .15s; box-shadow: 0 8px 28px rgba(0,0,0,.25) }
+  body.rail-open .rail { transform: none; visibility: visible }
   body.rail-open .rail-backdrop { display: block; position: fixed; inset: 48px 0 0 0; z-index: 34; background: rgba(0,0,0,.4) }
   body.rail-collapsed .rail { width: 220px; padding-right: 8px }
   body.rail-collapsed .rail-item { justify-content: flex-start; padding: 0 16px; margin: 0; border-radius: 0 18px 18px 0 }

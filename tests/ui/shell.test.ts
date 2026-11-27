@@ -24,3 +24,19 @@ describe('shell.js', () => {
     expect(res.headers.get('content-type')).toMatch(/^text\/javascript/)
   })
 })
+
+describe('typing: Esc in a field belongs to the field, not to the drawer', () => {
+  it('text fields, text areas and selects are typing', () => {
+    expect(S.typing({ tagName: 'INPUT', type: 'text' })).toBe(true)
+    expect(S.typing({ tagName: 'INPUT', type: 'search' })).toBe(true)
+    expect(S.typing({ tagName: 'TEXTAREA' })).toBe(true)
+    expect(S.typing({ tagName: 'SELECT' })).toBe(true)
+    expect(S.typing({ tagName: 'DIV', isContentEditable: true })).toBe(true)
+  })
+  it('buttons, checkboxes and the page are not', () => {
+    expect(S.typing({ tagName: 'BUTTON' })).toBe(false)
+    expect(S.typing({ tagName: 'INPUT', type: 'checkbox' })).toBe(false)
+    expect(S.typing({ tagName: 'BODY' })).toBe(false)
+    expect(S.typing(null)).toBe(false)
+  })
+})

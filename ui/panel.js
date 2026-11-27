@@ -554,7 +554,10 @@
     return `/p9m:init ${u} ${sandboxShort}`
   }
 
-  const api = { usersTable, matchesFilter, loadingPanel, initCommand, filesView, volumesView, quotaLine, placesBadge, overviewHtml, countsOf, esc, TABS, statusLabel, statusClass, remaining, countdown, elapsed, stopwatch, creatingPanel, fmtBytes, meter, portainerShown, parseCreated, relativeAge, appRows, resourcesTable, mountsSection, registryTable, containersTable, renderPanel, STALE_APPS, STARTING_APPS }
+  /** The sandbox shown in the drawer is gone from the list (archived in another tab or by the admin): not one being created. */
+  const vanished = (selected, list, pending) => !!selected && !pending.has(selected) && !list.some(s => s.name === selected)
+
+  const api = { vanished, usersTable, matchesFilter, loadingPanel, initCommand, filesView, volumesView, quotaLine, placesBadge, overviewHtml, countsOf, esc, TABS, statusLabel, statusClass, remaining, countdown, elapsed, stopwatch, creatingPanel, fmtBytes, meter, portainerShown, parseCreated, relativeAge, appRows, resourcesTable, mountsSection, registryTable, containersTable, renderPanel, STALE_APPS, STARTING_APPS }
   if (typeof module !== 'undefined' && module.exports) module.exports = api
   else root.P9mPanel = api
 })(typeof window !== 'undefined' ? window : globalThis)
