@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
-import { renderPage, SANDBOX_VIEW_BODY } from '../../services/ui/layout'
+import { renderPage, SANDBOX_VIEW_BODY, breadcrumb, initials } from '../../services/ui/layout'
 import { setView, setTheme } from '../../services/userPrefs'
 
 const user = { sub: 'anna', role: 'user' as const, exp: 0 }
@@ -22,7 +22,7 @@ describe('renderPage: light / dark theme', () => {
     expect(page(user)).toContain('<html lang="en" data-theme="light">')
     expect(page(admin)).toMatch(/<html lang="en">/)
   })
-  it('has the switch in the topbar, for users and the admin', () => {
+  it('has the switch in the app bar, for users and the admin', () => {
     for (const s of [user, admin]) expect(page(s)).toMatch(/<button type="button" class="theme-switch" data-theme-toggle[^>]*aria-label="[^"]+"/)
   })
 })
@@ -57,27 +57,54 @@ describe('renderPage: Simple / Advanced', () => {
     expect(html).not.toContain('class="mode-switch"')
     expect(page(admin)).toMatch(/<button[^>]*data-mode-set="advanced"[^>]*aria-pressed="true"/)
   })
-  it('marks what Simple hides: Overview in the nav, the whole My area row', () => {
+  it('marks what Simple hides: Overview, Settings, tokens, SSH keys', () => {
     const html = page(user)
-    expect(html).toMatch(/<a class="adv" href="\/overview"/)
-    expect(html).toMatch(/<nav class="subnav adv"/)
-    expect(html).toMatch(/<a class="adv" href="\/settings\/tokens"/)
-    expect(html).toMatch(/<a class="adv" href="\/settings\/ssh-keys"/)
+    expect(html).toMatch(/<a class="rail-item adv" href="\/overview"/)
+    expect(html).toMatch(/<a class="rail-item adv" href="\/settings\/tokens"/)
+    expect(html).toMatch(/<a class="rail-item adv" href="\/settings\/ssh-keys"/)
+    expect(html).toMatch(/<div class="rail-sec adv">Settings<\/div>/)
+    expect(html).toMatch(/<a class="rail-item active" href="\/"/)
   })
-  it('My area: one link in the nav, its pages as tabs in a row below, only on those pages', () => {
+  it('the rail marks the current page; All sandboxes for the admin only', () => {
     const at = (view: 'overview' | 'mine' | 'all' | 'tokens' | 'ssh-keys') => renderPage({ title: 'x', view, session: admin, body: '' })
-    const nav = (html: string) => /<nav>([\s\S]*?)<\/nav>/.exec(html)![1]
-    expect(nav(at('mine'))).toMatch(/<a class="active" href="\/">My area<\/a>/)
-    expect(nav(at('mine'))).not.toContain('/settings/tokens')
-    expect(nav(at('mine'))).not.toContain('/settings/ssh-keys')
-    expect(at('mine')).toMatch(/<a class="active" href="\/">Sandboxes<\/a>/)
-    expect(nav(at('tokens'))).toMatch(/<a class="active" href="\/">My area<\/a>/)
-    expect(at('tokens')).toMatch(/<a class="adv active" href="\/settings\/tokens">Access tokens<\/a>/)
-    expect(at('ssh-keys')).toMatch(/<a class="adv active" href="\/settings\/ssh-keys">SSH keys<\/a>/)
-    for (const v of ['overview', 'all'] as const) {
-      expect(at(v)).not.toContain('class="subnav')
-      expect(nav(at(v))).toMatch(/<a href="\/">My area<\/a>/)
-    }
+    expect(at('mine')).toMatch(/<a class="rail-item active" href="\/" aria-current="page"/)
+    expect(at('tokens')).toMatch(/<a class="rail-item adv active" href="\/settings\/tokens" aria-current="page"/)
+    expect(at('all')).toMatch(/<a class="rail-item active" href="\/admin" aria-current="page"/)
+    expect(page(user)).not.toContain('href="/admin"')
+    expect(page(admin)).toContain('href="/admin"')
+    for (const v of ['overview', 'mine', 'all', 'tokens', 'ssh-keys'] as const) expect(at(v)).not.toContain('class="subnav')
+  })
+  it('breadcrumbs per page', () => {
+    expect(breadcrumb('tokens')).toContain('<span>Settings</span> › <span>Access tokens</span>')
+    expect(breadcrumb('ssh-keys')).toContain('<span>Settings</span> › <span>SSH keys</span>')
+    expect(breadcrumb('mine')).toMatch(/<a href="\/" data-crumb-root>Sandboxes<\/a>/)
+    expect(breadcrumb('all')).toMatch(/<a href="\/admin" data-crumb-root>All sandboxes<\/a>/)
+    expect(page(user)).toContain('data-crumbs')
+  })
+  it('initials for the account button', () => {
+    expect(initials('anna')).toBe('AN')
+    expect(initials('jane.doe@x.io')).toBe('JD')
+    expect(initials('root')).toBe('RO')
+    expect(initials('')).toBe('?')
+  })
+  it('the account menu holds the mode switch, About and Sign out', () => {
+    vi.stubEnv('USER_VIEW_SWITCH', 'true')
+    const menu = /<div class="account-menu" data-account-menu hidden>[\s\S]*?<\/div><!--\/account-menu-->/.exec(page(user))?.[0] ?? ''
+    expect(menu).toContain('data-mode-set="simple"')
+    expect(menu).toContain('href="/about"')
+    expect(menu).toContain('action="/logout"')
+    expect(menu).toContain('data-idle-left')
+    expect(page(user)).toMatch(/<button type="button" class="avatar" data-account-toggle aria-haspopup="true" aria-expanded="false" aria-label="Account">AN<\/button>/)
+  })
+  it('no brand, no logo, no GitHub: the app bar keeps the menu button, search and account', () => {
+    vi.stubEnv('GITHUB_LINK', 'off')
+    vi.stubEnv('UI_TITLE', 'none')
+    vi.stubEnv('UI_LOGO', 'none')
+    const html = page(user)
+    expect(html).toContain('data-rail-toggle')
+    expect(html).toContain('class="app-search"')
+    expect(html).toContain('data-account-toggle')
+    expect(html).not.toContain('repo-badge')
   })
   describe('Let your agent deploy (the same window in both views)', () => {
     const dlg = /<dialog data-export-dialog>[\s\S]*?<\/dialog>/.exec(SANDBOX_VIEW_BODY)?.[0] ?? ''
