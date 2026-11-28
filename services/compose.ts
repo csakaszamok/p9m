@@ -32,16 +32,28 @@ export function composeStop(composePath: string): Promise<void> {
 }
 
 /**
- * Starts a stopped sandbox. sysbox can refuse to start a container again after a failed start ("already
- * pre-registered" with sysbox-fs) however often it is asked: then its containers are created anew, which sysbox
- * takes. Its data is in volumes and stays.
+ * Kata runtime-rs's shim failing on a socket file an earlier VM of the same container ID left: its shim-monitor.sock
+ * under /run/kata/<id> (the shim panics with "Address in use" once the VM is up, and containerd says "ttrpc: closed";
+ * Kata #14014), or its own socket under /run/containerd/s (Kata #14103). Either fails every later start of that
+ * container.
+ */
+export const KATA_STALE_SOCKET = /failed to create shim task: ttrpc: closed|failed to start shim:[\s\S]*Address in use/
+
+/**
+ * Starts a stopped sandbox. Some failures stay with the container, however often it is asked: sysbox refuses one
+ * after a failed start ("already pre-registered" with sysbox-fs), and Kata runtime-rs's shim fails on a socket an
+ * earlier VM of that container ID left behind (KATA_STALE_SOCKET). Then its containers are created anew, with new IDs.
+ * Its data is in volumes and stays.
  */
 export async function composeStart(composePath: string, exec: (cmd: string) => Promise<void> = run): Promise<void> {
   try {
     await exec(`docker compose -f "${composePath}" start`)
   } catch (err) {
-    if (!/already pre-registered/.test(err instanceof Error ? err.message : String(err))) throw err
-    console.warn(`[compose] ${composePath}: sysbox refused to start it again, recreating its containers`)
+    const msg = err instanceof Error ? err.message : String(err)
+    const why = /already pre-registered/.test(msg) ? 'sysbox refused to start it again'
+      : KATA_STALE_SOCKET.test(msg) ? "Kata's shim failed on a socket an earlier VM left" : null
+    if (!why) throw err
+    console.warn(`[compose] ${composePath}: ${why}, recreating its containers`)
     await exec(`docker compose -f "${composePath}" up -d --force-recreate --pull never`)
   }
 }
