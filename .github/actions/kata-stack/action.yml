@@ -1,0 +1,67 @@
+name: Kata stack
+description: >-
+  Kata on a GitHub ubuntu-24.04 runner (KVM opened to all, scripts/install-kata.sh) and Purgatorium started from this
+  checkout with DEFAULT_RUNTIME=kata. Shared by kata.yml and kata-soak.yml, so the two set the host up the same way.
+
+inputs:
+  hypervisor:
+    description: clh (the supported one) or qemu (the fallback install-kata.sh offers)
+    required: true
+  p9m-token:
+    description: The stack's ADMIN_TOKEN
+    required: true
+  dockerhub-username:
+    description: Docker Hub user, for the higher pull limit (skipped when the token is empty)
+    required: false
+    default: ''
+  dockerhub-token:
+    description: Docker Hub token (empty, e.g. a pull request from a fork, skips the login)
+    required: false
+    default: ''
+
+runs:
+  using: composite
+  steps:
+    # Docker Hub's pull limit for anonymous pulls is shared by GitHub's runners (429 on the base image);
+    # logged in it is far higher. Skipped without the secret (e.g. a pull request from a fork).
+    - name: Log in to Docker Hub
+      if: inputs.dockerhub-token != ''
+      uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
+      with:
+        username: ${{ inputs.dockerhub-username }}
+        password: ${{ inputs.dockerhub-token }}
+
+    - name: Install Kata (${{ inputs.hypervisor }})
+      shell: bash
+      run: |
+        # The runner's /dev/kvm is root-only until this rule opens it
+        echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+        sudo udevadm control --reload-rules && sudo udevadm trigger --name-match=kvm
+        ls -l /dev/kvm
+        # --yes: the runner's containers (none that matter) may be stopped while Docker restarts
+        sudo bash scripts/install-kata.sh --hypervisor ${{ inputs.hypervisor }} --yes
+        docker info --format '{{json .Runtimes}}' | jq -e 'has("kata")'
+
+    - name: Start the stack (DEFAULT_RUNTIME=kata)
+      shell: bash
+      env:
+        P9M_TOKEN: ${{ inputs.p9m-token }}
+      run: |
+        cat > .env <<EOF
+        ADMIN_TOKEN=$P9M_TOKEN
+        DEFAULT_RUNTIME=kata
+        ALLOWED_RUNTIMES=kata
+        # deep-sleep.sh waits for the check, every 15 s here instead of the default
+        DEEP_SLEEP_CHECK_INTERVAL=15s
+        HOST_ADDRESS=localhost
+        SESSION_SECRET=$(head -c 32 /dev/urandom | od -An -tx1 | tr -d ' \n')
+        ADMIN_PASSWORD=$(head -c 12 /dev/urandom | od -An -tx1 | tr -d ' \n')
+        # The scripts open the hello app without signing in (the default is owner since 0.12.12: a sign-in redirect)
+        APPS_ACCESS_DEFAULT=public
+        ADMIN_LOGIN=on
+        # The image from this checkout (p9m and p9m-init), not the released one: the release compose file has no build.
+        # Its hostname not its ID, as a server had: Purgatorium must find its own container anyway
+        COMPOSE_FILE=docker-compose.yml:docker-compose.dev.yml:tests/compose/hostname-not-id.yml
+        EOF
+        docker compose build
+        docker compose up -d --wait
