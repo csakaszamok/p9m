@@ -12,7 +12,6 @@ on:
       - 'release/**'
 
 env:
-  HAS_DOCKERHUB: ${{ secrets.DOCKERHUB_TOKEN != '' }}
   P9M_TOKEN: abc123
 
 jobs:
@@ -26,45 +25,14 @@ jobs:
         hypervisor: [clh, qemu]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      # Docker Hub's pull limit for anonymous pulls is shared by GitHub's runners (429 on the base image);
-      # logged in it is far higher. Skipped without the secret (e.g. a pull request from a fork).
-      - name: Log in to Docker Hub
-        if: env.HAS_DOCKERHUB == 'true'
-        uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
+      # Docker Hub login (when the secret is there), KVM, scripts/install-kata.sh, and the stack from this checkout
+      - name: Kata and the stack (${{ matrix.hypervisor }})
+        uses: ./.github/actions/kata-stack
         with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-
-      - name: Install Kata (${{ matrix.hypervisor }})
-        run: |
-          # The runner's /dev/kvm is root-only until this rule opens it
-          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
-          sudo udevadm control --reload-rules && sudo udevadm trigger --name-match=kvm
-          ls -l /dev/kvm
-          # --yes: the runner's containers (none that matter) may be stopped while Docker restarts
-          sudo bash scripts/install-kata.sh --hypervisor ${{ matrix.hypervisor }} --yes
-          docker info --format '{{json .Runtimes}}' | jq -e 'has("kata")'
-
-      - name: Start the stack (DEFAULT_RUNTIME=kata)
-        run: |
-          cat > .env <<EOF
-          ADMIN_TOKEN=$P9M_TOKEN
-          DEFAULT_RUNTIME=kata
-          ALLOWED_RUNTIMES=kata
-          # deep-sleep.sh waits for the check, every 15 s here instead of the default
-          DEEP_SLEEP_CHECK_INTERVAL=15s
-          HOST_ADDRESS=localhost
-          SESSION_SECRET=$(head -c 32 /dev/urandom | od -An -tx1 | tr -d ' \n')
-          ADMIN_PASSWORD=$(head -c 12 /dev/urandom | od -An -tx1 | tr -d ' \n')
-          # The scripts open the hello app without signing in (the default is owner since 0.12.12: a sign-in redirect)
-          APPS_ACCESS_DEFAULT=public
-          ADMIN_LOGIN=on
-          # The image from this checkout (p9m and p9m-init), not the released one: the release compose file has no build.
-          # Its hostname not its ID, as a server had: Purgatorium must find its own container anyway
-          COMPOSE_FILE=docker-compose.yml:docker-compose.dev.yml:tests/compose/hostname-not-id.yml
-          EOF
-          docker compose build
-          docker compose up -d --wait
+          hypervisor: ${{ matrix.hypervisor }}
+          p9m-token: ${{ env.P9M_TOKEN }}
+          dockerhub-username: ${{ secrets.DOCKERHUB_USERNAME }}
+          dockerhub-token: ${{ secrets.DOCKERHUB_TOKEN }}
 
       # Without the version -kata sandboxes would silently stay on their old image, and new ones could not be made
       - name: Purgatorium reads the host's Kata version

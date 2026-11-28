@@ -1,0 +1,12 @@
+# Known findings of the Kata soak and durability tests (.github/workflows/kata-soak.yml).
+#
+# One per line: the check's ID (as the failure printed it, e.g. soak.stop-hang) and the issue that tracks it, an
+# https:// address (upstream or ours). A listed finding is reported as a warning and the run goes on; anything not
+# listed fails the run. Every entry names an issue. When a run says a listed entry did not occur, check whether it is
+# fixed and remove the entry once it is.
+#
+#   soak.stop-hang https://github.com/kata-containers/kata-containers/issues/8583
+
+# Kata runtime-rs: a start fails on a shim-monitor.sock an earlier VM of the container left (on 4.3.1, which has the fix
+# for one cause); Purgatorium recreates the containers, so the sandbox starts. About once in 100-150 starts.
+soak.start-recreated https://github.com/kata-containers/kata-containers/issues/14014

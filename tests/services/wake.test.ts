@@ -25,6 +25,7 @@ vi.mock('fs', async (orig) => {
 // node:http.get / request mock: each call answers with the next queued { status, body }
 const httpCalls: Array<{ hostname: string; headers: Record<string, string> }> = []
 let httpAnswers: Array<{ status: number; body: string }> = []
+let httpAnswered = 0 // requests whose response has ended
 vi.mock('node:http', async () => {
   const { EventEmitter } = await import('node:events')
   const get = (opts: { hostname: string; headers: Record<string, string> }, cb: (res: unknown) => void) => {
@@ -32,7 +33,7 @@ vi.mock('node:http', async () => {
     const answer = httpAnswers.shift() ?? { status: 404, body: 'frps 404' }
     const res = Object.assign(new EventEmitter(), { statusCode: answer.status, setEncoding: () => {} })
     const req = Object.assign(new EventEmitter(), { destroy: () => {}, end: () => {} })
-    setImmediate(() => { cb(res); res.emit('data', answer.body); res.emit('end') })
+    setImmediate(() => { cb(res); res.emit('data', answer.body); res.emit('end'); httpAnswered++ })
     return req
   }
   // requestViaTraefik uses request(); same answers
@@ -54,7 +55,7 @@ vi.mock('node:https', async () => {
   return { default: { get, request: get }, get, request: get }
 })
 
-import { findSandboxDirByHost, wakeByHost, movedAppHost } from '../../services/wake'
+import { findSandboxDirByHost, wakeByHost, movedAppHost, primeSablierSession, cancelSablierPrime, sablierStopDone } from '../../services/wake'
 import { composeUp, composeStart } from '../../services/compose'
 import { listManagedContainers } from '../../services/docker'
 
@@ -287,5 +288,52 @@ describe("p9m's own session probe never wakes a sandbox", () => {
     expect(await wakeByHost('pw-p9m-wake.lvh.me')).toEqual({ result: 'in_progress', name: 'p9m-pw' })
     expect(composeStart).not.toHaveBeenCalled()
     expect(reserveWake).not.toHaveBeenCalled()
+  })
+})
+
+// After a start p9m opens the sandbox's Sablier session for up to 2.5 min. A request that reaches its router after the
+// sandbox was stopped makes Sablier start it again: a stop must end that.
+describe('primeSablierSession and a stop', () => {
+  const waiting = () => Array.from({ length: 30 }, () => ({ status: 200, body: '<main data-p9m-waiting>' }))
+
+  it('gives up once the sandbox is stopped, and sends nothing after the stop', { timeout: 10000 }, async () => {
+    httpCalls.length = 0
+    httpAnswers = waiting() // its router is not there yet
+    const primed = primeSablierSession('p9m-st1', 30, 50)
+    await vi.waitFor(() => expect(httpCalls.length).toBeGreaterThanOrEqual(2))
+    await cancelSablierPrime('p9m-st1')
+    const sent = httpCalls.length
+    expect(await primed).toBe(false)
+    await new Promise(r => setTimeout(r, 200))
+    expect(httpCalls).toHaveLength(sent)
+    httpAnswers = []
+  })
+
+  it('waits for the request in flight, so none reaches the router once the stop goes on', { timeout: 10000 }, async () => {
+    httpCalls.length = 0
+    httpAnswers = waiting()
+    httpAnswered = 0
+    const primed = primeSablierSession('p9m-st2', 30, 0)
+    await vi.waitFor(() => expect(httpCalls.length).toBeGreaterThanOrEqual(1))
+    await cancelSablierPrime('p9m-st2')
+    expect(httpAnswered).toBe(httpCalls.length) // every request sent has its answer
+    expect(await primed).toBe(false)
+    httpAnswers = []
+  })
+
+  it('a probe that begins while the stop goes on sends nothing', { timeout: 10000 }, async () => {
+    await cancelSablierPrime('p9m-st4')
+    httpCalls.length = 0
+    httpAnswers = [] // its router still there: a request would open a session, and Sablier would start it again
+    expect(await primeSablierSession('p9m-st4', 3, 10)).toBe(false)
+    expect(httpCalls).toHaveLength(0)
+    sablierStopDone('p9m-st4')
+  })
+
+  it('a start after the stop opens the session again', { timeout: 10000 }, async () => {
+    await cancelSablierPrime('p9m-st3')
+    sablierStopDone('p9m-st3')
+    httpAnswers = [] // frps answers 404: through the sandbox router
+    expect(await primeSablierSession('p9m-st3', 3, 10)).toBe(true)
   })
 })
