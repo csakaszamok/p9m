@@ -45,7 +45,7 @@ export function shortCount(n: number): string {
   return n < 1000 ? String(n) : `${(n / 1000).toFixed(n < 10_000 ? 1 : 0).replace(/\.0$/, '')}k`
 }
 
-/** The GitHub repo card in the account menu: repo name, stars, forks (once fetched) and the version. */
+/** The GitHub repo card in the app bar, before light / dark: repo name, stars, forks (once fetched) and the version. */
 export function repoBadge(info: RepoInfo): string {
   const stats = [
     info.stars !== null ? `<span title="${info.stars} stars">${STAR_ICON}${shortCount(info.stars)}</span>` : '',
@@ -114,7 +114,7 @@ export function breadcrumb(view: View): string {
   return `<nav class="crumbs" data-crumbs aria-label="Breadcrumb">${parts}</nav>`
 }
 
-/** The account button and its menu: the account, the time left, Simple | Advanced, the GitHub card, About, Sign out. */
+/** The account button and its menu: the account, the time left, Simple | Advanced, About, Sign out. */
 export function accountMenu(session: Session, mode: 'simple' | 'advanced'): string {
   const modeButton = (m: 'simple' | 'advanced', label: string) =>
     `<button type="button" data-mode-set="${m}" aria-pressed="${m === mode}">${label}</button>`
@@ -123,7 +123,6 @@ export function accountMenu(session: Session, mode: 'simple' | 'advanced'): stri
     <div class="account-menu" data-account-menu hidden>
       <div class="account-who"><span class="account-sub">${escapeHtml(session.sub)}</span><span class="idle-left" data-idle-left hidden title="Signed out after this long without doing anything"></span></div>
       ${canSwitchView(session.role) ? `<div class="account-row"><span class="muted">View</span><span class="mode-switch" role="group" aria-label="View">${modeButton('simple', 'Simple')}${modeButton('advanced', 'Advanced')}</span></div>` : ''}
-      ${githubLinkEnabled() ? `<div class="account-row">${repoBadge(repoInfo())}</div>` : ''}
       <a class="account-link" href="/about" title="License and source code">About</a>
       <form method="post" action="/logout" class="who"><button class="link">Sign out</button></form>
     </div><!--/account-menu-->
@@ -153,6 +152,7 @@ ${faviconTag()}
   <input type="search" class="app-search" data-filter-text placeholder="Search sandboxes" aria-label="Search sandboxes">
   <span class="places" data-places hidden></span>
   ${session.role === 'admin' ? updateNotice(repoInfo()) : ''}
+  ${githubLinkEnabled() ? repoBadge(repoInfo()) : ''}
   <button type="button" class="theme-switch" data-theme-toggle title="Light or dark" aria-label="Switch between light and dark">${SUN_ICON}${MOON_ICON}</button>
   ${accountMenu(session, mode)}
 </header>

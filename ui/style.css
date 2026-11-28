@@ -407,10 +407,10 @@ a.ov-card:hover { border-color: #ea580c; transform: translateY(-1px) }
   .ov-meterrow { grid-template-columns: 60px 1fr; row-gap: 4px }
   .ov-val { grid-column: 2; white-space: normal; font-size: 12px }
 }
-/* Phones: the brand and the places pill give way to the search */
+/* Phones: the brand, the places pill and the GitHub card give way to the search */
 @media (max-width: 640px) {
   .appbar { gap: 6px; padding: 0 8px }
-  .appbar .brand, .appbar .places, .appbar .update-notice { display: none }
+  .appbar .brand, .appbar .places, .appbar .update-notice, .appbar .repo-badge { display: none }
   main { padding: 12px 12px 28px }
   .list-toolbar { flex-wrap: wrap }
   /* The table scrolls sideways on its own instead of widening the page */
