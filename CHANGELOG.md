@@ -4,6 +4,10 @@ All notable changes are listed here. Versions follow [semantic versioning](https
 
 ## [Unreleased]
 
+## [0.21.2] - 2026-11-28
+
+Upgrading from 0.21.1: `docker compose pull && docker compose up -d` where `.env` has `P9M_VERSION=0.21`; otherwise first download the new `docker-compose.yml` from `https://github.com/csakaszamok/p9m/releases/latest/download/docker-compose.yml`, which names this version. On the first start, sandboxes made before get the log limit: running ones restart once, asleep ones stay asleep; their data stays.
+
 ### Changed
 
 - **The web UI looks like a cloud console**: a left menu (folds to icons; slides in on a phone), an app bar with search, the server's places, light / dark and an account menu (Simple | Advanced, the GitHub card, About, Sign out), breadcrumbs, a denser sandbox table, and a sandbox's details in a drawer beside the list that ✕ or Esc closes. The search on another page opens My sandboxes filtered (`/?q=…`). Ember stays the accent colour. Nothing an account may do changes, nor the API or MCP.
