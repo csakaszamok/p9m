@@ -40,7 +40,7 @@ describe('brand', () => {
     expect(customLogoFile(env({ UI_LOGO: file.replace('logo', 'gone') }))).toBeNull()
     expect(customLogoFile(env({ UI_LOGO: 'https://example.com/logo.png' }))).toBeNull()
   })
-  it('the topbar: GITHUB_LINK=off drops the card, none drops the name and the logo', () => {
+  it('the app bar: GITHUB_LINK=off drops the card, none drops the name and the logo', () => {
     vi.stubEnv('USER_PREFS_FILE', path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'prefs-')), 'user-prefs.json'))
     expect(page()).toContain('class="repo-badge"')
     expect(page()).toMatch(/<span class="brand"><img src="\/assets\/logo.svg"[^>]*>Purgatorium Agentium<\/span>/)

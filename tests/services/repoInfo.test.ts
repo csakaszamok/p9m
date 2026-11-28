@@ -103,7 +103,7 @@ describe('updateNotice', () => {
   it('up to date: nothing', () => {
     expect(updateNotice(info())).toBe('')
   })
-  it('in the topbar for the admin only', async () => {
+  it('in the app bar for the admin only', async () => {
     vi.stubGlobal('fetch', githubRepo({ stargazers_count: 1, forks_count: 1 }, [release('v99.0.0')]))
     repoInfo(); await _settled()
     const page = (role: 'admin' | 'user') => renderPage({ title: 'x', view: 'mine', session: { sub: 'root', role, exp: 0 }, body: '' })

@@ -240,9 +240,9 @@ describe('pages', () => {
     expect(loginPage).toContain('<script src="/assets/embers.js" defer></script>')
   })
 
-  it('the topbar has a place for the server places, filled by app.js on every page', async () => {
+  it('the app bar has a place for the server places, filled by app.js on every page', async () => {
     for (const res of [await index(r('/', ADMIN)), await tokens(r('/settings/tokens', ADMIN))]) {
-      expect(/<header class="topbar">[\s\S]*?<\/header>/.exec(await res.text())?.[0]).toContain('data-places hidden')
+      expect(/<header class="appbar">[\s\S]*?<\/header>/.exec(await res.text())?.[0]).toContain('data-places hidden')
     }
   })
 

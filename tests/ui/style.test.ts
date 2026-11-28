@@ -10,4 +10,35 @@ describe('style.css', () => {
   it('hidden always hides, whatever display a class sets', () => {
     expect(css).toMatch(/\[hidden\]\s*\{\s*display:\s*none\s*!important\s*;?\s*\}/)
   })
+  it('ember is the primary colour', () => {
+    expect(css).toMatch(/button\.primary[^{]*\{[^}]*background:\s*#ea580c/)
+  })
+  it('no Google blue, no Google Sans', () => {
+    expect(css).not.toMatch(/#1a73e8|#0b57d0|Google Sans/i)
+  })
+  it('the console font stack', () => {
+    expect(css).toContain('Inter, Roboto, "Segoe UI", system-ui, sans-serif')
+  })
+  it('the old topbar navigation is gone', () => {
+    expect(css).not.toMatch(/\.subnav|\.topbar nav/)
+  })
+  it('the collapsed rail and the mobile overlay exist', () => {
+    expect(css).toContain('body.rail-collapsed')
+    expect(css).toContain('body.rail-open')
+  })
+  it('reduced motion still stops the embers', () => {
+    expect(css).toMatch(/prefers-reduced-motion: reduce\)\s*\{\s*\.status::before/)
+  })
+  // In the drawer seven tabs did not fit: the last one was cut off behind a bare scrollbar
+  it('the details tabs wrap onto a second row instead of scrolling', () => {
+    const tabs = /\n\.tabs \{([^}]*)\}/.exec(css)?.[1] ?? ''
+    expect(tabs).toMatch(/flex-wrap: wrap/)
+    expect(tabs).not.toMatch(/overflow-x: auto/)
+  })
+  // Moved off screen is not enough: Tab would walk through links nobody sees
+  it('the closed slide-in menu is out of the keyboard order too', () => {
+    const narrow = /@media \(max-width: 800px\) \{([\s\S]*?)\n\}/.exec(css)?.[1] ?? ''
+    expect(narrow).toMatch(/\.rail \{[^}]*visibility: hidden/)
+    expect(narrow).toMatch(/body\.rail-open \.rail \{[^}]*visibility: visible/)
+  })
 })

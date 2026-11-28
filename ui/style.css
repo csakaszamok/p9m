@@ -3,8 +3,11 @@
    chooses one in the topbar, which sets data-theme on <html>. The ember accents are the same in both. */
 :root {
   color-scheme: light dark;
-  --bg: light-dark(#f5f5f7, #0f0f0f);
-  --bar: light-dark(#ffffff, #151515);
+  --bg: light-dark(#f6f7f9, #111214);
+  --bar: light-dark(#ffffff, #1a1b1e);
+  --rail: light-dark(#ffffff, #16171a);
+  --accent: #ea580c;
+  --accent-soft: light-dark(rgba(234,88,12,.10), rgba(234,88,12,.16));
   --surface: light-dark(#ffffff, #1a1a1a);
   --surface-2: light-dark(#ffffff, #171717);
   --surface-3: light-dark(#ffffff, #1c1c1c);
@@ -12,15 +15,15 @@
   --btn: light-dark(#f0f0f2, #252525);
   --btn-hover: light-dark(#e5e5e9, #2e2e2e);
   --pressed: light-dark(#e6e6eb, #2a2a2a);
-  --hover: light-dark(#f0f0f4, #161616);
-  --selected: light-dark(rgba(37,99,235,.10), rgba(37,99,235,.15));
+  --hover: light-dark(#f1f3f5, #202226);
+  --selected: light-dark(rgba(234,88,12,.08), rgba(234,88,12,.14));
   --code-bg: light-dark(#f4f4f6, #0c0c0d);
   --code-fg: light-dark(#2a2a30, #d6d6da);
   --border: light-dark(#cfcfd6, #333);
   --border-strong: light-dark(#a0a0a8, #555);
-  --line: light-dark(#e2e2e7, #2a2a2a);
-  --line-2: light-dark(#e2e2e7, #242424);
-  --line-3: light-dark(#ececef, #1e1e1e);
+  --line: light-dark(#e3e6ea, #2c2e33);
+  --line-2: light-dark(#e3e6ea, #2a2c31);
+  --line-3: light-dark(#eef0f2, #222428);
   --pill: light-dark(#d6d6dc, #2c2c2c);
   --track: light-dark(#e6e6ea, #242424);
   --fg: light-dark(#1c1c1f, #e8e8e8);
@@ -55,36 +58,62 @@
 }
 :root[data-theme="light"] { color-scheme: light }
 :root[data-theme="dark"] { color-scheme: dark }
-body { margin: 0; font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: var(--bg); color: var(--fg) }
+body { margin: 0; font: 14px/1.5 Inter, Roboto, "Segoe UI", system-ui, sans-serif; background: var(--bg); color: var(--fg) }
 a { color: var(--link) }
 code { font: 12px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace }
 .muted { color: var(--muted) }
 .error { color: var(--err) }
-button { font: inherit; color: var(--fg); background: var(--btn); border: 1px solid var(--border); border-radius: 6px; padding: 6px 12px; cursor: pointer }
-button:hover { background: var(--btn-hover) }
+button { font: inherit; font-weight: 500; color: var(--accent-text); background: transparent; border: 1px solid var(--border); border-radius: 4px; padding: 5px 12px; cursor: pointer }
+button:hover { background: var(--accent-soft) }
 /* hidden always hides: a class that sets display (button.primary) must not bring it back */
 [hidden] { display: none !important }
-button.primary, a.primary { background: #ea580c; border-color: #ea580c; color: #fff; text-decoration: none; display: inline-block; text-align: center; padding: 7px 14px; border-radius: 6px }
+button.primary, a.primary { background: #ea580c; border-color: #ea580c; color: #fff; text-decoration: none; display: inline-block; text-align: center; padding: 6px 14px; border-radius: 4px; font-weight: 500 }
 button.primary:hover, a.primary:hover { background: #c2410c; border-color: #c2410c }
 button.primary:disabled { background: var(--accent-disabled); border-color: var(--accent-disabled); color: var(--muted-warm); cursor: not-allowed }
 button.danger { border-color: var(--err-line); color: var(--err-text) }
 button.link { background: none; border: none; color: var(--link); padding: 0 }
 .wide { width: 100% }
-input, select { font: inherit; color: var(--fg); background: var(--input); border: 1px solid var(--border); border-radius: 6px; padding: 6px 8px; width: 100% }
+input, select { font: inherit; color: var(--fg); background: var(--input); border: 1px solid var(--border); border-radius: 4px; padding: 6px 8px; width: 100% }
+input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: -1px; border-color: var(--accent) }
 label { display: block; margin: 10px 0 2px }
 label.check { display: flex; gap: 8px; align-items: center }
 label.check input { width: auto }
-.topbar { display: flex; align-items: center; gap: 24px; padding: 10px 20px; background: var(--bar); border-bottom: 1px solid var(--line-2) }
-.brand { font-weight: 700; display: inline-flex; align-items: center; gap: 8px }
-.topbar nav { display: flex; gap: 16px; flex: 1 }
-.topbar nav a { color: var(--dim); text-decoration: none }
-.topbar nav a.active { color: var(--strong); font-weight: 600 }
-/* My area's tabs, in a row below the topbar on its pages */
-.subnav { display: flex; gap: 18px; padding: 0 20px; border-bottom: 1px solid var(--line-2); font-size: 14px; overflow-x: auto }
-.subnav a { color: var(--dim); text-decoration: none; padding: 8px 0 6px; border-bottom: 2px solid transparent; white-space: nowrap }
-.subnav a:hover { color: var(--strong) }
-.subnav a.active { color: var(--strong); font-weight: 600; border-bottom-color: #ea580c }
-.who { display: flex; gap: 12px; align-items: center; margin: 0; color: var(--dim) }
+/* The console shell: the app bar on top, the rail on the left, the page beside it */
+.appbar { position: sticky; top: 0; z-index: 30; display: flex; align-items: center; gap: 12px; height: 48px; padding: 0 12px; background: var(--bar); border-bottom: 1px solid var(--line-2) }
+.brand { font-weight: 600; display: inline-flex; align-items: center; gap: 8px; white-space: nowrap }
+.rail-toggle { display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; padding: 0; border: 0; border-radius: 50%; color: var(--dim); flex: none }
+.rail-toggle:hover { background: var(--hover) }
+.rail-toggle svg { width: 20px; height: 20px }
+.app-search { flex: 1 1 auto; max-width: 560px; margin: 0 auto; height: 34px; border: 1px solid transparent; background: var(--hover); padding: 0 12px }
+.app-search:focus-visible { background: var(--input) }
+.shell { display: flex; align-items: flex-start; min-height: calc(100vh - 48px) }
+.rail { position: sticky; top: 48px; flex: none; width: 220px; height: calc(100vh - 48px); overflow-y: auto; padding: 8px 8px 8px 0; background: var(--rail); border-right: 1px solid var(--line-2); transition: width .15s }
+.rail-item { display: flex; align-items: center; gap: 14px; height: 36px; padding: 0 16px; border-radius: 0 18px 18px 0; color: var(--fg-2); text-decoration: none; font-size: 13.5px; white-space: nowrap; overflow: hidden }
+.rail-item:hover { background: var(--hover) }
+.rail-item.active { background: var(--accent-soft); color: var(--accent-text); font-weight: 600 }
+.rail-icon { width: 20px; height: 20px; flex: none }
+.rail-sec { padding: 14px 16px 4px; color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; white-space: nowrap; overflow: hidden }
+body.rail-collapsed .rail { width: 56px; padding-right: 0 }
+body.rail-collapsed .rail-item { justify-content: center; padding: 0; margin: 0 8px; border-radius: 8px }
+body.rail-collapsed .rail-item span, body.rail-collapsed .rail-sec { display: none }
+.rail-backdrop { display: none }
+.crumbs { font-size: 12.5px; color: var(--muted); margin: 0 0 4px }
+.crumbs a { color: var(--accent-text); text-decoration: none }
+.crumbs a:hover { text-decoration: underline }
+.crumbs [data-crumb-name] { color: var(--fg-2) }
+/* The account button and its menu */
+.account { position: relative; flex: none }
+.avatar { width: 32px; height: 32px; padding: 0; border: 0; border-radius: 50%; background: #ea580c; color: #fff; font-size: 12px; font-weight: 600; letter-spacing: .02em }
+.avatar:hover { background: #c2410c }
+.account-menu { position: absolute; right: 0; top: 40px; z-index: 40; min-width: 260px; padding: 8px 0; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 8px 28px rgba(0,0,0,.18) }
+.account-menu > * { padding: 6px 16px }
+.account-who { display: flex; flex-direction: column; gap: 2px; border-bottom: 1px solid var(--line-3); padding-bottom: 10px; margin-bottom: 4px }
+.account-sub { font-weight: 600; overflow-wrap: anywhere }
+.account-row { display: flex; align-items: center; justify-content: space-between; gap: 10px }
+.account-link { display: block; color: var(--fg-2); text-decoration: none }
+.account-link:hover, .account-menu .who:hover { background: var(--hover) }
+.who { margin: 0; color: var(--dim) }
+.who button.link { color: var(--fg-2); font-weight: 400; width: 100%; text-align: left }
 .idle-left { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums }
 .idle-left.soon { color: var(--warn) }
 /* Simple | Advanced: Simple hides what is marked adv (it does not restrict anything) */
@@ -149,18 +178,23 @@ body:not([data-mode="simple"]) .simple-only { display: none !important }
 .update-notice { padding: 3px 8px; border-radius: 8px; border: 1px solid var(--ok-2); color: var(--ok-2); font-size: 12px; text-decoration: none; white-space: nowrap }
 .update-notice:hover { background: color-mix(in srgb, var(--ok-2) 13%, transparent) }
 .update-notice.later { border-color: var(--border-strong); color: var(--dim) }
-main { padding: 20px }
-.split { display: flex; gap: 20px; align-items: flex-start }
-.list { flex: 3; min-width: 0 }
-.panel { flex: 2; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 16px; position: sticky; top: 20px }
-.list-head { display: flex; align-items: center; gap: 12px; margin-bottom: 10px }
-.list-head h1 { font-size: 18px; margin: 0; flex: 1 }
-.filters { display: flex; gap: 8px }
-.filters input { width: 220px }
-.filters select { width: 140px }
-table.grid { width: 100%; border-collapse: collapse }
-table.grid th { text-align: left; color: var(--muted); font-weight: 500; padding: 6px 8px; border-bottom: 1px solid var(--line-2) }
-table.grid td { padding: 8px; border-bottom: 1px solid var(--line-3) }
+main { flex: 1; min-width: 0; padding: 16px 24px 32px }
+.split { display: flex; gap: 0; align-items: flex-start }
+.list { flex: 1; min-width: 0 }
+.split.has-drawer .list { padding-right: 16px }
+/* The selected sandbox's details: a drawer beside the table, its own scroll; the close button or Esc closes it */
+.drawer { position: sticky; top: 64px; flex: 0 0 44%; min-width: 420px; max-height: calc(100vh - 80px); overflow-y: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 16px 18px }
+.drawer-close { float: right; width: 32px; height: 32px; padding: 0; margin: -6px -8px 0 8px; border: 0; border-radius: 50%; color: var(--dim); font-size: 15px }
+.drawer-close:hover { background: var(--hover); color: var(--strong) }
+.list-head { display: flex; align-items: center; gap: 12px; margin-bottom: 8px }
+.list-toolbar { display: flex; align-items: center; gap: 10px; padding: 0 0 10px; margin-bottom: 4px; border-bottom: 1px solid var(--line-2) }
+.list-toolbar select { width: 150px }
+.list-head h1 { font-size: 20px; font-weight: 500; margin: 0; flex: 1 }
+table.grid { width: 100%; border-collapse: collapse; font-size: 13px; background: var(--surface); font-variant-numeric: tabular-nums }
+table.grid th { position: sticky; top: 48px; z-index: 1; background: var(--surface); text-align: left; color: var(--muted); font-weight: 500; padding: 8px 10px; border-bottom: 1px solid var(--line-2); white-space: nowrap }
+table.grid td { padding: 7px 10px; border-bottom: 1px solid var(--line-3) }
+table.grid td strong { font-weight: 500; color: var(--accent-text) }
+table.grid td strong, table.grid td .status { white-space: nowrap }
 table.grid tbody tr[data-name] { cursor: pointer }
 table.grid tbody tr[data-name]:hover { background: var(--hover) }
 table.grid tbody tr.selected { background: var(--selected) }
@@ -183,14 +217,14 @@ table.grid tbody tr.selected { background: var(--selected) }
 @keyframes ember-flicker { 0%,100% { transform: scale(1) } 30% { transform: scale(1.14); box-shadow: 0 0 9px 3px rgba(255,150,40,.8) } 60% { transform: scale(.94) } }
 @keyframes ember-breathe { 0%,100% { opacity: .5; box-shadow: 0 0 2px 0 rgba(230,90,20,.3) } 50% { opacity: 1; box-shadow: 0 0 7px 2px rgba(240,100,20,.6) } }
 @media (prefers-reduced-motion: reduce) { .status::before { animation: none !important } }
-.panel h2 { margin: 0 0 4px; font-size: 16px }
+.panel h2 { margin: 0 0 4px; font-size: 18px; font-weight: 500 }
 .panel .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px }
 button:disabled { opacity: .55; cursor: wait }
 button.busy { opacity: 1; display: inline-flex; align-items: center; gap: 8px; border-color: rgba(255,140,60,.45); color: var(--ember-text) }
 button.busy::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: radial-gradient(circle at 50% 55%, #ff9a3c 0 25%, #c2410c 70%, #7a1f05); animation: ember-breathe 1.2s infinite ease-in-out }
-dialog { background: var(--surface); color: var(--fg); border: 1px solid var(--line); border-radius: 10px; width: min(460px, 92vw) }
+dialog { background: var(--surface); color: var(--fg); border: 1px solid var(--line); border-radius: 8px; width: min(460px, 92vw); box-shadow: 0 12px 40px rgba(0,0,0,.25) }
 dialog::backdrop { background: rgba(0, 0, 0, .6) }
-dialog h2 { margin-top: 0; font-size: 17px }
+dialog h2 { margin-top: 0; font-size: 18px; font-weight: 500 }
 dialog .actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px }
 details { margin-top: 12px }
 .created { background: var(--ok-bg); border: 1px solid var(--ok-line); border-radius: 8px; padding: 12px; margin: 12px 0 }
@@ -220,7 +254,22 @@ body.login .capacity.full .bar span { background: #ef4444 }
 body.login .user-code { margin: 14px 0 6px; font: 600 1.9em ui-monospace, Consolas, monospace; letter-spacing: .12em }
 body.login .confirm-line { gap: 14px; margin: 14px 0 6px }
 body.login .confirm-line .user-code { margin: 0 }
-@media (max-width: 800px) { .split { flex-direction: column } .panel { position: static; width: 100% } }
+/* Not room for the list and the drawer side by side: the drawer slides over the list from the right */
+@media (max-width: 1199px) {
+  .drawer { position: fixed; top: 48px; right: 0; bottom: 0; z-index: 25; width: min(560px, 100vw); min-width: 0; max-height: none; border-radius: 0; border-width: 0 0 0 1px; box-shadow: -8px 0 28px rgba(0,0,0,.22) }
+  .split.has-drawer .list { padding-right: 0 }
+}
+/* Narrow screens: the rail slides in over the page; the drawer covers the list */
+@media (max-width: 800px) {
+  .rail { position: fixed; left: 0; top: 48px; z-index: 35; transform: translateX(-100%); visibility: hidden; transition: transform .15s, visibility .15s; box-shadow: 0 8px 28px rgba(0,0,0,.25) }
+  body.rail-open .rail { transform: none; visibility: visible }
+  body.rail-open .rail-backdrop { display: block; position: fixed; inset: 48px 0 0 0; z-index: 34; background: rgba(0,0,0,.4) }
+  body.rail-collapsed .rail { width: 220px; padding-right: 8px }
+  body.rail-collapsed .rail-item { justify-content: flex-start; padding: 0 16px; margin: 0; border-radius: 0 18px 18px 0 }
+  body.rail-collapsed .rail-item span, body.rail-collapsed .rail-sec { display: revert }
+  .drawer { position: fixed; inset: 48px 0 0 0; z-index: 25; min-width: 0; max-height: none; border-radius: 0; border: 0 }
+}
+@media (prefers-reduced-motion: reduce) { .rail { transition: none } }
 
 /* Starter stack viewer */
 dialog.wide { width: min(880px, 94vw) }
@@ -234,10 +283,10 @@ dialog .actions form { margin: 0 }
 dialog h3 { font-size: 13px; margin: 14px 0 6px; color: var(--muted-warm) }
 
 body.terminal-page { margin: 0; height: 100vh; display: flex; flex-direction: column }
-body.terminal-page .topbar { gap: 16px }
+/* The terminal and log pages keep their own bar (no rail), in the app bar's look */
+.topbar { display: flex; align-items: center; gap: 16px; height: 48px; padding: 0 16px; background: var(--bar); border-bottom: 1px solid var(--line-2); flex: none }
 body.terminal-page [data-term] { flex: 1; min-height: 0; padding: 4px 8px; background: #000 }
 body.logs-page { margin: 0; height: 100vh; display: flex; flex-direction: column }
-body.logs-page .topbar { gap: 16px }
 body.logs-page .log-tools { margin-left: auto; display: flex; gap: 8px; align-items: center }
 body.logs-page [data-log] { flex: 1; min-height: 0; overflow-y: auto; padding: 6px 10px; background: #000; color: #e5e5e5; font: 13px/1.45 ui-monospace, SFMono-Regular, Consolas, monospace }
 .log-line { white-space: pre-wrap; overflow-wrap: anywhere }
@@ -257,9 +306,11 @@ body.logs-page [data-log] { flex: 1; min-height: 0; overflow-y: auto; padding: 6
 .panel-head .head-actions { margin: 0 0 0 auto; display: flex; gap: 6px }
 .panel-sub { margin: 8px 0 0; color: var(--muted); font-size: 13px }
 .panel-error { margin: 8px 0 0 }
-.tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--line); margin: 14px 0 10px; overflow-x: auto }
-.tabs [role="tab"] { background: none; border: 0; border-bottom: 2px solid transparent; border-radius: 0; color: var(--muted); padding: 7px 12px; white-space: nowrap; cursor: pointer }
-.tabs [role="tab"][aria-selected="true"] { color: var(--strong); border-bottom-color: #ff6a00 }
+/* Every tab in view: too many for the drawer's width, they wrap onto a second row (no hidden tab behind a scrollbar) */
+.tabs { display: flex; flex-wrap: wrap; gap: 2px; border-bottom: 1px solid var(--line); margin: 14px 0 10px }
+.tabs [role="tab"] { background: none; border: 0; border-bottom: 2px solid transparent; border-radius: 0; color: var(--muted); font-weight: 500; padding: 8px 12px; white-space: nowrap; cursor: pointer }
+.tabs [role="tab"]:hover { color: var(--fg-2); background: var(--hover) }
+.tabs [role="tab"][aria-selected="true"] { color: var(--accent-text); border-bottom-color: #ea580c }
 .tabs [role="tab"]:focus-visible { outline: 2px solid #ff6a00; outline-offset: -2px }
 .panel-table { width: 100%; border-collapse: collapse; font-size: 13px; margin-bottom: 12px }
 .panel-table th { text-align: left; color: var(--muted); font-weight: 500; font-size: 11px; text-transform: uppercase; letter-spacing: .04em; padding: 4px 6px; border-bottom: 1px solid var(--line) }
@@ -288,7 +339,7 @@ h3.repo { font-size: 13px; margin: 12px 0 4px }
 .ov-head { display: flex; align-items: baseline; gap: 12px; margin-bottom: 16px }
 .ov-head h1 { font-size: 20px; margin: 0 }
 .ov-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(178px, 1fr)); gap: 14px; margin-bottom: 18px }
-.ov-card { position: relative; display: block; background: linear-gradient(180deg, var(--surface-3), var(--surface-2)); border: 1px solid var(--line); border-radius: 12px; padding: 16px 16px 14px; text-decoration: none; color: inherit; transition: border-color .15s, transform .15s; overflow: hidden }
+.ov-card { position: relative; display: block; background: linear-gradient(180deg, var(--surface-3), var(--surface-2)); border: 1px solid var(--line); border-radius: 8px; padding: 16px 16px 14px; text-decoration: none; color: inherit; transition: border-color .15s, transform .15s; overflow: hidden }
 a.ov-card:hover { border-color: #ea580c; transform: translateY(-1px) }
 .ov-top { display: flex; align-items: center; justify-content: space-between; color: var(--muted); font-size: 12.5px; text-transform: uppercase; letter-spacing: .06em }
 .ov-num { font-size: 34px; font-weight: 700; line-height: 1.15; margin-top: 8px; font-variant-numeric: tabular-nums }
@@ -320,7 +371,7 @@ a.ov-card:hover { border-color: #ea580c; transform: translateY(-1px) }
 .ov-stack .d { background: #4a4a4f }
 .ov-legend { display: flex; gap: 16px; color: var(--muted); font-size: 12.5px; margin-bottom: 22px; flex-wrap: wrap }
 .ov-grid2 { display: grid; grid-template-columns: 1.4fr 1fr; gap: 14px; margin-bottom: 18px; align-items: start }
-.ov-box { background: var(--surface-2); border: 1px solid var(--line); border-radius: 12px; padding: 16px; margin-bottom: 18px }
+.ov-box { background: var(--surface-2); border: 1px solid var(--line); border-radius: 8px; padding: 16px; margin-bottom: 18px }
 .ov-grid2 .ov-box { margin-bottom: 0 }
 .ov-box h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 12px; font-weight: 600 }
 .ov-meterrow { display: grid; grid-template-columns: 70px 1fr auto; gap: 12px; align-items: center; margin: 10px 0 }
@@ -356,18 +407,16 @@ a.ov-card:hover { border-color: #ea580c; transform: translateY(-1px) }
   .ov-meterrow { grid-template-columns: 60px 1fr; row-gap: 4px }
   .ov-val { grid-column: 2; white-space: normal; font-size: 12px }
 }
-/* Phones: the menu gets its own row and scrolls sideways instead of widening the page */
+/* Phones: the brand and the places pill give way to the search */
 @media (max-width: 640px) {
-  .topbar { flex-wrap: wrap; gap: 8px 16px; padding: 10px 16px }
-  .topbar nav { order: 3; flex-basis: 100%; overflow-x: auto; flex-wrap: nowrap; gap: 18px; padding-bottom: 2px }
-  .topbar nav a { white-space: nowrap }
-  .subnav { padding: 0 16px }
-  .repo-badge .name { display: none }
-  .who { margin-left: auto }
-  /* The list filter gets its own row */
-  .list-head { flex-wrap: wrap }
-  .filters { order: 3; flex-basis: 100% }
-  .filters input { flex: 1; width: auto; min-width: 0 }
+  .appbar { gap: 6px; padding: 0 8px }
+  .appbar .brand, .appbar .places, .appbar .update-notice { display: none }
+  main { padding: 12px 12px 28px }
+  .list-toolbar { flex-wrap: wrap }
+  /* The table scrolls sideways on its own instead of widening the page */
+  .list { overflow-x: auto }
+  table.grid th { position: static }
+  .drawer { box-shadow: none }
 }
 /* Apps tab: an app published to the Hub */
 .tag { font-size: 12px; padding: 1px 6px; border: 1px solid #ea580c; border-radius: 10px; color: var(--ember-text-2); text-decoration: none; margin-left: 4px }
@@ -376,8 +425,6 @@ a.ov-card:hover { border-color: #ea580c; transform: translateY(-1px) }
 .warnings ul { margin: 0; padding-left: 0; list-style: none }
 .warnings li { margin: 4px 0; color: var(--warn-text) }
 /* The license notices (AGPL-3.0 5(d)): always reachable, never in the way */
-.about-link { color: var(--muted); font-size: 12px; text-decoration: none }
-.about-link:hover { color: var(--fg-2) }
 .about-foot { position: fixed; bottom: 12px; left: 0; right: 0; text-align: center; margin: 0; font-size: 12px }
 .about-foot a { color: var(--muted); text-decoration: none }
 .about-foot a:hover { color: var(--fg-2) }

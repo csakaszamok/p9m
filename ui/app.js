@@ -480,9 +480,32 @@ async function copyText(b) {
   }
 }
 
+// The details drawer beside the list, and the breadcrumb's last part: the sandbox shown
+function setCrumb(name) {
+  const crumbs = $('[data-crumbs]'); if (!crumbs) return
+  for (const el of crumbs.querySelectorAll('[data-crumb-name], [data-crumb-sep]')) el.remove()
+  if (name) crumbs.insertAdjacentHTML('beforeend', `<span data-crumb-sep> › </span><span data-crumb-name>${esc(shortName(name))}</span>`)
+}
+function openDrawer(name) {
+  $('[data-drawer]').hidden = false
+  $('.split').classList.add('has-drawer')
+  if ($('[data-crumb-name]')?.textContent !== shortName(name)) setCrumb(name)
+}
+function closeDrawer() {
+  selected = null
+  renderedName = null
+  renderedJSON = null
+  $('[data-drawer]').hidden = true
+  $('[data-panel]').innerHTML = ''
+  $('.split').classList.remove('has-drawer')
+  setCrumb(null)
+  renderRows()
+}
+
 async function showPanel(name) {
   selected = name
   renderRows()
+  openDrawer(name)
   const panel = $('[data-panel]')
   if (pending.has(name)) { panel.innerHTML = P9mPanel.creatingPanel(name, pending.get(name), { shortName }); renderedName = name; renderedJSON = null; return }
   // Another sandbox than the one shown: its name and status at once, never the previous one's details while its load
@@ -598,7 +621,7 @@ async function act(action) {
     else await api(`/sandboxes/${encodeURIComponent(name)}/${action}`, { method: 'POST' })
     busy.delete(name)
     // The user may have moved on to another sandbox meanwhile: its panel is not ours to change
-    if (action === 'delete' && selected === name) { selected = null; panel.innerHTML = `<p class="muted">${esc(shortName(name))} is archived.</p>`; renderedName = null; renderedJSON = null }
+    if (action === 'delete' && selected === name) { selected = null; panel.innerHTML = `<p class="muted">${esc(shortName(name))} is archived.</p>`; renderedName = null; renderedJSON = null; setCrumb(null) }
     await loadList()
     if (selected === name) { renderedJSON = null; await showPanel(name) }
   } catch (e) {
@@ -873,10 +896,8 @@ async function submitNew(ev) {
   } catch (e) {
     pending.delete(full)
     renderRows()
-    selected = null
-    $('[data-panel]').innerHTML = '<p class="muted">Select a sandbox to see its details.</p>'
-    renderedName = null
-    renderedJSON = null
+    // Moved on to another sandbox meanwhile: its drawer stays
+    if (selected === full) closeDrawer()
     const dlg = $('[data-new-dialog]')
     const err = $('[data-new-error]')
     // Opened again meanwhile for another sandbox: say what failed, leave what is being typed alone
@@ -909,12 +930,20 @@ function initSandboxes() {
   $('[data-filter-text]').placeholder = view === 'all' ? 'Filter by name, owner, app…' : 'Filter by name, status, app…'
   $('[data-filter-text]').addEventListener('input', renderRows)
   $('[data-filter-status]').addEventListener('change', renderRows)
+  // From the app bar search on another page: ?q=…; from the Overview: /admin?status=running, /admin?owner=…
+  const q = new URLSearchParams(location.search)
+  if (q.get('q')) $('[data-filter-text]').value = q.get('q')
   if (view === 'all') {
-    // From the Overview: /admin?status=running, /admin?owner=…
-    const q = new URLSearchParams(location.search)
     if (q.get('owner')) $('[data-filter-text]').value = q.get('owner')
     if (q.get('status')) $('[data-filter-status]').value = q.get('status')
   }
+  $('[data-drawer-close]').addEventListener('click', closeDrawer)
+  $('[data-crumb-root]')?.addEventListener('click', e => { if (!$('[data-drawer]').hidden) { e.preventDefault(); closeDrawer() } })
+  // Esc closes the drawer, but not while a dialog is open or when the account menu or the rail used it (ui/shell.js)
+  document.addEventListener('keydown', e => {
+    if (e.key !== 'Escape' || e.defaultPrevented || $('[data-drawer]').hidden || document.querySelector('dialog[open]') || P9mShell.typing(e.target)) return
+    closeDrawer()
+  })
   $('[data-rows]').addEventListener('click', e => { const tr = e.target.closest('tr[data-name]'); if (tr) showPanel(tr.dataset.name) })
   $('[data-connect-login]')?.addEventListener('click', e => {
     const b = e.target.closest('button[data-show]'); if (!b) return
@@ -968,7 +997,16 @@ function initSandboxes() {
   $('[data-new-name]').addEventListener('click', suggestName)
   initSwapDialog()
   loadList().then(() => { if (view === 'mine') wakeFromLink() })
-  setInterval(async () => { await loadList(); if (selected && !pending.has(selected) && !busy.has(selected)) showPanel(selected) }, 5000)
+  setInterval(async () => {
+    await loadList()
+    // Archived elsewhere: say so once, as after Archive here, instead of asking for it (404) every 5 s
+    if (P9mPanel.vanished(selected, sandboxes, pending) && !busy.has(selected)) {
+      $('[data-panel]').innerHTML = `<p class="muted">${esc(shortName(selected))} is archived.</p>`
+      selected = null; renderedName = null; renderedJSON = null; setCrumb(null); renderRows()
+      return
+    }
+    if (selected && !pending.has(selected) && !busy.has(selected)) showPanel(selected)
+  }, 5000)
 }
 
 // ---------- running limit: choose what sleeps ----------

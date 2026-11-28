@@ -14,7 +14,7 @@ An agent with MCP can make the Purgatorium API calls as tools instead: see [MCP]
 | Value | Example | Where it comes from |
 |---|---|---|
 | Purgatorium URL | `https://p9m.example.com` | The address of the Purgatorium UI |
-| Personal access token | `p9m_…` | UI → **My area** → **Access tokens** → **+ New token** |
+| Personal access token | `p9m_…` | UI → **Settings** → **Access tokens** (left menu) → **+ New token** |
 | Sandbox name | `p9m-shop` | The name in the UI list with the `p9m-` prefix |
 
 The user may instead give these in a `p9m.env` file in the project (UI → the new token → **Download p9m.env**; it may also be renamed `.env` or copied into one): `P9M_URL`, `P9M_TOKEN`, `P9M_SANDBOX` (only for a token limited to one sandbox; otherwise ask which sandbox, or list them with `GET /sandboxes`) and `P9M_AGENT_GUIDE` (this guide). Read them from there; do not print the token or commit the file.

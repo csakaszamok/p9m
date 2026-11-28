@@ -824,3 +824,15 @@ describe('how long the create took', () => {
     expect(P.elapsed(started, ctx.now)).toBe('0:12')
   })
 })
+
+describe('vanished: the sandbox shown in the drawer is gone from the list (archived elsewhere)', () => {
+  const list = [{ name: 'p9m-a' }]
+  it('gone: not in the list, not being created', () => {
+    expect(P.vanished('p9m-x', list, new Map())).toBe(true)
+  })
+  it('still there, being created, or nothing shown: not gone', () => {
+    expect(P.vanished('p9m-a', list, new Map())).toBe(false)
+    expect(P.vanished('p9m-x', list, new Map([['p9m-x', 1]]))).toBe(false)
+    expect(P.vanished(null, list, new Map())).toBe(false)
+  })
+})

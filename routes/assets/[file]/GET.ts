@@ -13,6 +13,7 @@ const ASSETS: Record<string, string> = {
   'terminal.js': 'text/javascript; charset=utf-8',
   'logs.js': 'text/javascript; charset=utf-8',
   'panel.js': 'text/javascript; charset=utf-8',
+  'shell.js': 'text/javascript; charset=utf-8',
   'xterm.js': 'text/javascript; charset=utf-8',
   'addon-fit.js': 'text/javascript; charset=utf-8',
   'xterm.css': 'text/css; charset=utf-8',

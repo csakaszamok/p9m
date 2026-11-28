@@ -45,7 +45,7 @@ export function shortCount(n: number): string {
   return n < 1000 ? String(n) : `${(n / 1000).toFixed(n < 10_000 ? 1 : 0).replace(/\.0$/, '')}k`
 }
 
-/** The GitHub repo card at the right of the topbar: repo name, stars, forks (once fetched) and the version. */
+/** The GitHub repo card in the account menu: repo name, stars, forks (once fetched) and the version. */
 export function repoBadge(info: RepoInfo): string {
   const stats = [
     info.stars !== null ? `<span title="${info.stars} stars">${STAR_ICON}${shortCount(info.stars)}</span>` : '',
@@ -65,21 +65,78 @@ export function updateNotice(info: RepoInfo): string {
   return `<a class="update-notice${later ? ' later' : ''}" href="${info.url}/releases/tag/v${escapeHtml(v)}" target="_blank" rel="noopener" title="${title}">v${escapeHtml(v)} ${later ? 'out' : 'available'}</a>`
 }
 
-export function renderPage(opts: { title: string; view: 'overview' | 'mine' | 'all' | 'tokens' | 'ssh-keys'; session: Session; body: string }): string {
+export type View = 'overview' | 'mine' | 'all' | 'tokens' | 'ssh-keys'
+
+// The rail's icons: 20 px strokes in the text colour
+const icon = (d: string) => `<svg class="rail-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`
+const RAIL_ICONS = {
+  overview: icon('<rect x="3" y="3" width="6" height="6" rx="1"/><rect x="11" y="3" width="6" height="6" rx="1"/><rect x="3" y="11" width="6" height="6" rx="1"/><rect x="11" y="11" width="6" height="6" rx="1"/>'),
+  mine: icon('<path d="M10 2.5 17 6v8l-7 3.5L3 14V6Z"/><path d="M3 6l7 3.5L17 6M10 9.5v8"/>'),
+  all: icon('<path d="M10 2.5 17.5 6.5 10 10.5 2.5 6.5Z"/><path d="m2.5 10 7.5 4 7.5-4M2.5 13.5l7.5 4 7.5-4"/>'),
+  tokens: icon('<circle cx="6.5" cy="13.5" r="3.5"/><path d="m9 11 8-8M14 6l2 2M12 8l1.5 1.5"/>'),
+  'ssh-keys': icon('<rect x="2.5" y="3.5" width="15" height="13" rx="1.5"/><path d="m6 8 2.5 2L6 12M10.5 12.5H14"/>'),
+}
+const MENU_ICON = '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M3 5.5h14M3 10h14M3 14.5h14"/></svg>'
+
+/** Up to two letters for the account button: jane.doe@x.io → JD, anna → AN. */
+export function initials(sub: string): string {
+  const parts = sub.split('@')[0].split(/[._\-\s]+/).filter(Boolean)
+  const letters = parts.length > 1 ? parts[0][0] + parts[1][0] : (parts[0] ?? '').slice(0, 2)
+  return letters.toUpperCase() || '?'
+}
+
+/** The left rail: what Simple hides is marked adv; All sandboxes for the admin only. */
+export function railNav(view: View, role: 'admin' | 'user'): string {
+  const item = (href: string, label: string, v: View, adv = false) => {
+    const on = v === view
+    const cls = ['rail-item', adv ? 'adv' : '', on ? 'active' : ''].filter(Boolean).join(' ')
+    return `<a class="${cls}" href="${href}"${on ? ' aria-current="page"' : ''} title="${label}">${RAIL_ICONS[v]}<span>${label}</span></a>`
+  }
+  return `<nav class="rail" data-rail aria-label="Main">
+    ${item('/overview', 'Overview', 'overview', true)}
+    ${item('/', 'Sandboxes', 'mine')}
+    ${role === 'admin' ? item('/admin', 'All sandboxes', 'all') : ''}
+    <div class="rail-sec adv">Settings</div>
+    ${item('/settings/tokens', 'Access tokens', 'tokens', true)}
+    ${item('/settings/ssh-keys', 'SSH keys', 'ssh-keys', true)}
+  </nav>`
+}
+
+/** Above the page title; on the sandbox pages app.js adds the selected sandbox's name after the root. */
+export function breadcrumb(view: View): string {
+  const parts = {
+    mine: '<a href="/" data-crumb-root>Sandboxes</a>',
+    all: '<a href="/admin" data-crumb-root>All sandboxes</a>',
+    overview: '<span>Overview</span>',
+    tokens: '<span>Settings</span> › <span>Access tokens</span>',
+    'ssh-keys': '<span>Settings</span> › <span>SSH keys</span>',
+  }[view]
+  return `<nav class="crumbs" data-crumbs aria-label="Breadcrumb">${parts}</nav>`
+}
+
+/** The account button and its menu: the account, the time left, Simple | Advanced, the GitHub card, About, Sign out. */
+export function accountMenu(session: Session, mode: 'simple' | 'advanced'): string {
+  const modeButton = (m: 'simple' | 'advanced', label: string) =>
+    `<button type="button" data-mode-set="${m}" aria-pressed="${m === mode}">${label}</button>`
+  return `<div class="account">
+    <button type="button" class="avatar" data-account-toggle aria-haspopup="true" aria-expanded="false" aria-label="Account">${escapeHtml(initials(session.sub))}</button>
+    <div class="account-menu" data-account-menu hidden>
+      <div class="account-who"><span class="account-sub">${escapeHtml(session.sub)}</span><span class="idle-left" data-idle-left hidden title="Signed out after this long without doing anything"></span></div>
+      ${canSwitchView(session.role) ? `<div class="account-row"><span class="muted">View</span><span class="mode-switch" role="group" aria-label="View">${modeButton('simple', 'Simple')}${modeButton('advanced', 'Advanced')}</span></div>` : ''}
+      ${githubLinkEnabled() ? `<div class="account-row">${repoBadge(repoInfo())}</div>` : ''}
+      <a class="account-link" href="/about" title="License and source code">About</a>
+      <form method="post" action="/logout" class="who"><button class="link">Sign out</button></form>
+    </div><!--/account-menu-->
+  </div>`
+}
+
+export function renderPage(opts: { title: string; view: View; session: Session; body: string }): string {
   const { title, view, session, body } = opts
   recordSeen(session.sub)
   // Simple only hides (class adv), it does not restrict: the API and MCP stay the same
   const mode = viewOf(session.sub, session.role)
-  const link = (href: string, label: string, v: string | string[], adv = false) => {
-    const cls = [adv ? 'adv' : '', [v].flat().includes(view) ? 'active' : ''].filter(Boolean).join(' ')
-    return `<a${cls ? ` class="${cls}"` : ''} href="${href}">${label}</a>`
-  }
-  // My area: one link in the nav; on its pages, its tabs in a row below (Simple hides the row: only Sandboxes would be left)
-  const MY_AREA = ['mine', 'tokens', 'ssh-keys']
   const name = brandTitle()
   const brand = name || logoImg(20) ? `<span class="brand">${logoImg(20)}${name ? escapeHtml(name) : ''}</span>` : ''
-  const modeButton = (m: 'simple' | 'advanced', label: string) =>
-    `<button type="button" data-mode-set="${m}" aria-pressed="${m === mode}">${label}</button>`
   return `<!DOCTYPE html>
 ${htmlTag(session.sub)}
 <head>
@@ -90,28 +147,22 @@ ${htmlTag(session.sub)}
 ${faviconTag()}
 </head>
 <body data-view="${view}" data-mode="${mode}" data-role="${session.role}" data-sub="${escapeHtml(session.sub)}" data-prefix="${escapeHtml(sandboxPrefix())}">
-<header class="topbar">
+<header class="appbar">
+  <button type="button" class="rail-toggle" data-rail-toggle aria-label="Menu" aria-expanded="true">${MENU_ICON}</button>
   ${brand}
-  <nav>
-    ${link('/overview', 'Overview', 'overview', true)}
-    ${link('/', 'My area', MY_AREA)}
-    ${session.role === 'admin' ? link('/admin', 'All sandboxes', 'all') : ''}
-  </nav>
+  <input type="search" class="app-search" data-filter-text placeholder="Search sandboxes" aria-label="Search sandboxes">
   <span class="places" data-places hidden></span>
-  ${githubLinkEnabled() ? repoBadge(repoInfo()) : ''}
   ${session.role === 'admin' ? updateNotice(repoInfo()) : ''}
   <button type="button" class="theme-switch" data-theme-toggle title="Light or dark" aria-label="Switch between light and dark">${SUN_ICON}${MOON_ICON}</button>
-  ${canSwitchView(session.role) ? `<span class="mode-switch" role="group" aria-label="View">${modeButton('simple', 'Simple')}${modeButton('advanced', 'Advanced')}</span>` : ''}
-  <form method="post" action="/logout" class="who"><span>${escapeHtml(session.sub)}</span><span class="idle-left" data-idle-left hidden title="Signed out after this long without doing anything"></span><button class="link">Sign out</button></form>
-  <a class="about-link" href="/about" title="License and source code">About</a>
+  ${accountMenu(session, mode)}
 </header>
-${MY_AREA.includes(view) ? `<nav class="subnav adv">
-  ${link('/', 'Sandboxes', 'mine')}
-  ${link('/settings/tokens', 'Access tokens', 'tokens', true)}
-  ${link('/settings/ssh-keys', 'SSH keys', 'ssh-keys', true)}
-</nav>
-` : ''}<main>${body}</main>
+<div class="shell">
+${railNav(view, session.role)}
+<div class="rail-backdrop" data-rail-backdrop></div>
+<main>${breadcrumb(view)}${body}</main>
+</div>
 <script src="/assets/panel.js" defer></script>
+<script src="/assets/shell.js" defer></script>
 <script src="/assets/app.js" defer></script>
 <script src="/assets/idle.js" defer></script>
 </body>
@@ -221,18 +272,14 @@ export const OVERVIEW_BODY = `
 export const SANDBOX_VIEW_BODY = `
 <section class="split">
   <div class="list">
-    <div class="list-head">
-      <h1 data-title></h1>
-      <div class="filters" data-filters hidden>
-        <input type="search" placeholder="Filter…" aria-label="Filter" data-filter-text>
-        <select data-filter-status aria-label="Status"><option value="">All statuses</option><option value="running">running</option><option value="exited">asleep</option><option value="deep_sleep">deep sleep</option></select>
-      </div>
-      <span class="muted quota" data-quota></span>
+    <div class="list-head"><h1 data-title></h1><span class="muted quota" data-quota></span></div>
+    <div class="list-toolbar">
       <button class="primary" data-new>+ New sandbox</button>
+      <span class="filters" data-filters hidden><select data-filter-status aria-label="Status"><option value="">All statuses</option><option value="running">running</option><option value="exited">asleep</option><option value="deep_sleep">deep sleep</option></select></span>
     </div>
     <table class="grid"><thead data-head></thead><tbody data-rows><tr><td class="muted">Loading…</td></tr></tbody></table>
   </div>
-  <aside class="panel" data-panel><p class="muted">Select a sandbox to see its details.</p></aside>
+  <aside class="drawer" data-drawer hidden aria-label="Sandbox details"><button type="button" class="drawer-close" data-drawer-close aria-label="Close details">✕</button><div class="panel" data-panel></div></aside>
 </section>
 <dialog data-new-dialog class="wide">
   <form method="dialog" data-new-form>
