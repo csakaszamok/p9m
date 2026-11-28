@@ -96,6 +96,13 @@ describe('renderPage: Simple / Advanced', () => {
     expect(menu).toContain('data-idle-left')
     expect(page(user)).toMatch(/<button type="button" class="avatar" data-account-toggle aria-haspopup="true" aria-expanded="false" aria-label="Account">AN<\/button>/)
   })
+  it('the GitHub card (repo, stars, version) is in the app bar, before light / dark, not in the account menu', () => {
+    const html = page(user)
+    const bar = /<header class="appbar">[\s\S]*?<\/header>/.exec(html)?.[0] ?? ''
+    const menu = /<div class="account-menu" data-account-menu hidden>[\s\S]*?<\/div><!--\/account-menu-->/.exec(html)?.[0] ?? ''
+    expect(bar.replace(menu, '')).toMatch(/class="repo-badge"[\s\S]*class="theme-switch"/)
+    expect(menu).not.toContain('repo-badge')
+  })
   it('no brand, no logo, no GitHub: the app bar keeps the menu button, search and account', () => {
     vi.stubEnv('GITHUB_LINK', 'off')
     vi.stubEnv('UI_TITLE', 'none')

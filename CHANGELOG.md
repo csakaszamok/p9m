@@ -4,6 +4,10 @@ All notable changes are listed here. Versions follow [semantic versioning](https
 
 ## [Unreleased]
 
+### Fixed
+
+- **The GitHub card is back in the app bar:** 0.21.2 had moved the repository's name, stars, forks and the version into the account menu, so they were no longer seen at a glance. It sits before the light / dark switch again; on a phone it gives way to the search.
+
 ## [0.21.2] - 2026-11-28
 
 Upgrading from 0.21.1: `docker compose pull && docker compose up -d` where `.env` has `P9M_VERSION=0.21`; otherwise first download the new `docker-compose.yml` from `https://github.com/csakaszamok/p9m/releases/latest/download/docker-compose.yml`, which names this version. On the first start, sandboxes made before get the log limit: running ones restart once, asleep ones stay asleep; their data stays.
